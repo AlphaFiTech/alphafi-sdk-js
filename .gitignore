@@ -1,0 +1,49 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build output
+dist/
+build/
+lib/
+*.tsbuildinfo
+
+# TypeScript cache
+.cache/
+*.tsbuildinfo
+
+# IDE settings
+.vscode/
+.idea/
+
+# Environment files
+.env*
+!.env.example
+
+# Logs
+logs/
+*.log
+
+# Coverage reports
+coverage/
+
+# Test output
+test-output/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Emacs backup and autosave files
+*~
+\#*\#
+.\#*
+
+# Optional: lock files
+# If your team prefers a single lock manager, uncomment the others
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
