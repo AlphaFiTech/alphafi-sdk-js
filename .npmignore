@@ -1,0 +1,28 @@
+# Source
+src/
+__tests__/
+
+# Configuration
+.github/
+.vscode/
+.idea/
+.eslintrc.json
+.prettierrc.json
+.gitignore
+tsconfig.*.json
+jest.config.*.js
+babel.config.json
+prettier.config.js
+eslint.config.mjs
+typedoc.json
+
+# Build artifacts
+*.tsbuildinfo
+coverage/
+
+# Development files
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+.DS_Store 
