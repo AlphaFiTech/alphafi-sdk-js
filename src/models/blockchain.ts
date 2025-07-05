@@ -402,7 +402,7 @@ export class Blockchain {
     }
 
     let receipts: ReceiptType[] = [];
-    console.log("Receipts", res);
+    console.log("Receipts inside getReceipts", res);
     res.forEach((receipt) => {
       if (
         (receipt.content as any).fields.name !==

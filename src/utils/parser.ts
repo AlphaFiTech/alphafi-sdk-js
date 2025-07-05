@@ -410,6 +410,7 @@ export function parseReceipt(
     ),
     pool_id: query.content.fields.pool_id,
     xTokenBalance: query.content.fields.xTokenBalance,
+    type: query.content.type,
   };
 }
 

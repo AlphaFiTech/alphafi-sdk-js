@@ -285,6 +285,7 @@ export type DefaultReceiptType = {
   }[];
   pool_id: string;
   xTokenBalance: string;
+  type: string;
 };
 
 // <--------- Distributor Types --------->

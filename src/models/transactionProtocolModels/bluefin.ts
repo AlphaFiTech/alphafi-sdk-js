@@ -62,8 +62,8 @@ export class BluefinTransactions {
     } else {
       [someReceipt] = txb.moveCall({
         target: `0x1::option::some`,
-        typeArguments: [receipt[0].content.type],
-        arguments: [txb.object(receipt[0].objectId)],
+        typeArguments: [receipt[0].type],
+        arguments: [txb.object(receipt[0].id)],
       });
     }
 
