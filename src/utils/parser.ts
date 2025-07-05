@@ -391,6 +391,7 @@ export function parseAlphaReceipt(
     pool_id: query.content.fields.pool_id,
     unlocked_xtokens: query.content.fields.unlocked_xtokens,
     xTokenBalance: query.content.fields.xTokenBalance,
+    type: query.content.type,
   };
 }
 

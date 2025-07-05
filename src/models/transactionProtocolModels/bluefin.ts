@@ -365,7 +365,7 @@ export class BluefinTransactions {
       } else {
         [alpha_receipt] = txb.moveCall({
           target: `0x1::option::some`,
-          typeArguments: [alphaReceipt[0].content.type],
+          typeArguments: [alphaReceipt[0].type],
           arguments: [txb.object(alphaReceipt[0].id)],
         });
       }
