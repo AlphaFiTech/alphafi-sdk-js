@@ -11,4 +11,16 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
+// Export transaction models
+export { 
+  TransactionManager,
+  type LiquidityResult,
+  type CommonInvestorFields,
+  type ClmmPool
+} from "./transaction.js";
+export { BluefinTransactions } from "./transactionProtocolModels/bluefin.js";
+export { NaviTransactions } from "./transactionProtocolModels/navi.js";
+export { CetusTransactions } from "./transactionProtocolModels/cetus.js";
+export { Blockchain } from "./blockchain.js";
+
 // Export additional models 

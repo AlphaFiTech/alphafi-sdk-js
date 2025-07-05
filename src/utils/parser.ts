@@ -12,7 +12,7 @@ import {
   CetusParentPoolQueryType,
   BluefinParentPoolQueryType,
   DefaultReceiptQueryType,
-} from "./queryTypes";
+} from "./queryTypes.js";
 
 import {
   DefaultPoolType,
@@ -28,7 +28,7 @@ import {
   DistributorType,
   CetusParentPoolType,
   BluefinParentPoolType,
-} from "./parsedTypes";
+} from "./parsedTypes.js";
 
 // Helper function to parse flat contents array with key-value structure
 function parseContentsArray(
@@ -194,7 +194,7 @@ export function parseCetusParentPool(
       points_released:
         query.content.fields.rewarder_manager.fields.points_released,
       rewarders: query.content.fields.rewarder_manager.fields.rewarders.map(
-        (rewarder) => ({
+        (rewarder: any) => ({
           emissions_per_second: rewarder.fields.emissions_per_second,
           growth_global: rewarder.fields.growth_global,
           reward_coin: rewarder.fields.reward_coin.fields.name,
@@ -429,7 +429,7 @@ export function parseDistributor(query: DistributorQueryType): DistributorType {
       id: query.content.fields.pool_allocator.fields.id.id,
       members:
         query.content.fields.pool_allocator.fields.members.fields.contents.map(
-          (member) => ({
+          (member: any) => ({
             key: member.fields.key,
             value: {
               pool_data: parseMemberPoolData(
