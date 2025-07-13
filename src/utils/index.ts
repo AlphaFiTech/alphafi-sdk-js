@@ -10,3 +10,6 @@ export function formatAmount(amount: number, decimals: number = 8): string {
 }
 
 // Export additional utility functions 
+
+// Export pool types
+export { CetusPoolType, BluefinPoolType } from './poolTypes.js';

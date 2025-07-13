@@ -268,6 +268,7 @@ export type AlphaReceiptType = {
   pool_id: string;
   unlocked_xtokens: string;
   xTokenBalance: string;
+  type: string;
 };
 
 export type DefaultReceiptType = {
@@ -285,6 +286,7 @@ export type DefaultReceiptType = {
   }[];
   pool_id: string;
   xTokenBalance: string;
+  type: string;
 };
 
 // <--------- Distributor Types --------->

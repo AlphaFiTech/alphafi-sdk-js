@@ -197,30 +197,6 @@ export class Blockchain {
     return result;
   }
 
-  async getParentPool(poolId: number): Promise<ParentPoolType> {
-    const parentPoolObjectId = poolDetailsMap[poolId].parentPoolId;
-    const parentPool = await this.client.getObject({
-      id: parentPoolObjectId,
-      options: {
-        showContent: true,
-      },
-    });
-
-    if (parentPool.data) {
-      switch (poolDetailsMap[poolId].parentProtocolName) {
-        case "BLUEFIN":
-          return parsers.parseBluefinParentPool(
-            parentPool.data as BluefinParentPoolQueryType,
-          );
-        default:
-          return parsers.parseCetusParentPool(
-            parentPool.data as CetusParentPoolQueryType,
-          );
-      }
-    }
-
-    throw new Error(`Parent pool for poolId - ${poolId} not found`);
-  }
 
   async getMultiInvestor(): Promise<InvestorType[]> {
     let pools = Object.keys(poolDetailsMap);
@@ -397,6 +373,7 @@ export class Blockchain {
 
   async getReceipts(poolId: number, address: string): Promise<ReceiptType[]> {
     let res: SuiObjectData[] = [];
+    console.log("Getting receipts for poolId", poolId, CONF_ENV);
     let currentCursor: string | null | undefined = null;
     while (true) {
       const paginatedObjects = await this.client.getOwnedObjects({
@@ -425,6 +402,7 @@ export class Blockchain {
     }
 
     let receipts: ReceiptType[] = [];
+    console.log("Receipts inside getReceipts", res);
     res.forEach((receipt) => {
       if (
         (receipt.content as any).fields.name !==
@@ -444,7 +422,7 @@ export class Blockchain {
           );
       }
     });
-
+    console.log("Receipts", receipts);
     return receipts;
   }
 
