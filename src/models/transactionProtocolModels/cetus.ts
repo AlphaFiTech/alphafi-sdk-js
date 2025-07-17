@@ -11,7 +11,7 @@ export class CetusTransactions {
 
   // CETUS Double Asset Pool Deposit
   async depositCetusTx(amount: string, poolId: number, isAmountA: boolean = true): Promise<Transaction> {
-    const txb = new Transaction();
+    const tx = new Transaction();
     const poolinfo = poolDetailsMap[poolId];
     
     // Get the coin types - CETUS pools are double asset
@@ -29,63 +29,63 @@ export class CetusTransactions {
     // Handle receipt creation
     let someReceipt: any;
     if (receipt.length === 0) {
-      [someReceipt] = txb.moveCall({
+      [someReceipt] = tx.moveCall({
         target: `0x1::option::none`,
         typeArguments: [poolinfo.receipt.type],
         arguments: [],
       });
     } else {
-      [someReceipt] = txb.moveCall({
+      [someReceipt] = tx.moveCall({
         target: `0x1::option::some`,
         typeArguments: [receipt[0].content.type],
-        arguments: [txb.object(receipt[0].objectId)],
+        arguments: [tx.object(receipt[0].objectId)],
       });
     }
 
     // Simple implementation for SUI pairs
     if (coin2Name === "SUI") {
       // For now, only support coin1-SUI pairs with SUI as the second token
-      const [depositCoinA] = txb.splitCoins(txb.gas, [amount]); // Using gas for SUI
-      const [depositCoinB] = txb.splitCoins(txb.gas, [amount]); // This should be calculated properly
+      const [depositCoinA] = tx.splitCoins(tx.gas, [amount]); // Using gas for SUI
+      const [depositCoinB] = tx.splitCoins(tx.gas, [amount]); // This should be calculated properly
 
       if (poolinfo.poolName === "ALPHA-SUI") {
-        txb.moveCall({
+        tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_cetus_sui_pool::user_deposit`,
           typeArguments: [coin1, coin2],
           arguments: [
-            txb.object(getConf().VERSION),
+            tx.object(getConf().VERSION),
             someReceipt,
-            txb.object(poolinfo.poolId),
+            tx.object(poolinfo.poolId),
             depositCoinA,
             depositCoinB,
-            txb.object(getConf().ALPHA_DISTRIBUTOR),
-            txb.object(poolinfo.investorId),
-            txb.object(getConf().CETUS_GLOBAL_CONFIG_ID),
-            txb.object(getConf().CETUS_REWARDER_GLOBAL_VAULT_ID),
-            txb.object(getConf().CETUS_SUI_CETUS_POOL_ID), // This should come from cetusPoolMap
-            txb.object(poolinfo.parentPoolId),
-            txb.object(getConf().CLOCK_PACKAGE_ID),
+            tx.object(getConf().ALPHA_DISTRIBUTOR),
+            tx.object(poolinfo.investorId),
+            tx.object(getConf().CETUS_GLOBAL_CONFIG_ID),
+            tx.object(getConf().CETUS_REWARDER_GLOBAL_VAULT_ID),
+            tx.object(getConf().CETUS_SUI_CETUS_POOL_ID), // This should come from cetusPoolMap
+            tx.object(poolinfo.parentPoolId),
+            tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
       } else {
         // General CETUS pool deposit
-        txb.moveCall({
+        tx.moveCall({
           target: `${getConf().ALPHA_LATEST_PACKAGE_ID}::alphafi_cetus_pool::user_deposit`,
           typeArguments: [coin1, coin2],
           arguments: [
-            txb.object(getConf().VERSION),
+            tx.object(getConf().VERSION),
             someReceipt,
-            txb.object(poolinfo.poolId),
+            tx.object(poolinfo.poolId),
             depositCoinA,
             depositCoinB,
-            txb.object(getConf().ALPHA_DISTRIBUTOR),
-            txb.object(poolinfo.investorId),
-            txb.object(getConf().CETUS_GLOBAL_CONFIG_ID),
-            txb.object(getConf().CETUS_REWARDER_GLOBAL_VAULT_ID),
-            txb.object(poolinfo.parentPoolId), // This should come from cetusPoolMap
-            txb.object(getConf().CETUS_SUI_CETUS_POOL_ID),
-            txb.object(poolinfo.parentPoolId),
-            txb.object(getConf().CLOCK_PACKAGE_ID),
+            tx.object(getConf().ALPHA_DISTRIBUTOR),
+            tx.object(poolinfo.investorId),
+            tx.object(getConf().CETUS_GLOBAL_CONFIG_ID),
+            tx.object(getConf().CETUS_REWARDER_GLOBAL_VAULT_ID),
+            tx.object(poolinfo.parentPoolId), // This should come from cetusPoolMap
+            tx.object(getConf().CETUS_SUI_CETUS_POOL_ID),
+            tx.object(poolinfo.parentPoolId),
+            tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
       }
@@ -93,12 +93,12 @@ export class CetusTransactions {
       throw new Error(`Complex CETUS deposits not yet implemented for ${coin1Name}-${coin2Name}. Please use the main SDK for full functionality.`);
     }
 
-    return txb;
+    return tx;
   }
 
   // CETUS Withdraw
   async withdrawCetusTx(xTokens: string, poolId: number): Promise<Transaction> {
-    const txb = new Transaction();
+    const tx = new Transaction();
     const poolinfo = poolDetailsMap[poolId];
     
     // Get the coin types
@@ -115,37 +115,37 @@ export class CetusTransactions {
     if (receipt.length > 0) {
       let alpha_receipt: any;
       if (alphaReceipt.length === 0) {
-        [alpha_receipt] = txb.moveCall({
+        [alpha_receipt] = tx.moveCall({
           target: `0x1::option::none`,
           typeArguments: [getConf().ALPHA_POOL_RECEIPT],
           arguments: [],
         });
       } else {
-        [alpha_receipt] = txb.moveCall({
+        [alpha_receipt] = tx.moveCall({
           target: `0x1::option::some`,
           typeArguments: [alphaReceipt[0].content.type],
-          arguments: [txb.object(alphaReceipt[0].objectId)],
+          arguments: [tx.object(alphaReceipt[0].objectId)],
         });
       }
 
       if (poolinfo.poolName === "ALPHA-SUI") {
-        txb.moveCall({
+        tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_cetus_sui_pool::user_withdraw`,
           typeArguments: [coin1, coin2],
           arguments: [
-            txb.object(getConf().VERSION),
-            txb.object(receipt[0].objectId),
+            tx.object(getConf().VERSION),
+            tx.object(receipt[0].objectId),
             alpha_receipt,
-            txb.object(getConf().ALPHA_POOL),
-            txb.object(poolinfo.poolId),
-            txb.object(getConf().ALPHA_DISTRIBUTOR),
-            txb.object(poolinfo.investorId),
-            txb.pure.u128(xTokens),
-            txb.object(getConf().CETUS_GLOBAL_CONFIG_ID),
-            txb.object(getConf().CETUS_REWARDER_GLOBAL_VAULT_ID),
-            txb.object(getConf().CETUS_SUI_CETUS_POOL_ID),
-            txb.object(poolinfo.parentPoolId),
-            txb.object(getConf().CLOCK_PACKAGE_ID),
+            tx.object(getConf().ALPHA_POOL),
+            tx.object(poolinfo.poolId),
+            tx.object(getConf().ALPHA_DISTRIBUTOR),
+            tx.object(poolinfo.investorId),
+            tx.pure.u128(xTokens),
+            tx.object(getConf().CETUS_GLOBAL_CONFIG_ID),
+            tx.object(getConf().CETUS_REWARDER_GLOBAL_VAULT_ID),
+            tx.object(getConf().CETUS_SUI_CETUS_POOL_ID),
+            tx.object(poolinfo.parentPoolId),
+            tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
       } else {
@@ -155,45 +155,45 @@ export class CetusTransactions {
              poolinfo.poolName === "USDC-USDT" || 
              poolinfo.poolName === "USDC-WUSDC" || 
              poolinfo.poolName === "USDC-ETH")) {
-          txb.moveCall({
+          tx.moveCall({
             target: `${getConf().ALPHA_LATEST_PACKAGE_ID}::alphafi_cetus_pool_base_a::user_withdraw`,
             typeArguments: [coin1, coin2],
             arguments: [
-              txb.object(getConf().VERSION),
-              txb.object(receipt[0].objectId),
+              tx.object(getConf().VERSION),
+              tx.object(receipt[0].objectId),
               alpha_receipt,
-              txb.object(getConf().ALPHA_POOL),
-              txb.object(poolinfo.poolId),
-              txb.object(getConf().ALPHA_DISTRIBUTOR),
-              txb.object(poolinfo.investorId),
-              txb.pure.u128(xTokens),
-              txb.object(getConf().CETUS_GLOBAL_CONFIG_ID),
-              txb.object(getConf().CETUS_REWARDER_GLOBAL_VAULT_ID),
-              txb.object(poolinfo.parentPoolId), // Should come from cetusPoolMap
-              txb.object(getConf().CETUS_SUI_CETUS_POOL_ID),
-              txb.object(poolinfo.parentPoolId),
-              txb.object(getConf().CLOCK_PACKAGE_ID),
+              tx.object(getConf().ALPHA_POOL),
+              tx.object(poolinfo.poolId),
+              tx.object(getConf().ALPHA_DISTRIBUTOR),
+              tx.object(poolinfo.investorId),
+              tx.pure.u128(xTokens),
+              tx.object(getConf().CETUS_GLOBAL_CONFIG_ID),
+              tx.object(getConf().CETUS_REWARDER_GLOBAL_VAULT_ID),
+              tx.object(poolinfo.parentPoolId), // Should come from cetusPoolMap
+              tx.object(getConf().CETUS_SUI_CETUS_POOL_ID),
+              tx.object(poolinfo.parentPoolId),
+              tx.object(getConf().CLOCK_PACKAGE_ID),
             ],
           });
         } else {
-          txb.moveCall({
+          tx.moveCall({
             target: `${getConf().ALPHA_LATEST_PACKAGE_ID}::alphafi_cetus_pool::user_withdraw`,
             typeArguments: [coin1, coin2],
             arguments: [
-              txb.object(getConf().VERSION),
-              txb.object(receipt[0].objectId),
+              tx.object(getConf().VERSION),
+              tx.object(receipt[0].objectId),
               alpha_receipt,
-              txb.object(getConf().ALPHA_POOL),
-              txb.object(poolinfo.poolId),
-              txb.object(getConf().ALPHA_DISTRIBUTOR),
-              txb.object(poolinfo.investorId),
-              txb.pure.u128(xTokens),
-              txb.object(getConf().CETUS_GLOBAL_CONFIG_ID),
-              txb.object(getConf().CETUS_REWARDER_GLOBAL_VAULT_ID),
-              txb.object(poolinfo.parentPoolId), // Should come from cetusPoolMap
-              txb.object(getConf().CETUS_SUI_CETUS_POOL_ID),
-              txb.object(poolinfo.parentPoolId),
-              txb.object(getConf().CLOCK_PACKAGE_ID),
+              tx.object(getConf().ALPHA_POOL),
+              tx.object(poolinfo.poolId),
+              tx.object(getConf().ALPHA_DISTRIBUTOR),
+              tx.object(poolinfo.investorId),
+              tx.pure.u128(xTokens),
+              tx.object(getConf().CETUS_GLOBAL_CONFIG_ID),
+              tx.object(getConf().CETUS_REWARDER_GLOBAL_VAULT_ID),
+              tx.object(poolinfo.parentPoolId), // Should come from cetusPoolMap
+              tx.object(getConf().CETUS_SUI_CETUS_POOL_ID),
+              tx.object(poolinfo.parentPoolId),
+              tx.object(getConf().CLOCK_PACKAGE_ID),
             ],
           });
         }
@@ -202,7 +202,7 @@ export class CetusTransactions {
       throw new Error("No receipt found!");
     }
 
-    return txb;
+    return tx;
   }
 
   // Add more CETUS specific methods as needed...

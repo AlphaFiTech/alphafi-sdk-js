@@ -1,7 +1,7 @@
 import { coinsList } from "./coins.js";
 import { conf, CONF_ENV } from "./constants.js";
 
-type PoolDetails = {
+export type PoolDetails = {
   packageId: string;
   poolName: string;
   packageNumber: number;
@@ -2409,3 +2409,112 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
   //     conf[CONF_ENV].SCA_SUI_POOL_LIQUIDITY_CHANGE_EVENT,
   // },
 };
+
+// Helper functions to differentiate between NAVI-LOOP and single asset NAVI pools
+
+/**
+ * Checks if a pool is a NAVI-LOOP pool using strategy type
+ * @param poolDetails - The pool details to check
+ * @returns true if the pool is a NAVI-LOOP pool
+ */
+export function isNaviLoopPool(poolDetails: PoolDetails): boolean {
+  return (
+    poolDetails.parentProtocolName === "NAVI" &&
+    poolDetails.strategyType === "SINGLE-ASSET-LOOPING"
+  );
+}
+
+/**
+ * Checks if a pool is a single asset NAVI pool (non-looping)
+ * @param poolDetails - The pool details to check
+ * @returns true if the pool is a single asset NAVI pool
+ */
+export function isSingleAssetNaviPool(poolDetails: PoolDetails): boolean {
+  return (
+    poolDetails.parentProtocolName === "NAVI" &&
+    poolDetails.strategyType === "SINGLE-ASSET-POOL"
+  );
+}
+
+/**
+ * Checks if a pool is a NAVI-LOOP pool using pool name
+ * @param poolName - The pool name to check
+ * @returns true if the pool name indicates a NAVI-LOOP pool
+ */
+export function isNaviLoopPoolByName(poolName: string): boolean {
+  return poolName.includes("NAVI-LOOP");
+}
+
+/**
+ * Checks if a pool is a single asset NAVI pool (non-looping) using pool name
+ * @param poolName - The pool name to check
+ * @returns true if the pool name indicates a single asset NAVI pool
+ */
+export function isSingleAssetNaviPoolByName(poolName: string): boolean {
+  return poolName.startsWith("NAVI-") && !poolName.includes("NAVI-LOOP");
+}
+
+/**
+ * Gets all NAVI-LOOP pools from the pool details map
+ * @returns Array of pool details for NAVI-LOOP pools
+ */
+export function getNaviLoopPools(): PoolDetails[] {
+  return Object.values(poolDetailsMap).filter(isNaviLoopPool);
+}
+
+/**
+ * Gets all single asset NAVI pools (non-looping) from the pool details map
+ * @returns Array of pool details for single asset NAVI pools
+ */
+export function getSingleAssetNaviPools(): PoolDetails[] {
+  return Object.values(poolDetailsMap).filter(isSingleAssetNaviPool);
+}
+
+/**
+ * Gets all NAVI pools (both looping and single asset) from the pool details map
+ * @returns Array of pool details for all NAVI pools
+ */
+export function getAllNaviPools(): PoolDetails[] {
+  return Object.values(poolDetailsMap).filter(
+    (pool) => pool.parentProtocolName === "NAVI"
+  );
+}
+
+/**
+ * Gets NAVI-LOOP pool names
+ * @returns Array of NAVI-LOOP pool names
+ */
+export function getNaviLoopPoolNames(): string[] {
+  return getNaviLoopPools().map((pool) => pool.poolName);
+}
+
+/**
+ * Gets single asset NAVI pool names
+ * @returns Array of single asset NAVI pool names
+ */
+export function getSingleAssetNaviPoolNames(): string[] {
+  return getSingleAssetNaviPools().map((pool) => pool.poolName);
+}
+
+/**
+ * Categorizes a NAVI pool as either looping or single asset
+ * @param poolDetails - The pool details to categorize
+ * @returns "looping" | "single-asset" | "not-navi"
+ */
+export function categorizeNaviPool(
+  poolDetails: PoolDetails
+): "looping" | "single-asset" | "not-navi" {
+  if (poolDetails.parentProtocolName !== "NAVI") {
+    return "not-navi";
+  }
+  
+  if (isNaviLoopPool(poolDetails)) {
+    return "looping";
+  }
+  
+  if (isSingleAssetNaviPool(poolDetails)) {
+    return "single-asset";
+  }
+  
+  return "not-navi";
+}

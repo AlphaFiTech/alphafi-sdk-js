@@ -105,7 +105,7 @@ export class NaviTransactions {
 
   // NAVI Single Asset Pool Deposit
   async depositNaviTx(amount: string, poolId: number): Promise<Transaction> {
-    const txb = new Transaction();
+    const tx = new Transaction();
     const poolinfo = poolDetailsMap[poolId];
     
     // Get the coin type - handle both single and double asset types
@@ -125,40 +125,40 @@ export class NaviTransactions {
     // Handle receipt creation
     let someReceipt: any;
     if (receipt.length === 0) {
-      [someReceipt] = txb.moveCall({
+      [someReceipt] = tx.moveCall({
         target: `0x1::option::none`,
         typeArguments: [poolinfo.receipt.type],
         arguments: [],
       });
     } else {
-      [someReceipt] = txb.moveCall({
+      [someReceipt] = tx.moveCall({
         target: `0x1::option::some`,
         typeArguments: [receipt[0].content.type],
-        arguments: [txb.object(receipt[0].objectId)],
+        arguments: [tx.object(receipt[0].objectId)],
       });
     }
 
     // Handle coin splitting for deposit
     if (coinName === "SUI") {
-      const [depositCoin] = txb.splitCoins(txb.gas, [amount]);
+      const [depositCoin] = tx.splitCoins(tx.gas, [amount]);
       
-      txb.moveCall({
+      tx.moveCall({
         target: `${poolinfo.packageId}::alphafi_navi_pool::user_deposit`,
         typeArguments: [coin],
         arguments: [
-          txb.object(getConf().VERSION),
+          tx.object(getConf().VERSION),
           someReceipt,
-          txb.object(poolinfo.poolId),
+          tx.object(poolinfo.poolId),
           depositCoin,
-          txb.object(poolinfo.investorId),
-          txb.object(getConf().ALPHA_DISTRIBUTOR),
-          txb.object(getConf().PRICE_ORACLE),
-          txb.object(getConf().NAVI_STORAGE),
-          txb.object(poolinfo.parentPoolId),
-          txb.pure.u8(naviAssetMap[coinName] || 0),
-          txb.object(getConf().NAVI_INCENTIVE_V3),
-          txb.object(getConf().NAVI_INCENTIVE_V2),
-          txb.object(getConf().CLOCK_PACKAGE_ID),
+          tx.object(poolinfo.investorId),
+          tx.object(getConf().ALPHA_DISTRIBUTOR),
+          tx.object(getConf().PRICE_ORACLE),
+          tx.object(getConf().NAVI_STORAGE),
+          tx.object(poolinfo.parentPoolId),
+          tx.pure.u8(naviAssetMap[coinName] || 0),
+          tx.object(getConf().NAVI_INCENTIVE_V3),
+          tx.object(getConf().NAVI_INCENTIVE_V2),
+          tx.object(getConf().CLOCK_PACKAGE_ID),
         ],
       });
     } else {
@@ -167,12 +167,12 @@ export class NaviTransactions {
       throw new Error(`Non-SUI deposits not yet implemented for ${coinName}. Please use the main SDK for full functionality.`);
     }
 
-    return txb;
+    return tx;
   }
 
   // NAVI Withdraw
   async withdrawNaviTx(xTokens: string, poolId: number): Promise<Transaction> {
-    const txb = new Transaction();
+    const tx = new Transaction();
     const poolinfo = poolDetailsMap[poolId];
     
     // Get the coin type - handle both single and double asset types
@@ -192,86 +192,86 @@ export class NaviTransactions {
     if (receipt.length > 0) {
       let alpha_receipt: any;
       if (alphaReceipt.length === 0) {
-        [alpha_receipt] = txb.moveCall({
+        [alpha_receipt] = tx.moveCall({
           target: `0x1::option::none`,
           typeArguments: [getConf().ALPHA_POOL_RECEIPT],
           arguments: [],
         });
       } else {
-        [alpha_receipt] = txb.moveCall({
+        [alpha_receipt] = tx.moveCall({
           target: `0x1::option::some`,
           typeArguments: [alphaReceipt[0].content.type],
-          arguments: [txb.object(alphaReceipt[0].objectId)],
+          arguments: [tx.object(alphaReceipt[0].objectId)],
         });
       }
 
       // Handle different package versions
       if (poolinfo.packageNumber === 3) {
-        txb.moveCall({
+        tx.moveCall({
           target: `${getConf().ALPHA_3_LATEST_PACKAGE_ID}::alphafi_navi_pool_v2::user_withdraw`,
           typeArguments: [coin],
           arguments: [
-            txb.object(getConf().ALPHA_3_VERSION),
-            txb.object(getConf().VERSION),
-            txb.object(receipt[0].objectId),
+            tx.object(getConf().ALPHA_3_VERSION),
+            tx.object(getConf().VERSION),
+            tx.object(receipt[0].objectId),
             alpha_receipt,
-            txb.object(getConf().ALPHA_POOL),
-            txb.object(poolinfo.poolId),
-            txb.pure.u64(xTokens),
-            txb.object(poolinfo.investorId),
-            txb.object(getConf().ALPHA_DISTRIBUTOR),
-            txb.object(getConf().PRICE_ORACLE),
-            txb.object(getConf().NAVI_STORAGE),
-            txb.object(poolinfo.parentPoolId),
-            txb.pure.u8(naviAssetMap[coinName] || 0),
-            txb.object(getConf().NAVI_INCENTIVE_V3),
-            txb.object(getConf().NAVI_INCENTIVE_V2),
-            txb.object(getConf().CLOCK_PACKAGE_ID),
+            tx.object(getConf().ALPHA_POOL),
+            tx.object(poolinfo.poolId),
+            tx.pure.u64(xTokens),
+            tx.object(poolinfo.investorId),
+            tx.object(getConf().ALPHA_DISTRIBUTOR),
+            tx.object(getConf().PRICE_ORACLE),
+            tx.object(getConf().NAVI_STORAGE),
+            tx.object(poolinfo.parentPoolId),
+            tx.pure.u8(naviAssetMap[coinName] || 0),
+            tx.object(getConf().NAVI_INCENTIVE_V3),
+            tx.object(getConf().NAVI_INCENTIVE_V2),
+            tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
       } else if (poolinfo.packageNumber === 9) {
-        txb.moveCall({
+        tx.moveCall({
           target: `${getConf().ALPHA_NAVI_V2_LATEST_PACKAGE_ID}::alphafi_navi_pool_v2::user_withdraw_v2`,
           typeArguments: [coin],
           arguments: [
-            txb.object(getConf().ALPHA_NAVI_V2_VERSION),
-            txb.object(getConf().VERSION),
-            txb.object(receipt[0].objectId),
+            tx.object(getConf().ALPHA_NAVI_V2_VERSION),
+            tx.object(getConf().VERSION),
+            tx.object(receipt[0].objectId),
             alpha_receipt,
-            txb.object(getConf().ALPHA_POOL),
-            txb.object(poolinfo.poolId),
-            txb.pure.u64(xTokens),
-            txb.object(poolinfo.investorId),
-            txb.object(getConf().ALPHA_DISTRIBUTOR),
-            txb.object(getConf().PRICE_ORACLE),
-            txb.object(getConf().NAVI_STORAGE),
-            txb.object(poolinfo.parentPoolId),
-            txb.pure.u8(naviAssetMap[coinName] || 0),
-            txb.object(getConf().NAVI_INCENTIVE_V3),
-            txb.object(getConf().NAVI_INCENTIVE_V2),
-            txb.object(getConf().CLOCK_PACKAGE_ID),
+            tx.object(getConf().ALPHA_POOL),
+            tx.object(poolinfo.poolId),
+            tx.pure.u64(xTokens),
+            tx.object(poolinfo.investorId),
+            tx.object(getConf().ALPHA_DISTRIBUTOR),
+            tx.object(getConf().PRICE_ORACLE),
+            tx.object(getConf().NAVI_STORAGE),
+            tx.object(poolinfo.parentPoolId),
+            tx.pure.u8(naviAssetMap[coinName] || 0),
+            tx.object(getConf().NAVI_INCENTIVE_V3),
+            tx.object(getConf().NAVI_INCENTIVE_V2),
+            tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
       } else {
-        txb.moveCall({
+        tx.moveCall({
           target: `${getConf().ALPHA_LATEST_PACKAGE_ID}::alphafi_navi_pool::user_withdraw`,
           typeArguments: [coin],
           arguments: [
-            txb.object(getConf().VERSION),
-            txb.object(receipt[0].objectId),
+            tx.object(getConf().VERSION),
+            tx.object(receipt[0].objectId),
             alpha_receipt,
-            txb.object(getConf().ALPHA_POOL),
-            txb.object(poolinfo.poolId),
-            txb.pure.u64(xTokens),
-            txb.object(poolinfo.investorId),
-            txb.object(getConf().ALPHA_DISTRIBUTOR),
-            txb.object(getConf().PRICE_ORACLE),
-            txb.object(getConf().NAVI_STORAGE),
-            txb.object(poolinfo.parentPoolId),
-            txb.pure.u8(naviAssetMap[coinName] || 0),
-            txb.object(getConf().NAVI_INCENTIVE_V3),
-            txb.object(getConf().NAVI_INCENTIVE_V2),
-            txb.object(getConf().CLOCK_PACKAGE_ID),
+            tx.object(getConf().ALPHA_POOL),
+            tx.object(poolinfo.poolId),
+            tx.pure.u64(xTokens),
+            tx.object(poolinfo.investorId),
+            tx.object(getConf().ALPHA_DISTRIBUTOR),
+            tx.object(getConf().PRICE_ORACLE),
+            tx.object(getConf().NAVI_STORAGE),
+            tx.object(poolinfo.parentPoolId),
+            tx.pure.u8(naviAssetMap[coinName] || 0),
+            tx.object(getConf().NAVI_INCENTIVE_V3),
+            tx.object(getConf().NAVI_INCENTIVE_V2),
+            tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
       }
@@ -279,7 +279,7 @@ export class NaviTransactions {
       throw new Error("No receipt found!");
     }
 
-    return txb;
+    return tx;
   }
 
   // Add more NAVI specific methods as needed...

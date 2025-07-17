@@ -5,8 +5,11 @@ export default {
   rootDir: ".",
   testMatch: ["**/src/__tests__/**/*.test.ts"],
   moduleNameMapper: {
-    "^(.+)\\.js$": "$1"
+    "^(\\.{1,2}/.*)\\.js$": "$1"
   },
+  transformIgnorePatterns: [
+    "node_modules/(?!(@cetusprotocol|bn\\.js)/)"
+  ],
   transform: {
     "^.+\\.ts$": [
       "ts-jest",

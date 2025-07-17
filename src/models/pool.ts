@@ -1,9 +1,11 @@
-import { poolDetailsMap } from "../common/maps.js";
+import { PoolDetails, poolDetailsMap } from "../common/maps.js";
 import { Blockchain } from "./blockchain.js";
 import { ClmmPoolUtil, TickMath } from "@cetusprotocol/cetus-sui-clmm-sdk";
 import BN from "bn.js";
 import { SuiClient } from "@mysten/sui/client";
-import { BluefinPoolType, CetusPoolType } from "src/utils/poolTypes.js";
+import { BluefinPoolType, CetusPoolType } from "../utils/poolTypes.js";
+import { Transaction } from "@mysten/sui/transactions";
+import { getConf } from "../common/constants.js";
 
 /**
  * Pool utility types and interfaces
@@ -198,7 +200,7 @@ export class PoolUtils {
   /**
    * Get pool information by ID
    */
-  getPoolInfo(poolId: number) {
+  getPoolInfo(poolId: number): PoolDetails | null {
     return poolDetailsMap[poolId];
   }
 
@@ -214,10 +216,10 @@ export class PoolUtils {
     );
   }
 
-  /**
+  /** 
    * Check if pool supports double asset operations
    */
-  isDoubleAssetPool(poolId: number): boolean {
+  isDoubleAssetPool(poolId: number): boolean | null {
     const poolInfo = this.getPoolInfo(poolId);
     return poolInfo && 'token1' in poolInfo.assetTypes && 'token2' in poolInfo.assetTypes;
   }
@@ -294,6 +296,89 @@ export class PoolUtils {
     };
     }
   }
+
+  /**
+   * Get all available pools
+   * @returns Array of all pool information
+   */
+  getAllPools(): PoolDetails[] {
+    return Object.keys(poolDetailsMap)
+      .map(Number)
+      .filter(poolId => !isNaN(poolId))
+      .map(poolId => this.getPoolInfo(poolId))
+      .filter((pool): pool is PoolDetails => pool !== null);
+  }
+
+  // Helper functions to differentiate between NAVI-LOOP and single asset NAVI pools
+
+  /**
+   * Checks if a pool is a NAVI-LOOP pool using strategy type
+   * @param poolDetails - The pool details to check
+   * @returns true if the pool is a NAVI-LOOP pool
+   */
+  isNaviLoopPool(poolDetails: PoolDetails): boolean {
+    return (
+      poolDetails.parentProtocolName === "NAVI" &&
+      poolDetails.strategyType === "SINGLE-ASSET-LOOPING"
+    );
+  }
+
+  /**
+   * Checks if a pool is a single asset NAVI pool (non-looping)
+   * @param poolDetails - The pool details to check
+   * @returns true if the pool is a single asset NAVI pool
+   */
+  isSingleAssetNaviPool(poolDetails: PoolDetails): boolean {
+    return (
+      poolDetails.parentProtocolName === "NAVI" &&
+      poolDetails.strategyType === "SINGLE-ASSET-POOL"
+    );
+  }
+
+  /**
+  * Categorizes a NAVI pool as either looping or single asset
+  * @param poolDetails - The pool details to categorize
+  * @returns "looping" | "single-asset" | "not-navi"
+  */
+  categorizeNaviPool(
+    poolDetails: PoolDetails
+  ): "looping" | "single-asset" | "not-navi" {
+    if (poolDetails.parentProtocolName !== "NAVI") {
+      return "not-navi";
+    }
+    
+    if (this.isNaviLoopPool(poolDetails)) {
+      return "looping";
+    }
+    
+    if (this.isSingleAssetNaviPool(poolDetails)) {
+      return "single-asset";
+    }
+    
+    return "not-navi";
+  }
+
+  updateSingleTokenPrice(pythPriceInfo: string, feedId: string, tx?: Transaction): Transaction {
+    console.log("Updating single token price", { pythPriceInfo, feedId });
+    
+    const transaction = tx || new Transaction();
+    
+    transaction.moveCall({
+      target: "0xc2d49bf5e75d2258ee5563efa527feb6155de7ac6f6bf025a23ee88cd12d5a83::oracle_pro::update_single_price",
+      arguments: [
+        transaction.object(getConf().CLOCK_PACKAGE_ID),
+        transaction.object(getConf().NAVI_ORACLE_CONFIG),
+        transaction.object(getConf().PRICE_ORACLE),
+        transaction.object(getConf().SUPRA_ORACLE_HOLDER),
+        transaction.object(pythPriceInfo),
+        transaction.pure.address(feedId),
+      ],
+    });
+
+    console.log("Single token price update added to transaction");
+    return transaction;
+  }
+
 } 
 
 
