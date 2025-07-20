@@ -223,3 +223,8 @@ export const coinsList: {
     expo: 9,
   },
 };
+
+export const coinsListByType = Object.values(coinsList).reduce((acc, coin) => {
+  acc[coin.type] = coin;
+  return acc;
+}, {} as Record<string, (typeof coinsList)[string]>);

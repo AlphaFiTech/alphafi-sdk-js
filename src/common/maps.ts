@@ -1,4 +1,4 @@
-import { coinsList } from "./coins.js";
+import { coinsList } from "./coinsList.js";
 import { conf, CONF_ENV } from "./constants.js";
 
 export type PoolDetails = {
@@ -14,12 +14,7 @@ export type PoolDetails = {
     name: string;
     type: string;
   };
-  assetTypes:
-    | {
-        token1: string;
-        token2: string;
-      }
-    | { token: string };
+  assetTypes: string[];
   events: {
     autoCompoundingEventType: string;
     rebalanceEventType: string | undefined;
@@ -37,7 +32,39 @@ export type PoolDetails = {
 };
 
 export const poolDetailsMap: Record<string, PoolDetails> = {
-  1: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_POOL]: {
+    packageId: conf[CONF_ENV].ALPHA_BLUEFIN_AUTOBALANCE_LATEST_PACKAGE_ID,
+    poolName: "BLUEFIN-AUTOBALANCE-SUIUSDT-USDC-ZERO-ZERO",
+    packageNumber: 7,
+    strategyType: "BLUEFIN-AUTOBALANCE-DOUBLE-ASSET-POOL",
+    parentProtocolName: "BLUEFIN",
+    parentPoolId: conf[CONF_ENV].BLUEFIN_SUIUSDT_USDC_ZERO_ZERO_POOL,
+    poolId:
+      conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_POOL,
+    investorId:
+      conf[CONF_ENV]
+        .ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_INVESTOR,
+    receipt: {
+      name: conf[CONF_ENV]
+        .ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_RECEIPT_NAME,
+      type: conf[CONF_ENV]
+        .ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_RECEIPT,
+    },
+    assetTypes: [coinsList["SUIUSDT"].type, coinsList["USDC"].type],
+    events: {
+      autoCompoundingEventType:
+        conf[CONF_ENV]
+          .ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_POOL_AUTO_COMPOUNDING_EVENT,
+      rebalanceEventType:
+        conf[CONF_ENV]
+          .ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_POOL_REBALANCE_EVENT,
+      liquidityChangeEventType:
+        conf[CONF_ENV]
+          .ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_POOL_LIQUIDITY_CHANGE_EVENT,
+    },
+    retired: false,
+  },
+  [conf[CONF_ENV].ALPHA_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "ALPHA",
     packageNumber: 1,
@@ -50,10 +77,9 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHA_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHA_POOL_RECEIPT,
     },
-    assetTypes: {
-      token:
-        "0xfe3afec26c59e874f3c1d60b8203cb3852d2bb2aa415df9548b8d688e6683f93::alpha::ALPHA",
-    },
+    assetTypes: [
+      "0xfe3afec26c59e874f3c1d60b8203cb3852d2bb2aa415df9548b8d688e6683f93::alpha::ALPHA",
+    ],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHA_POOL_AUTO_COMPOUNDING_EVENT,
@@ -70,7 +96,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     lockIcon: "https://images.alphafi.xyz/adminweb/lock.svg",
     retired: false,
   },
-  2: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_DEEP_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_3_LATEST_PACKAGE_ID,
     poolName: "NAVI-DEEP",
     packageNumber: 3,
@@ -83,9 +109,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_DEEP_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_DEEP_POOL_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["DEEP"].type,
-    },
+    assetTypes: [coinsList["DEEP"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_DEEP_POOL_AUTO_COMPOUNDING_EVENT,
@@ -99,7 +123,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  3: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_WAL_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_3_LATEST_PACKAGE_ID,
     poolName: "NAVI-WAL",
     packageNumber: 3,
@@ -112,9 +136,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_WAL_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_WAL_POOL_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["WAL"].type,
-    },
+    assetTypes: [coinsList["WAL"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_AUSD_POOL_AUTO_COMPOUNDING_EVENT,
@@ -128,7 +150,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  4: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_WAL_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_BLUEFIN_AUTOBALANCE_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-AUTOBALANCE-WAL-USDC",
     packageNumber: 7,
@@ -141,10 +163,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_WAL_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_WAL_USDC_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["WAL"].type,
-      token2: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["WAL"].type, coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV]
@@ -158,7 +177,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  5: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_WAL_STSUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_STSUI_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-WAL-STSUI",
     packageNumber: 6,
@@ -171,10 +190,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_WAL_STSUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_WAL_STSUI_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["WAL"].type,
-      token2: coinsList["STSUI"].type,
-    },
+    assetTypes: [coinsList["WAL"].type, coinsList["STSUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_WAL_STSUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -189,7 +205,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  6: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_WAL_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_4_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-WAL-USDC",
     packageNumber: 4,
@@ -202,10 +218,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_WAL_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_WAL_USDC_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["WAL"].type,
-      token2: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["WAL"].type, coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_WAL_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -216,7 +229,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  7: {
+  [conf[CONF_ENV].USDC_SUIUSDT_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "USDC-SUIUSDT",
     packageNumber: 1,
@@ -229,10 +242,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].USDC_SUIUSDT_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].USDC_SUIUSDT_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["USDC"].type,
-      token2: coinsList["SUIUSDT"].type,
-    },
+    assetTypes: [coinsList["USDC"].type, coinsList["SUIUSDT"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].USDC_SUIUSDT_POOL_AUTO_COMPOUNDING_EVENT,
@@ -246,7 +256,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  8: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_LBTC_SUIBTC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_BLUEFIN_V2_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-LBTC-SUIBTC",
     packageNumber: 8,
@@ -259,10 +269,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_LBTC_SUIBTC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_LBTC_SUIBTC_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["LBTC"].type,
-      token2: coinsList["SUIBTC"].type,
-    },
+    assetTypes: [coinsList["LBTC"].type, coinsList["SUIBTC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_LBTC_SUIBTC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -273,7 +280,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  9: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_LBTC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_BLUEFIN_AUTOBALANCE_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-AUTOBALANCE-SUI-LBTC",
     packageNumber: 7,
@@ -286,10 +293,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_LBTC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_LBTC_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["SUI"].type,
-      token2: coinsList["LBTC"].type,
-    },
+    assetTypes: [coinsList["SUI"].type, coinsList["LBTC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV]
@@ -307,7 +311,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  10: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_FUNGIBLE_STSUI_SUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_FUNGIBLE_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-FUNGIBLE-STSUI-SUI",
     packageNumber: 8,
@@ -320,10 +324,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_FUNGIBLE_STSUI_SUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_FUNGIBLE_STSUI_SUI_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["STSUI"].type,
-      token2: conf[CONF_ENV].SUI_COIN_TYPE,
-    },
+    assetTypes: [coinsList["STSUI"].type, conf[CONF_ENV].SUI_COIN_TYPE],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV]
@@ -340,7 +341,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  11: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_SUIUSDT_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_3_LATEST_PACKAGE_ID,
     poolName: "NAVI-SUIUSDT",
     packageNumber: 3,
@@ -353,9 +354,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_SUIUSDT_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_SUIUSDT_POOL_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["SUIUSDT"].type,
-    },
+    assetTypes: [coinsList["SUIUSDT"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_SUIUSDT_POOL_AUTO_COMPOUNDING_EVENT,
@@ -369,7 +368,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  12: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_SUIBTC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_NAVI_V2_LATEST_PACKAGE_ID,
     poolName: "NAVI-SUIBTC",
     packageNumber: 9,
@@ -382,9 +381,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_SUIBTC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_SUIBTC_POOL_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["SUIBTC"].type,
-    },
+    assetTypes: [coinsList["SUIBTC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_SUIBTC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -398,7 +395,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  13: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_SUIBTC_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_BLUEFIN_V2_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-SUIBTC-USDC",
     packageNumber: 8,
@@ -411,10 +408,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUIBTC_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUIBTC_USDC_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["SUIBTC"].type,
-      token2: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["SUIBTC"].type, coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_SUIBTC_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -426,36 +420,34 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     retired: false,
     // add strategy type
   },
-  14: {
+  [conf[CONF_ENV].ALPHALEND_LOOP_SUI_STSUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_5_LATEST_PACKAGE_ID,
-    poolName: "NAVI-LOOP-SUI-STSUI",
+    poolName: "ALPHALEND-LOOP-SUI-STSUI",
     packageNumber: 5,
     strategyType: "SINGLE-ASSET-LOOPING",
-    parentProtocolName: "NAVI",
+    parentProtocolName: "ALPHALEND",
     parentPoolId: conf[CONF_ENV].NAVI_STSUI_POOL,
-    poolId: conf[CONF_ENV].ALPHAFI_NAVI_LOOP_SUI_STSUI_POOL,
-    investorId: conf[CONF_ENV].NAVI_LOOP_SUI_STSUI_INVESTOR,
+    poolId: conf[CONF_ENV].ALPHALEND_LOOP_SUI_STSUI_POOL,
+    investorId: conf[CONF_ENV].ALPHALEND_LOOP_SUI_STSUI_INVESTOR,
     receipt: {
-      name: conf[CONF_ENV].NAVI_SUI_STSUI_LOOP_RECEIPT_NAME,
-      type: conf[CONF_ENV].NAVI_LOOP_SUI_STSUI_RECEIPT,
+      name: conf[CONF_ENV].ALPHALEND_SUI_STSUI_LOOP_RECEIPT_NAME,
+      type: conf[CONF_ENV].ALPHALEND_LOOP_SUI_STSUI_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["SUI"].type,
-    },
+    assetTypes: [coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
-        conf[CONF_ENV].NAVI_LOOP_SUI_STSUI_POOL_AUTO_COMPOUNDING_EVENT,
+        conf[CONF_ENV].ALPHALEND_LOOP_SUI_STSUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
       liquidityChangeEventType:
-        conf[CONF_ENV].NAVI_LOOP_SUI_STSUI_POOL_LIQUIDITY_CHANGE_EVENT,
+        conf[CONF_ENV].ALPHALEND_LOOP_SUI_STSUI_POOL_LIQUIDITY_CHANGE_EVENT,
     },
     images: {
       imageUrl1: "https://images.alphafi.xyz/adminweb/sui-logo1.svg",
       imageUrl2: "https://images.alphafi.xyz/adminweb/vsui.png",
     },
-    retired: true,
+    retired: false,
   },
-  15: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_MUSD_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_STSUI_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-STSUI-MUSD",
     packageNumber: 6,
@@ -468,10 +460,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_MUSD_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_MUSD_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["STSUI"].type,
-      token2: coinsList["MUSD"].type,
-    },
+    assetTypes: [coinsList["STSUI"].type, coinsList["MUSD"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_MUSD_POOL_AUTO_COMPOUNDING_EVENT,
@@ -482,7 +471,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  16: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_BUCK_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_STSUI_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-STSUI-BUCK",
     packageNumber: 6,
@@ -495,10 +484,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_BUCK_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_BUCK_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["STSUI"].type,
-      token2: coinsList["BUCK"].type,
-    },
+    assetTypes: [coinsList["STSUI"].type, coinsList["BUCK"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_BUCK_POOL_AUTO_COMPOUNDING_EVENT,
@@ -510,7 +496,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     retired: false,
     // add strategy type
   },
-  17: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_STSUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_3_LATEST_PACKAGE_ID,
     poolName: "NAVI-STSUI",
     packageNumber: 3,
@@ -523,9 +509,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_STSUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_STSUI_POOL_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["STSUI"].type,
-    },
+    assetTypes: [coinsList["STSUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_STSUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -539,7 +523,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  18: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_SUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_BLUEFIN_AUTOBALANCE_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-AUTOBALANCE-DEEP-SUI",
     packageNumber: 7,
@@ -552,10 +536,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_SUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_SUI_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["DEEP"].type,
-      token2: coinsList["SUI"].type,
-    },
+    assetTypes: [coinsList["DEEP"].type, coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV]
@@ -569,7 +550,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  19: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_BLUE_SUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_BLUEFIN_AUTOBALANCE_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-AUTOBALANCE-BLUE-SUI",
     packageNumber: 7,
@@ -582,10 +563,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_BLUE_SUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_BLUE_SUI_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["BLUE"].type,
-      token2: coinsList["SUI"].type,
-    },
+    assetTypes: [coinsList["BLUE"].type, coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV]
@@ -599,7 +577,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  20: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_BLUE_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_BLUEFIN_AUTOBALANCE_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-AUTOBALANCE-DEEP-BLUE",
     packageNumber: 7,
@@ -612,10 +590,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_BLUE_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_BLUE_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["DEEP"].type,
-      token2: coinsList["BLUE"].type,
-    },
+    assetTypes: [coinsList["DEEP"].type, coinsList["BLUE"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV]
@@ -629,7 +604,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  21: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_SUIUSDT_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_4_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-SUIUSDT-USDC",
     packageNumber: 4,
@@ -642,10 +617,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUIUSDT_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUIUSDT_USDC_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["SUIUSDT"].type,
-      token2: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["SUIUSDT"].type, coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_SUIUSDT_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -656,7 +628,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  22: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_BLUEFIN_AUTOBALANCE_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-AUTOBALANCE-SUIUSDT-USDC",
     packageNumber: 7,
@@ -671,10 +643,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
         .ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["SUIUSDT"].type,
-      token2: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["SUIUSDT"].type, coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV]
@@ -688,7 +657,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  23: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_BLUEFIN_AUTOBALANCE_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-AUTOBALANCE-SUI-USDC",
     packageNumber: 7,
@@ -701,10 +670,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_USDC_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["SUI"].type,
-      token2: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["SUI"].type, coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV]
@@ -722,7 +688,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  24: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_USDT_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_BLUEFIN_AUTOBALANCE_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-AUTOBALANCE-USDT-USDC",
     packageNumber: 7,
@@ -735,10 +701,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_USDT_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_USDT_USDC_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["USDT"].type,
-      token2: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["USDT"].type, coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV]
@@ -756,7 +719,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  25: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_ALPHA_STSUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_STSUI_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-ALPHA-STSUI",
     packageNumber: 6,
@@ -769,10 +732,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_ALPHA_STSUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_ALPHA_STSUI_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["ALPHA"].type,
-      token2: coinsList["STSUI"].type,
-    },
+    assetTypes: [coinsList["ALPHA"].type, coinsList["STSUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_ALPHA_STSUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -787,7 +747,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  26: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_WSOL_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_STSUI_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-STSUI-WSOL",
     packageNumber: 6,
@@ -800,10 +760,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_WSOL_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_WSOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["STSUI"].type,
-      token2: coinsList["WSOL"].type,
-    },
+    assetTypes: [coinsList["STSUI"].type, coinsList["WSOL"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_WSOL_POOL_AUTO_COMPOUNDING_EVENT,
@@ -814,7 +771,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  27: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_ETH_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_STSUI_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-STSUI-ETH",
     packageNumber: 6,
@@ -827,10 +784,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_ETH_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_ETH_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["STSUI"].type,
-      token2: coinsList["ETH"].type,
-    },
+    assetTypes: [coinsList["STSUI"].type, coinsList["ETH"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_ETH_POOL_AUTO_COMPOUNDING_EVENT,
@@ -841,7 +795,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  28: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_STSUI_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-STSUI-USDC",
     packageNumber: 6,
@@ -854,10 +808,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_USDC_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["STSUI"].type,
-      token2: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["STSUI"].type, coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -872,7 +823,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  29: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_SUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_4_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-STSUI-SUI",
     packageNumber: 4,
@@ -885,10 +836,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_SUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_SUI_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["STSUI"].type,
-      token2: coinsList["SUI"].type,
-    },
+    assetTypes: [coinsList["STSUI"].type, coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -903,7 +851,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  30: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_DEEP_SUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_4_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-DEEP-SUI",
     packageNumber: 4,
@@ -916,10 +864,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_DEEP_SUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_DEEP_SUI_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["DEEP"].type,
-      token2: coinsList["SUI"].type,
-    },
+    assetTypes: [coinsList["DEEP"].type, coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_DEEP_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -934,7 +879,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  31: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_WBTC_SUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_4_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-WBTC-SUI",
     packageNumber: 4,
@@ -947,10 +892,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_WBTC_SUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_WBTC_SUI_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["WBTC"].type,
-      token2: coinsList["SUI"].type,
-    },
+    assetTypes: [coinsList["WBTC"].type, coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_WBTC_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -965,7 +907,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  32: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_SEND_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_4_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-SEND-USDC",
     packageNumber: 4,
@@ -978,10 +920,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_SEND_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_SEND_USDC_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["SEND"].type,
-      token2: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["SEND"].type, coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_SEND_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -996,7 +935,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  33: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_BLUE_SUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_4_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-BLUE-SUI",
     packageNumber: 4,
@@ -1009,10 +948,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_BLUE_SUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_BLUE_SUI_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["BLUE"].type,
-      token2: coinsList["SUI"].type,
-    },
+    assetTypes: [coinsList["BLUE"].type, coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_BLUE_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1027,7 +963,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  34: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_BLUE_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_4_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-BLUE-USDC",
     packageNumber: 4,
@@ -1040,10 +976,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_BLUE_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_BLUE_USDC_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["BLUE"].type,
-      token2: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["BLUE"].type, coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_BLUE_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1058,7 +991,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  35: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_NAVX_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_3_LATEST_PACKAGE_ID,
     poolName: "NAVI-NAVX",
     packageNumber: 3,
@@ -1071,9 +1004,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_NAVX_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_NAVX_POOL_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["NAVX"].type,
-    },
+    assetTypes: [coinsList["NAVX"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_NAVX_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1087,7 +1018,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  36: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_NAVX_VSUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_4_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-NAVX-VSUI",
     packageNumber: 4,
@@ -1100,10 +1031,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_NAVX_VSUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_NAVX_VSUI_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["NAVX"].type,
-      token2: coinsList["VSUI"].type,
-    },
+    assetTypes: [coinsList["NAVX"].type, coinsList["VSUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_NAVX_VSUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1118,7 +1046,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  37: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_AUSD_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_4_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-SUI-AUSD",
     packageNumber: 4,
@@ -1131,10 +1059,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_AUSD_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_AUSD_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["SUI"].type,
-      token2: coinsList["AUSD"].type,
-    },
+    assetTypes: [coinsList["SUI"].type, coinsList["AUSD"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_AUSD_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1149,7 +1074,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  38: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_ALPHA_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_4_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-ALPHA-USDC",
     packageNumber: 4,
@@ -1162,10 +1087,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_ALPHA_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_ALPHA_USDC_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["ALPHA"].type,
-      token2: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["ALPHA"].type, coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_ALPHA_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1180,7 +1102,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  39: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_WBTC_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_4_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-WBTC-USDC",
     packageNumber: 4,
@@ -1193,10 +1115,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_WBTC_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_WBTC_USDC_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["WBTC"].type,
-      token2: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["WBTC"].type, coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_WBTC_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1211,7 +1130,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  40: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_NS_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_3_LATEST_PACKAGE_ID,
     poolName: "NAVI-NS",
     packageNumber: 3,
@@ -1224,9 +1143,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_NS_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_NS_POOL_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["NS"].type,
-    },
+    assetTypes: [coinsList["NS"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_NS_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1240,7 +1157,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  41: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_AUSD_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_4_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-AUSD-USDC",
     packageNumber: 4,
@@ -1253,10 +1170,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUSD_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUSD_USDC_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["AUSD"].type,
-      token2: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["AUSD"].type, coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_AUSD_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1271,7 +1185,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  42: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_BUCK_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_4_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-SUI-BUCK",
     packageNumber: 4,
@@ -1284,10 +1198,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_BUCK_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_BUCK_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["SUI"].type,
-      token2: coinsList["BUCK"].type,
-    },
+    assetTypes: [coinsList["SUI"].type, coinsList["BUCK"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_BUCK_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1302,7 +1213,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  43: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_LOOP_USDT_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_5_LATEST_PACKAGE_ID,
     poolName: "NAVI-LOOP-USDT-USDC",
     packageNumber: 5,
@@ -1315,9 +1226,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_USDT_USDC_LOOP_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_LOOP_USDT_USDC_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["USDT"].type,
-    },
+    assetTypes: [coinsList["USDT"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_LOOP_USDT_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1333,7 +1242,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  44: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_USDT_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_4_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-USDT-USDC",
     packageNumber: 4,
@@ -1346,10 +1255,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_USDT_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_USDT_USDC_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["USDT"].type,
-      token2: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["USDT"].type, coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_USDT_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1364,7 +1270,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  45: {
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_4_LATEST_PACKAGE_ID,
     poolName: "BLUEFIN-SUI-USDC",
     packageNumber: 4,
@@ -1377,10 +1283,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_USDC_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["SUI"].type,
-      token2: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["SUI"].type, coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1395,7 +1298,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  46: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_LOOP_HASUI_SUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_2_LATEST_PACKAGE_ID,
     poolName: "NAVI-LOOP-HASUI-SUI",
     packageNumber: 2,
@@ -1408,9 +1311,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_HASUI_SUI_LOOP_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_LOOP_HASUI_SUI_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["HASUI"].type,
-    },
+    assetTypes: [coinsList["HASUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_LOOP_HASUI_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1426,7 +1327,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  47: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_USDY_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "NAVI-USDY",
     packageNumber: 1,
@@ -1439,9 +1340,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_USDY_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_USDY_POOL_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["USDY"].type,
-    },
+    assetTypes: [coinsList["USDY"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_USDY_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1455,7 +1354,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  48: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_AUSD_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_3_LATEST_PACKAGE_ID,
     poolName: "NAVI-AUSD",
     packageNumber: 3,
@@ -1468,9 +1367,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_AUSD_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_AUSD_POOL_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["AUSD"].type,
-    },
+    assetTypes: [coinsList["AUSD"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_AUSD_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1484,7 +1381,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  49: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_ETH_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_3_LATEST_PACKAGE_ID,
     poolName: "NAVI-ETH",
     packageNumber: 3,
@@ -1497,9 +1394,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_ETH_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_ETH_POOL_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["ETH"].type,
-    },
+    assetTypes: [coinsList["ETH"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_ETH_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1513,7 +1408,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  50: {
+  [conf[CONF_ENV].BUCKET_BUCK_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_3_LATEST_PACKAGE_ID,
     poolName: "BUCKET-BUCK",
     packageNumber: 3,
@@ -1526,9 +1421,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].BUCKET_BUCK_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].BUCKET_BUCK_POOL_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["BUCK"].type,
-    },
+    assetTypes: [coinsList["BUCK"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].BUCKET_BUCK_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1542,7 +1435,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  51: {
+  [conf[CONF_ENV].BUCK_SUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "BUCK-SUI",
     packageNumber: 1,
@@ -1555,10 +1448,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].BUCK_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].BUCK_SUI_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["BUCK"].type,
-      token2: coinsList["SUI"].type,
-    },
+    assetTypes: [coinsList["BUCK"].type, coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].BUCK_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1572,7 +1462,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  52: {
+  [conf[CONF_ENV].USDC_ETH_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "USDC-ETH",
     packageNumber: 1,
@@ -1585,10 +1475,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].USDC_ETH_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].USDC_ETH_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["USDC"].type,
-      token2: coinsList["ETH"].type,
-    },
+    assetTypes: [coinsList["USDC"].type, coinsList["ETH"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].USDC_ETH_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1602,7 +1489,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  53: {
+  [conf[CONF_ENV].DEEP_SUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "DEEP-SUI",
     packageNumber: 1,
@@ -1615,10 +1502,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].DEEP_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].DEEP_SUI_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["DEEP"].type,
-      token2: coinsList["SUI"].type,
-    },
+    assetTypes: [coinsList["DEEP"].type, coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].DEEP_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1632,7 +1516,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  54: {
+  [conf[CONF_ENV].ALPHA_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "ALPHA-USDC",
     packageNumber: 1,
@@ -1645,10 +1529,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHA_USDC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHA_USDC_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["ALPHA"].type,
-      token2: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["ALPHA"].type, coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHA_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1662,7 +1543,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  55: {
+  [conf[CONF_ENV].USDC_WUSDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "USDC-WUSDC",
     packageNumber: 1,
@@ -1675,10 +1556,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].USDC_WUSDC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].USDC_WUSDC_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["USDC"].type,
-      token2: coinsList["WUSDC"].type,
-    },
+    assetTypes: [coinsList["USDC"].type, coinsList["WUSDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].USDC_WUSDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1692,7 +1570,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  56: {
+  [conf[CONF_ENV].USDC_SUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "USDC-SUI",
     packageNumber: 1,
@@ -1705,10 +1583,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].USDC_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].USDC_SUI_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["USDC"].type,
-      token2: coinsList["SUI"].type,
-    },
+    assetTypes: [coinsList["USDC"].type, coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].USDC_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1722,7 +1597,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  57: {
+  [conf[CONF_ENV].USDC_USDT_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "USDC-USDT",
     packageNumber: 1,
@@ -1735,10 +1610,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].USDC_USDT_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].USDC_USDT_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["USDC"].type,
-      token2: coinsList["USDT"].type,
-    },
+    assetTypes: [coinsList["USDC"].type, coinsList["USDT"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].USDC_USDT_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1752,7 +1624,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  58: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "NAVI-USDC",
     packageNumber: 1,
@@ -1765,9 +1637,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_USDC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_USDC_POOL_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1781,7 +1651,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  59: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_LOOP_USDC_USDT_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_2_LATEST_PACKAGE_ID,
     poolName: "NAVI-LOOP-USDC-USDT",
     packageNumber: 2,
@@ -1794,9 +1664,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_USDC_USDT_LOOP_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_LOOP_USDC_USDT_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["USDC"].type,
-    },
+    assetTypes: [coinsList["USDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_LOOP_USDC_USDT_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1812,7 +1680,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  60: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_LOOP_SUI_VSUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_2_LATEST_PACKAGE_ID,
     poolName: "NAVI-LOOP-SUI-VSUI",
     packageNumber: 2,
@@ -1825,9 +1693,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_SUI_VSUI_LOOP_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_LOOP_SUI_VSUI_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["SUI"].type,
-    },
+    assetTypes: [coinsList["SUI"].type, coinsList["VSUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_LOOP_SUI_VSUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1843,7 +1709,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  61: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_SUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "NAVI-SUI",
     packageNumber: 1,
@@ -1856,9 +1722,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_SUI_POOL_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["SUI"].type,
-    },
+    assetTypes: [coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1874,7 +1738,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  62: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_VSUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "NAVI-VSUI",
     packageNumber: 1,
@@ -1887,9 +1751,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_VSUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_VSUI_POOL_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["VSUI"].type,
-    },
+    assetTypes: [coinsList["VSUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_VSUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1905,7 +1767,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  63: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_WETH_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "NAVI-WETH",
     packageNumber: 1,
@@ -1918,9 +1780,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_WETH_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_WETH_POOL_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["WETH"].type,
-    },
+    assetTypes: [coinsList["WETH"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_WETH_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1936,7 +1796,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  64: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_USDT_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "NAVI-USDT",
     packageNumber: 1,
@@ -1949,9 +1809,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_USDT_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_USDT_POOL_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["USDT"].type,
-    },
+    assetTypes: [coinsList["USDT"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_USDT_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1967,7 +1825,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  65: {
+  [conf[CONF_ENV].ALPHAFI_NAVI_WUSDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "NAVI-WUSDC",
     packageNumber: 1,
@@ -1980,9 +1838,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_WUSDC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_WUSDC_POOL_RECEIPT,
     },
-    assetTypes: {
-      token: coinsList["WUSDC"].type,
-    },
+    assetTypes: [coinsList["WUSDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_WUSDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -2015,7 +1871,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
   //   afterTransactionEventType:
   //     conf[CONF_ENV].NAVI_HASUI_POOL_AFTER_TRANSACTION_EVENT,
   // },
-  66: {
+  [conf[CONF_ENV].ALPHA_SUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "ALPHA-SUI",
     packageNumber: 1,
@@ -2028,10 +1884,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHA_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHA_SUI_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["ALPHA"].type,
-      token2: coinsList["SUI"].type,
-    },
+    assetTypes: [coinsList["ALPHA"].type, coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHA_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -2064,7 +1917,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
   //   afterTransactionEventType:
   //     conf[CONF_ENV].HASUI_SUI_POOL_AFTER_TRANSACTION_EVENT,
   // },
-  67: {
+  [conf[CONF_ENV].WUSDC_USDT_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "USDT-WUSDC",
     packageNumber: 1,
@@ -2077,10 +1930,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].USDT_WUSDC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].USDT_WUSDC_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["USDT"].type,
-      token2: coinsList["WUSDC"].type,
-    },
+    assetTypes: [coinsList["USDT"].type, coinsList["WUSDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].USDT_WUSDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -2113,7 +1963,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
   //   afterTransactionEventType:
   //     conf[CONF_ENV].USDY_WUSDC_POOL_AFTER_TRANSACTION_EVENT,
   // },
-  68: {
+  [conf[CONF_ENV].WUSDC_SUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "WUSDC-SUI",
     packageNumber: 1,
@@ -2126,10 +1976,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].WUSDC_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].WUSDC_SUI_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["WUSDC"].type,
-      token2: coinsList["SUI"].type,
-    },
+    assetTypes: [coinsList["WUSDC"].type, coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].WUSDC_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -2145,7 +1992,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  69: {
+  [conf[CONF_ENV].WETH_WUSDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "WETH-WUSDC",
     packageNumber: 1,
@@ -2158,10 +2005,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].WETH_WUSDC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].WETH_WUSDC_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["WETH"].type,
-      token2: coinsList["WUSDC"].type,
-    },
+    assetTypes: [coinsList["WETH"].type, coinsList["WUSDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].WETH_WUSDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -2177,7 +2021,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  70: {
+  [conf[CONF_ENV].WUSDC_WBTC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "WUSDC-WBTC",
     packageNumber: 1,
@@ -2190,10 +2034,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].WUSDC_WBTC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].WUSDC_WBTC_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["WUSDC"].type,
-      token2: coinsList["WBTC"].type,
-    },
+    assetTypes: [coinsList["WUSDC"].type, coinsList["WBTC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].WUSDC_WBTC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -2209,7 +2050,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  71: {
+  [conf[CONF_ENV].NAVX_SUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "NAVX-SUI",
     packageNumber: 1,
@@ -2222,10 +2063,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVX_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVX_SUI_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["NAVX"].type,
-      token2: coinsList["SUI"].type,
-    },
+    assetTypes: [coinsList["NAVX"].type, coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVX_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -2258,7 +2096,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
   //   afterTransactionEventType:
   //     conf[CONF_ENV].BUCK_WUSDC_POOL_AFTER_TRANSACTION_EVENT,
   // },
-  72: {
+  [conf[CONF_ENV].CETUS_SUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_2_LATEST_PACKAGE_ID,
     poolName: "CETUS-SUI",
     packageNumber: 2,
@@ -2271,10 +2109,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].CETUS_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].CETUS_SUI_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["CETUS"].type,
-      token2: coinsList["SUI"].type,
-    },
+    assetTypes: [coinsList["CETUS"].type, coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].CETUS_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -2288,7 +2123,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  73: {
+  [conf[CONF_ENV].ALPHA_WUSDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "ALPHA-WUSDC",
     packageNumber: 1,
@@ -2301,10 +2136,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHA_WUSDC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHA_WUSDC_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["ALPHA"].type,
-      token2: coinsList["WUSDC"].type,
-    },
+    assetTypes: [coinsList["ALPHA"].type, coinsList["WUSDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHA_WUSDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -2318,7 +2150,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  74: {
+  [conf[CONF_ENV].WSOL_WUSDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "WSOL-WUSDC",
     packageNumber: 1,
@@ -2331,10 +2163,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].WSOL_WUSDC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].WSOL_WUSDC_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["WSOL"].type,
-      token2: coinsList["WUSDC"].type,
-    },
+    assetTypes: [coinsList["WSOL"].type, coinsList["WUSDC"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].WSOL_WUSDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -2348,7 +2177,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: true,
   },
-  75: {
+  [conf[CONF_ENV].FUD_SUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: "FUD-SUI",
     packageNumber: 1,
@@ -2361,10 +2190,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].FUD_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].FUD_SUI_POOL_RECEIPT,
     },
-    assetTypes: {
-      token1: coinsList["FUD"].type,
-      token2: coinsList["SUI"].type,
-    },
+    assetTypes: [coinsList["FUD"].type, coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].FUD_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -2409,6 +2235,14 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
   //     conf[CONF_ENV].SCA_SUI_POOL_LIQUIDITY_CHANGE_EVENT,
   // },
 };
+
+export const poolDetailsMapByPoolName = Object.values(poolDetailsMap).reduce(
+  (acc, pool) => {
+    acc[pool.poolName] = pool;
+    return acc;
+  },
+  {} as Record<string, PoolDetails>,
+);
 
 // Helper functions to differentiate between NAVI-LOOP and single asset NAVI pools
 
@@ -2476,7 +2310,7 @@ export function getSingleAssetNaviPools(): PoolDetails[] {
  */
 export function getAllNaviPools(): PoolDetails[] {
   return Object.values(poolDetailsMap).filter(
-    (pool) => pool.parentProtocolName === "NAVI"
+    (pool) => pool.parentProtocolName === "NAVI",
   );
 }
 
@@ -2502,19 +2336,19 @@ export function getSingleAssetNaviPoolNames(): string[] {
  * @returns "looping" | "single-asset" | "not-navi"
  */
 export function categorizeNaviPool(
-  poolDetails: PoolDetails
+  poolDetails: PoolDetails,
 ): "looping" | "single-asset" | "not-navi" {
   if (poolDetails.parentProtocolName !== "NAVI") {
     return "not-navi";
   }
-  
+
   if (isNaviLoopPool(poolDetails)) {
     return "looping";
   }
-  
+
   if (isSingleAssetNaviPool(poolDetails)) {
     return "single-asset";
   }
-  
+
   return "not-navi";
 }

@@ -27,9 +27,10 @@ export { NaviLoopingTransactions } from "./transactionProtocolModels/naviLooping
 export { AlphaTransactions } from "./transactionProtocolModels/alpha.js";
 export { ZapDepositTransactions } from "./transactionProtocolModels/zapDeposit.js";
 export { Blockchain } from "./blockchain.js";
+export { Protocol } from "./protocol.js";
 
 // Export utility models
-export { PoolUtils } from "./pool.js";
+export { Pool } from "./pool.js";
 
 // Export management models
 export { APRManager } from "./apr.js";

@@ -96,7 +96,7 @@ export class Blockchain {
     return result;
   }
 
-  async getPool(poolId: number): Promise<PoolType> {
+  async getPool(poolId: string): Promise<PoolType> {
     const poolObjectId = poolDetailsMap[poolId].poolId;
     const pool = await this.client.getObject({
       id: poolObjectId,
@@ -197,6 +197,30 @@ export class Blockchain {
     return result;
   }
 
+  async getParentPool(poolId: string): Promise<ParentPoolType> {
+    const parentPoolObjectId = poolDetailsMap[poolId].parentPoolId;
+    const parentPool = await this.client.getObject({
+      id: parentPoolObjectId,
+      options: {
+        showContent: true,
+      },
+    });
+
+    if (parentPool.data) {
+      switch (poolDetailsMap[poolId].parentProtocolName) {
+        case "BLUEFIN":
+          return parsers.parseBluefinParentPool(
+            parentPool.data as BluefinParentPoolQueryType,
+          );
+        default:
+          return parsers.parseCetusParentPool(
+            parentPool.data as CetusParentPoolQueryType,
+          );
+      }
+    }
+
+    throw new Error(`Parent pool for poolId - ${poolId} not found`);
+  }
 
   async getMultiInvestor(): Promise<InvestorType[]> {
     let pools = Object.keys(poolDetailsMap);
@@ -275,7 +299,7 @@ export class Blockchain {
     return result;
   }
 
-  async getInvestor(poolId: number): Promise<InvestorType> {
+  async getInvestor(poolId: string): Promise<InvestorType> {
     const investorObjectId = poolDetailsMap[poolId].investorId;
     const investor = await this.client.getObject({
       id: investorObjectId,
@@ -371,7 +395,7 @@ export class Blockchain {
     return receipts;
   }
 
-  async getReceipts(poolId: number, address: string): Promise<ReceiptType[]> {
+  async getReceipts(poolId: string, address: string): Promise<ReceiptType[]> {
     let res: SuiObjectData[] = [];
     console.log("Getting receipts for poolId", poolId, CONF_ENV);
     let currentCursor: string | null | undefined = null;

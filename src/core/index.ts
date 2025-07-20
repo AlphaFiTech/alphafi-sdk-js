@@ -6,7 +6,6 @@ import { SuiClient } from "@mysten/sui/client";
 import { SuiNetwork } from "../models/types.js";
 import { TransactionManager } from "../models/transaction.js";
 import { Blockchain } from "../models/blockchain.js";
-import { PoolUtils } from "../models/pool.js";
 import { AdminManager } from "../models/admin.js";
 import { Transaction } from "@mysten/sui/transactions";
 import { PoolDetails } from "../common/maps.js";
@@ -89,14 +88,22 @@ export class AlphaFiSDK {
 
   constructor(config: AlphaFiSDKConfig) {
     this.config = config;
-    
+
     // Initialize core components
     this.blockchain = new Blockchain(config.client, config.network);
     this.poolUtils = new PoolUtils(this.blockchain, config.client);
-    this.adminManager = new AdminManager(config.client, this.poolUtils, this.blockchain);
-    
+    this.adminManager = new AdminManager(
+      config.client,
+      this.poolUtils,
+      this.blockchain,
+    );
+
     // Initialize the transaction facade
-    this.transactionManager = new TransactionManager(config.address, this.blockchain, this.poolUtils);
+    this.transactionManager = new TransactionManager(
+      config.address,
+      this.blockchain,
+      this.poolUtils,
+    );
     //this.transactionManager = new TransactionManager(config.address, new Blockchain(config.client, config.network), new PoolUtils(new Blockchain(config.client, config.network), config.client));
     //this.poolUtils = new PoolUtils(new Blockchain(config.client, config.network), config.client);
   }
@@ -105,7 +112,7 @@ export class AlphaFiSDK {
    * Deposit assets into a DeFi pool
    * @param options - Deposit configuration options
    * @returns Promise<TransactionResult> - Transaction result with gas estimate
-   * 
+   *
    * @example
    * ```typescript
    * const result = await sdk.deposit({
@@ -124,7 +131,7 @@ export class AlphaFiSDK {
    * Withdraw assets from a DeFi pool
    * @param options - Withdraw configuration options
    * @returns Promise<TransactionResult> - Transaction result with gas estimate
-   * 
+   *
    * @example
    * ```typescript
    * // Withdraw specific amount of xTokens
@@ -133,7 +140,7 @@ export class AlphaFiSDK {
    *   xTokens: "500000",
    *   dryRun: false
    * });
-   * 
+   *
    * // Or withdraw percentage of balance
    * const result = await sdk.withdraw({
    *   poolId: 45,
@@ -151,7 +158,7 @@ export class AlphaFiSDK {
    * Claim rewards from a DeFi pool
    * @param options - Claim configuration options
    * @returns Promise<TransactionResult> - Transaction result with gas estimate
-   * 
+   *
    * @example
    * ```typescript
    * const result = await sdk.claim({
@@ -164,11 +171,15 @@ export class AlphaFiSDK {
     return this.transactionManager.claim(options);
   }
 
+  async getAllPoolsData() {
+    const pools = await this.blockchain.getMultiPool();
+  }
+
   /**
    * Get information about a specific pool
    * @param poolId - The pool ID to get information for
    * @returns PoolInfo | null - Pool information or null if not found
-   * 
+   *
    * @example
    * ```typescript
    * const poolInfo = sdk.getPoolInfo(45);
@@ -186,7 +197,7 @@ export class AlphaFiSDK {
   /**
    * Get all available pools
    * @returns PoolInfo[] - Array of all pool information
-   * 
+   *
    * @example
    * ```typescript
    * const allPools = sdk.getAllPools();
@@ -203,14 +214,14 @@ export class AlphaFiSDK {
   /**
    * Get user's receipts for all pools
    * @returns Promise - Array of user receipts
-   * 
+   *
    * @example
    * ```typescript
    * const receipts = await sdk.getUserReceipts();
    * console.log(`User has ${receipts.length} receipts`);
    * ```
    */
-  async getReceipts(poolId: number) {
+  async getReceipts(poolId: string) {
     return this.blockchain.getReceipts(poolId, this.config.address);
   }
 
@@ -225,7 +236,7 @@ export class AlphaFiSDK {
   /**
    * Get admin manager for administrative functions
    * @returns AdminManager - The admin manager instance
-   * 
+   *
    * @example
    * ```typescript
    * const adminManager = sdk.getAdminManager();
@@ -240,7 +251,7 @@ export class AlphaFiSDK {
   /**
    * Get pool utilities for pool-related operations
    * @returns PoolUtils - The pool utilities instance
-   * 
+   *
    * @example
    * ```typescript
    * const poolUtils = sdk.getPoolUtils();
@@ -251,5 +262,4 @@ export class AlphaFiSDK {
   getPoolUtils(): PoolUtils {
     return this.poolUtils;
   }
-
 }
