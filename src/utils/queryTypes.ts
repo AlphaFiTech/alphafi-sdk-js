@@ -275,6 +275,25 @@ export type BluefinParentPoolQueryType = {
   };
 };
 
+export type NaviParentPoolQueryType = {
+  objectId: string;
+  version: string;
+  digest: string;
+  content: {
+    dataType: string;
+    type: string;
+    hasPublicTransfer: boolean;
+    fields: {
+      balance: string;
+      decimal: number;
+      id: {
+        id: string;
+      };
+      treasury_balance: string;
+    };
+  };
+};
+
 // <--------- Investor Queries --------->
 export type CetusInvestorQueryType = {
   objectId: string;

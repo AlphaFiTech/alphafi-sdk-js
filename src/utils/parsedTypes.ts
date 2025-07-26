@@ -65,7 +65,10 @@ export type AlphaPoolType = {
 };
 
 // <--------- Parent Pool Types --------->
-export type ParentPoolType = CetusParentPoolType | BluefinParentPoolType;
+export type ParentPoolType =
+  | CetusParentPoolType
+  | BluefinParentPoolType
+  | NaviParentPoolType;
 
 export type CetusParentPoolType = {
   coin_a: string;
@@ -142,6 +145,13 @@ export type BluefinParentPoolType = {
       size: string;
     };
   };
+};
+
+export type NaviParentPoolType = {
+  balance: string;
+  decimal: number;
+  id: string;
+  treasury_balance: string;
 };
 
 // <--------- Investor Types --------->

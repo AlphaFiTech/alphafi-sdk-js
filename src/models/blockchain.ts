@@ -17,6 +17,7 @@ import {
   // parent pool
   BluefinParentPoolQueryType,
   CetusParentPoolQueryType,
+  NaviParentPoolQueryType,
   // investor
   CetusInvestorQueryType,
   BluefinInvestorQueryType,
@@ -42,13 +43,13 @@ export class Blockchain {
     this.constants = conf[CONF_ENV];
   }
 
-  async getMultiPool(): Promise<PoolType[]> {
+  async getMultiPool(): Promise<Map<string, PoolType>> {
     let pools = Object.keys(poolDetailsMap);
     pools = pools.filter((pool) => {
       return poolDetailsMap[pool].poolId !== "";
     });
 
-    const result: PoolType[] = [];
+    const result: Map<string, PoolType> = new Map();
 
     const batchSize = 49;
     const batches: string[][] = [];
@@ -69,21 +70,24 @@ export class Blockchain {
           if (poolsData[i].data) {
             switch (poolDetailsMap[batch[i]].strategyType) {
               case "ALPHA-VAULT":
-                result.push(
+                result.set(
+                  batch[i],
                   parsers.parseAlphaPool(
                     poolsData[i].data as AlphaPoolQueryType,
                   ),
                 );
                 break;
               case "FUNGIBLE-DOUBLE-ASSET-POOL":
-                result.push(
+                result.set(
+                  batch[i],
                   parsers.parseFungiblePool(
                     poolsData[i].data as FungiblePoolQueryType,
                   ),
                 );
                 break;
               default:
-                result.push(
+                result.set(
+                  batch[i],
                   parsers.parsePool(poolsData[i].data as DefaultPoolQueryType),
                 );
             }
@@ -119,7 +123,7 @@ export class Blockchain {
     throw new Error(`Pool for poolId - ${poolId} not found`);
   }
 
-  async getMultiParentPool(): Promise<ParentPoolType[]> {
+  async getMultiParentPool(): Promise<Map<string, ParentPoolType>> {
     let pools = Object.keys(poolDetailsMap);
     pools = pools.filter((pool) => {
       return (
@@ -147,7 +151,7 @@ export class Blockchain {
       });
     });
 
-    const result: ParentPoolType[] = [];
+    const result: Map<string, ParentPoolType> = new Map();
 
     const batchSize = 49;
     const batches: {
@@ -175,14 +179,16 @@ export class Blockchain {
           if (poolsData[i].data) {
             switch (batch[i].protocolName) {
               case "BLUEFIN":
-                result.push(
+                result.set(
+                  batch[i].id,
                   parsers.parseBluefinParentPool(
                     poolsData[i].data as BluefinParentPoolQueryType,
                   ),
                 );
                 break;
               default:
-                result.push(
+                result.set(
+                  batch[i].id,
                   parsers.parseCetusParentPool(
                     poolsData[i].data as CetusParentPoolQueryType,
                   ),
@@ -212,6 +218,14 @@ export class Blockchain {
           return parsers.parseBluefinParentPool(
             parentPool.data as BluefinParentPoolQueryType,
           );
+        case "NAVI":
+          return parsers.parseNaviParentPool(
+            parentPool.data as NaviParentPoolQueryType,
+          );
+        case "ALPHALEND":
+          return parsers.parseNaviParentPool(
+            parentPool.data as NaviParentPoolQueryType,
+          );
         default:
           return parsers.parseCetusParentPool(
             parentPool.data as CetusParentPoolQueryType,
@@ -222,7 +236,7 @@ export class Blockchain {
     throw new Error(`Parent pool for poolId - ${poolId} not found`);
   }
 
-  async getMultiInvestor(): Promise<InvestorType[]> {
+  async getMultiInvestor(): Promise<Map<string, InvestorType>> {
     let pools = Object.keys(poolDetailsMap);
     pools = pools.filter((pool) => {
       return (
@@ -231,7 +245,7 @@ export class Blockchain {
       );
     });
 
-    const result: InvestorType[] = [];
+    const result: Map<string, InvestorType> = new Map();
 
     const batchSize = 49;
     const batches: string[][] = [];
@@ -252,14 +266,16 @@ export class Blockchain {
           if (investorsData[i].data) {
             switch (poolDetailsMap[batch[i]].parentProtocolName) {
               case "BLUEFIN":
-                result.push(
+                result.set(
+                  poolDetailsMap[batch[i]].investorId,
                   parsers.parseBluefinInvestor(
                     investorsData[i].data as BluefinInvestorQueryType,
                   ),
                 );
                 break;
               case "BUCKET":
-                result.push(
+                result.set(
+                  poolDetailsMap[batch[i]].investorId,
                   parsers.parseBucketInvestor(
                     investorsData[i].data as BucketInvestorQueryType,
                   ),
@@ -270,21 +286,32 @@ export class Blockchain {
                   poolDetailsMap[batch[i]].strategyType ===
                   "SINGLE-ASSET-LOOPING"
                 ) {
-                  result.push(
+                  result.set(
+                    poolDetailsMap[batch[i]].investorId,
                     parsers.parseNaviLoopInvestor(
                       investorsData[i].data as NaviLoopInvestorQueryType,
                     ),
                   );
                 } else {
-                  result.push(
+                  result.set(
+                    poolDetailsMap[batch[i]].investorId,
                     parsers.parseNaviInvestor(
                       investorsData[i].data as NaviInvestorQueryType,
                     ),
                   );
                 }
                 break;
+              case "ALPHALEND":
+                result.set(
+                  poolDetailsMap[batch[i]].investorId,
+                  parsers.parseNaviLoopInvestor(
+                    investorsData[i].data as NaviLoopInvestorQueryType,
+                  ),
+                );
+                break;
               default:
-                result.push(
+                result.set(
+                  poolDetailsMap[batch[i]].investorId,
                   parsers.parseCetusInvestor(
                     investorsData[i].data as CetusInvestorQueryType,
                   ),
@@ -328,6 +355,10 @@ export class Blockchain {
               investor.data as NaviInvestorQueryType,
             );
           }
+        case "ALPHALEND":
+          return parsers.parseNaviLoopInvestor(
+            investor.data as NaviLoopInvestorQueryType,
+          );
         default:
           return parsers.parseCetusInvestor(
             investor.data as CetusInvestorQueryType,
@@ -338,7 +369,7 @@ export class Blockchain {
     throw new Error(`Investor for poolId - ${poolId} not found`);
   }
 
-  async getMultiReceipt(address: string): Promise<ReceiptType[]> {
+  async getMultiReceipt(address: string): Promise<Map<string, ReceiptType>> {
     let pools = Object.keys(poolDetailsMap);
     pools = pools.filter((pool) => {
       return (
@@ -372,7 +403,6 @@ export class Blockchain {
         currentCursor = paginatedObjects.nextCursor;
       } else {
         // No more pages available
-        // console.log("No more receipts available.");
         break;
       }
     }
@@ -385,6 +415,7 @@ export class Blockchain {
           receipts.push(
             parsers.parseAlphaReceipt(receipt as AlphaReceiptQueryType),
           );
+          break;
         default:
           receipts.push(
             parsers.parseReceipt(receipt as DefaultReceiptQueryType),
@@ -392,12 +423,21 @@ export class Blockchain {
       }
     });
 
-    return receipts;
+    const receiptsMap: Map<string, ReceiptType> = new Map();
+    receipts.forEach((receipt) => {
+      if (!receiptsMap.has(receipt.pool_id)) {
+        receiptsMap.set(receipt.pool_id, receipt);
+      }
+    });
+
+    return receiptsMap;
   }
 
-  async getReceipts(poolId: string, address: string): Promise<ReceiptType[]> {
+  async getReceipt(
+    poolId: string,
+    address: string,
+  ): Promise<ReceiptType | null> {
     let res: SuiObjectData[] = [];
-    console.log("Getting receipts for poolId", poolId, CONF_ENV);
     let currentCursor: string | null | undefined = null;
     while (true) {
       const paginatedObjects = await this.client.getOwnedObjects({
@@ -420,13 +460,12 @@ export class Blockchain {
         currentCursor = paginatedObjects.nextCursor;
       } else {
         // No more pages available
-        // console.log("No more receipts available.");
         break;
       }
     }
 
     let receipts: ReceiptType[] = [];
-    console.log("Receipts inside getReceipts", res);
+
     res.forEach((receipt) => {
       if (
         (receipt.content as any).fields.name !==
@@ -446,8 +485,8 @@ export class Blockchain {
           );
       }
     });
-    console.log("Receipts", receipts);
-    return receipts;
+
+    return receipts.length > 0 ? receipts[0] : null;
   }
 
   async getDistributor(): Promise<DistributorType> {

@@ -23,6 +23,11 @@ export type PoolDetails = {
     afterTransactionEventType?: string;
     checkRatioEventType?: string;
   };
+  loopingPoolCoinMap?: {
+    supplyCoin: string;
+    borrowCoin: string;
+  };
+  fungibleCoinType?: string;
   images?: {
     imageUrl1?: string;
     imageUrl2?: string;
@@ -324,7 +329,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_FUNGIBLE_STSUI_SUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_FUNGIBLE_STSUI_SUI_RECEIPT,
     },
-    assetTypes: [coinsList["STSUI"].type, conf[CONF_ENV].SUI_COIN_TYPE],
+    assetTypes: [coinsList["STSUI"].type, coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV]
@@ -335,6 +340,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
         conf[CONF_ENV]
           .ALPHAFI_BLUEFIN_FUNGIBLE_STSUI_SUI_POOL_LIQUIDITY_CHANGE_EVENT,
     },
+    fungibleCoinType: coinsList["AlphaFi stSUI-SUI LP"].type,
     images: {
       imageUrl1: "https://images.alphafi.xyz/adminweb/stsui.svg",
       imageUrl2: "https://images.alphafi.xyz/adminweb/sui-logo1.svg",
@@ -440,6 +446,10 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       rebalanceEventType: undefined,
       liquidityChangeEventType:
         conf[CONF_ENV].ALPHALEND_LOOP_SUI_STSUI_POOL_LIQUIDITY_CHANGE_EVENT,
+    },
+    loopingPoolCoinMap: {
+      supplyCoin: coinsList["STSUI"].type,
+      borrowCoin: coinsList["SUI"].type,
     },
     images: {
       imageUrl1: "https://images.alphafi.xyz/adminweb/sui-logo1.svg",
@@ -1236,6 +1246,10 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       checkRatioEventType:
         conf[CONF_ENV].NAVI_LOOP_USDT_USDC_POOL_CHECK_RATIO_EVENT,
     },
+    loopingPoolCoinMap: {
+      supplyCoin: coinsList["USDT"].type,
+      borrowCoin: coinsList["USDC"].type,
+    },
     images: {
       imageUrl1: "https://images.alphafi.xyz/adminweb/USDT.svg",
       imageUrl2: "https://images.alphafi.xyz/adminweb/USDC.svg",
@@ -1320,6 +1334,10 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
         conf[CONF_ENV].NAVI_LOOP_HASUI_SUI_POOL_LIQUIDITY_CHANGE_EVENT,
       checkRatioEventType:
         conf[CONF_ENV].NAVI_LOOP_HASUI_SUI_POOL_CHECK_RATIO_EVENT,
+    },
+    loopingPoolCoinMap: {
+      supplyCoin: coinsList["HASUI"].type,
+      borrowCoin: coinsList["SUI"].type,
     },
     images: {
       imageUrl1: "https://images.alphafi.xyz/adminweb/hasui.svg",
@@ -1674,6 +1692,10 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       checkRatioEventType:
         conf[CONF_ENV].NAVI_LOOP_USDC_USDT_POOL_CHECK_RATIO_EVENT,
     },
+    loopingPoolCoinMap: {
+      supplyCoin: coinsList["USDC"].type,
+      borrowCoin: coinsList["USDT"].type,
+    },
     images: {
       imageUrl1: "https://images.alphafi.xyz/adminweb/USDC.svg",
       imageUrl2: "https://images.alphafi.xyz/adminweb/USDT.svg",
@@ -1693,7 +1715,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_SUI_VSUI_LOOP_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_LOOP_SUI_VSUI_RECEIPT,
     },
-    assetTypes: [coinsList["SUI"].type, coinsList["VSUI"].type],
+    assetTypes: [coinsList["SUI"].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].NAVI_LOOP_SUI_VSUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1702,6 +1724,10 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
         conf[CONF_ENV].NAVI_LOOP_SUI_VSUI_POOL_LIQUIDITY_CHANGE_EVENT,
       checkRatioEventType:
         conf[CONF_ENV].NAVI_LOOP_SUI_VSUI_POOL_CHECK_RATIO_EVENT,
+    },
+    loopingPoolCoinMap: {
+      supplyCoin: coinsList["VSUI"].type,
+      borrowCoin: coinsList["SUI"].type,
     },
     images: {
       imageUrl1: "https://images.alphafi.xyz/adminweb/sui-logo1.svg",

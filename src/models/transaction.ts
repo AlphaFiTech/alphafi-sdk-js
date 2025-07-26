@@ -4,7 +4,6 @@ import { BluefinTransactions } from "./transactionProtocolModels/bluefin.js";
 import { NaviTransactions } from "./transactionProtocolModels/navi.js";
 import { CetusTransactions } from "./transactionProtocolModels/cetus.js";
 import { poolDetailsMap } from "../common/maps.js";
-import { PoolUtils } from "./pool.js";
 import { ClaimOptions, DepositOptions, WithdrawOptions } from "../core/index.js";
 import { ClaimRewardsTransactions } from "./transactionProtocolModels/claimRewards.js";
 import { BucketTransactions } from "./transactionProtocolModels/bucket.js";
@@ -47,7 +46,7 @@ export class TransactionManager{
   private naviLoopingTransactions: NaviLoopingTransactions;
 
   constructor(private address: string, private blockchain: Blockchain, private poolUtils: PoolUtils) {
-    this.bluefin = new BluefinTransactions(address, blockchain, new PoolUtils(blockchain, blockchain.client));
+    this.bluefin = new BluefinTransactions(address, blockchain, poolUtils);
     this.navi = new NaviTransactions(address, blockchain);
     this.cetus = new CetusTransactions(address, blockchain);
     this.bucketTransactions = new BucketTransactions(address, blockchain, poolUtils);

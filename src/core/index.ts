@@ -6,9 +6,10 @@ import { SuiClient } from "@mysten/sui/client";
 import { SuiNetwork } from "../models/types.js";
 import { TransactionManager } from "../models/transaction.js";
 import { Blockchain } from "../models/blockchain.js";
-import { AdminManager } from "../models/admin.js";
 import { Transaction } from "@mysten/sui/transactions";
-import { PoolDetails } from "../common/maps.js";
+import { Protocol } from "../models/protocol.js";
+import { Portfolio } from "../models/portfolio.js";
+import { PoolUtils } from "src/models/pool.ts";
 
 /**
  * Configuration options for the AlphaFi SDK
@@ -82,8 +83,8 @@ export class AlphaFiSDK {
   private config: AlphaFiSDKConfig;
   private transactionManager: TransactionManager;
   private blockchain: Blockchain;
-  private poolUtils: PoolUtils;
-  private adminManager: AdminManager;
+  private protocol: Protocol;
+  private portfolio: Portfolio;
   // private address: string;
 
   constructor(config: AlphaFiSDKConfig) {
@@ -91,18 +92,20 @@ export class AlphaFiSDK {
 
     // Initialize core components
     this.blockchain = new Blockchain(config.client, config.network);
-    this.poolUtils = new PoolUtils(this.blockchain, config.client);
-    this.adminManager = new AdminManager(
-      config.client,
-      this.poolUtils,
+    this.protocol = new Protocol(config.client, config.network);
+    this.portfolio = new Portfolio(
+      this.protocol,
       this.blockchain,
+      config.client,
+      config.address,
     );
 
     // Initialize the transaction facade
+    const poolUtils = new PoolUtils(this.blockchain, this.config.client);
     this.transactionManager = new TransactionManager(
       config.address,
       this.blockchain,
-      this.poolUtils,
+      poolUtils,
     );
     //this.transactionManager = new TransactionManager(config.address, new Blockchain(config.client, config.network), new PoolUtils(new Blockchain(config.client, config.network), config.client));
     //this.poolUtils = new PoolUtils(new Blockchain(config.client, config.network), config.client);
@@ -173,93 +176,5 @@ export class AlphaFiSDK {
 
   async getAllPoolsData() {
     const pools = await this.blockchain.getMultiPool();
-  }
-
-  /**
-   * Get information about a specific pool
-   * @param poolId - The pool ID to get information for
-   * @returns PoolInfo | null - Pool information or null if not found
-   *
-   * @example
-   * ```typescript
-   * const poolInfo = sdk.getPoolInfo(45);
-   * if (poolInfo) {
-   *   console.log(`Pool: ${poolInfo.poolName}`);
-   *   console.log(`Protocol: ${poolInfo.protocol}`);
-   *   console.log(`Strategy: ${poolInfo.strategyType}`);
-   * }
-   * ```
-   */
-  getPoolInfo(poolId: number): PoolDetails | null {
-    return this.poolUtils.getPoolInfo(poolId);
-  }
-
-  /**
-   * Get all available pools
-   * @returns PoolInfo[] - Array of all pool information
-   *
-   * @example
-   * ```typescript
-   * const allPools = sdk.getAllPools();
-   * console.log(`Found ${allPools.length} pools`);
-   * allPools.forEach(pool => {
-   *   console.log(`${pool.poolId}: ${pool.poolName} (${pool.protocol})`);
-   * });
-   * ```
-   */
-  getAllPools(): PoolDetails[] {
-    return this.poolUtils.getAllPools();
-  }
-
-  /**
-   * Get user's receipts for all pools
-   * @returns Promise - Array of user receipts
-   *
-   * @example
-   * ```typescript
-   * const receipts = await sdk.getUserReceipts();
-   * console.log(`User has ${receipts.length} receipts`);
-   * ```
-   */
-  async getReceipts(poolId: string) {
-    return this.blockchain.getReceipts(poolId, this.config.address);
-  }
-
-  /**
-   * Get the configured network
-   * @returns SuiNetwork - The network configuration
-   */
-  getNetwork(): SuiNetwork {
-    return this.config.network;
-  }
-
-  /**
-   * Get admin manager for administrative functions
-   * @returns AdminManager - The admin manager instance
-   *
-   * @example
-   * ```typescript
-   * const adminManager = sdk.getAdminManager();
-   * const currentTick = await adminManager.getCurrentTick("CETUS-SUI-USDC");
-   * const weights = await adminManager.getPoolsWeightDistribution("ALPHA");
-   * ```
-   */
-  getAdminManager(): AdminManager {
-    return this.adminManager;
-  }
-
-  /**
-   * Get pool utilities for pool-related operations
-   * @returns PoolUtils - The pool utilities instance
-   *
-   * @example
-   * ```typescript
-   * const poolUtils = sdk.getPoolUtils();
-   * const isDoubleAsset = poolUtils.isDoubleAssetPool(45);
-   * const allPools = poolUtils.getAllPools();
-   * ```
-   */
-  getPoolUtils(): PoolUtils {
-    return this.poolUtils;
   }
 }

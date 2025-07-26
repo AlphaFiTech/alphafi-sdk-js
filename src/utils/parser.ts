@@ -12,6 +12,7 @@ import {
   CetusParentPoolQueryType,
   BluefinParentPoolQueryType,
   DefaultReceiptQueryType,
+  NaviParentPoolQueryType,
 } from "./queryTypes.js";
 
 import {
@@ -28,6 +29,7 @@ import {
   DistributorType,
   CetusParentPoolType,
   BluefinParentPoolType,
+  NaviParentPoolType,
 } from "./parsedTypes.js";
 
 // Helper function to parse flat contents array with key-value structure
@@ -225,9 +227,11 @@ export function parseBluefinParentPool(
     observations_manager: {
       observation_index:
         query.content.fields.observations_manager.fields.observation_index,
-      observations: query.content.fields.observations_manager.fields.observations,
+      observations:
+        query.content.fields.observations_manager.fields.observations,
       observation_cardinality:
-        query.content.fields.observations_manager.fields.observation_cardinality,
+        query.content.fields.observations_manager.fields
+          .observation_cardinality,
       observation_cardinality_next:
         query.content.fields.observations_manager.fields
           .observation_cardinality_next,
@@ -249,6 +253,17 @@ export function parseBluefinParentPool(
         size: query.content.fields.ticks_manager.fields.ticks.fields.size,
       },
     },
+  };
+}
+
+export function parseNaviParentPool(
+  query: NaviParentPoolQueryType,
+): NaviParentPoolType {
+  return {
+    balance: query.content.fields.balance,
+    decimal: query.content.fields.decimal,
+    id: query.content.fields.id.id,
+    treasury_balance: query.content.fields.treasury_balance,
   };
 }
 
@@ -465,6 +480,7 @@ export const parsers = {
   parseAlphaPool,
   parseCetusParentPool,
   parseBluefinParentPool,
+  parseNaviParentPool,
   parseCetusInvestor,
   parseNaviInvestor,
   parseNaviLoopInvestor,

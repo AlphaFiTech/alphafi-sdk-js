@@ -1,9 +1,12 @@
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { Blockchain } from "../src/models/blockchain";
 import { fromB64 } from "@mysten/sui/utils";
-import { SuiClient } from "@mysten/sui/client";
+import { DynamicFieldInfo, SuiClient } from "@mysten/sui/client";
 import { Protocol } from "../src/models/protocol.js";
-import { Pool } from "../src/models/pool.js";
+import { Portfolio } from "../src/models/portfolio.js";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 export function getSuiClient(network: string) {
   const mainnetUrl = "https://fullnode.mainnet.sui.io/";
@@ -40,35 +43,30 @@ export function getExecStuff() {
   return { address, keypair, suiClient };
 }
 
+async function test() {
+  const { address, keypair, suiClient } = getExecStuff();
+  const lockedTableID =
+    "0xe8474026c16bcb0581bc77169e1ee8d656d64c07ddfa02929ea536fe260e1a09";
+  const blockchain = new Blockchain(suiClient, "mainnet");
+  const protocol = new Protocol(suiClient, "mainnet");
+  const portfolio = new Portfolio(protocol, blockchain, suiClient, address);
+  const res = await portfolio.getPortfolioData();
+  console.log(res);
+}
+
 async function main() {
+  const { address, keypair, suiClient } = getExecStuff();
   const client = getSuiClient("mainnet");
   const blockchain = new Blockchain(client, "mainnet");
   const protocol = new Protocol(client, "mainnet");
-  const poolObject = await blockchain.getPool(
-    "0x95f0543f861584f1a3c3129c46901d5c5cc1d44e77eb57aab63eec55cd128f29",
-  );
-  const investorObject = await blockchain.getInvestor(
-    "0x95f0543f861584f1a3c3129c46901d5c5cc1d44e77eb57aab63eec55cd128f29",
-  );
-  const pool = new Pool(poolObject, investorObject);
-  //   const res = await blockchain.getReceipts(
-  //     1,
-  //     "0xe136f0b6faf27ee707725f38f2aeefc51c6c31cc508222bee5cbc4f5fcf222c3",
-  //   );
-  // const res = await blockchain.getMultiReceipt(
-  //   "0xe136f0b6faf27ee707725f38f2aeefc51c6c31cc508222bee5cbc4f5fcf222c3",
-  // );
-  const aprMap = await protocol.getAprMap();
-  // const naviTvlMap = await protocol.getNaviTvlMap();
-  const apr = pool.getApr(aprMap);
-  console.log(apr);
-  const apy = pool.getApy(aprMap);
-  console.log(apy.toString());
-  //   for (let i = 49; i < 76; i = i + 1) {
-  //     console.log(i);
-  // const res = await blockchain.getPool(10);
-  // console.log(res);
-  //   }
+  const portfolio = new Portfolio(protocol, blockchain, client, address);
+  // const res = await protocol.getAllPoolsData();
+  // for (const pool of res) {
+  //   console.log(poolDetailsMap[pool[0]].poolName, pool[1]);
+  // }
+  const res = await portfolio.getPortfolioData();
+  console.log(res);
 }
 
-main();
+// main();
+test();
