@@ -18,7 +18,7 @@ PK_B64=your_base64_private_key_here
 # Optional: Custom pool IDs for testing
 TEST_BLUEFIN_POOL_ID=1
 TEST_NAVI_POOL_ID=2
-TEST_CETUS_POOL_ID=3    
+TEST_CETUS_POOL_ID=3
 
 # Optional: Custom deposit amounts (in smallest unit)
 TEST_DEPOSIT_AMOUNT_SUI=1000000000   # 1 SUI
@@ -34,6 +34,7 @@ SKIP_BALANCE_CHECK=false             # Set to true to skip balance verification
 ### 2. Get Your Private Key
 
 Using the Sui CLI:
+
 ```bash
 # Generate a new keypair (if needed)
 sui keytool generate ed25519
@@ -47,6 +48,7 @@ The output will contain a `privateKey` field - use that value for `PK_B64`.
 ### 3. Install Dependencies
 
 Make sure you have installed the project dependencies:
+
 ```bash
 cd alphafi-sdk-js
 npm install
@@ -76,7 +78,8 @@ The deposit test script includes:
 ### Test Output
 
 Example output:
-```
+
+```text
 [2024-01-15T10:30:00.000Z] INFO : Starting AlphaFi SDK Deposit Tests
 [2024-01-15T10:30:00.000Z] INFO : Network: testnet
 [2024-01-15T10:30:00.000Z] INFO : Dry Run Mode: true
@@ -113,11 +116,11 @@ export const localTestConfig: TestConfig = {
   naviPoolId: 8,
   cetusPoolId: 12,
   depositAmounts: {
-    sui: '500000000',    // 0.5 SUI
-    usdc: '500000',      // 0.5 USDC  
-    usdt: '500000',      // 0.5 USDT
+    sui: '500000000', // 0.5 SUI
+    usdc: '500000', // 0.5 USDC
+    usdt: '500000', // 0.5 USDT
   },
-  dryRun: false,       // Execute real transactions
+  dryRun: false, // Execute real transactions
   verbose: true,
   skipBalanceCheck: false,
 };
@@ -161,4 +164,4 @@ class CustomDepositTester extends DepositTester {
 - Check the logs for detailed error messages
 - Use `VERBOSE_LOGGING=true` for maximum detail
 - Verify your configuration in `env.config.ts`
-- Test individual protocols by commenting out others in the script 
+- Test individual protocols by commenting out others in the script

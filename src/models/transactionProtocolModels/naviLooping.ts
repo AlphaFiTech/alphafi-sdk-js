@@ -1,13 +1,17 @@
-import { Transaction } from "@mysten/sui/transactions";
-import { getConf } from "../../common/constants.js";
-import { poolDetailsMap } from "../../common/maps.js";
-import { Blockchain } from "../blockchain.js";
-import { coinsList } from "../../common/coins.js";
-import { CoinStruct } from "@mysten/sui/client";
-import { PoolUtils } from "../pool.js";
+import { Transaction } from '@mysten/sui/transactions';
+import { getConf } from '../../common/constants.js';
+import { poolDetailsMap } from '../../common/maps.js';
+import { Blockchain } from '../blockchain.js';
+import { coinsList } from '../../common/coins.js';
+import { CoinStruct } from '@mysten/sui/client';
+import { PoolUtils } from '../pool.js';
 
 export class NaviLoopingTransactions {
-  constructor(private address: string, private blockchain: Blockchain, private poolUtils: PoolUtils) {
+  constructor(
+    private address: string,
+    private blockchain: Blockchain,
+    private poolUtils: PoolUtils,
+  ) {
     this.blockchain = blockchain;
     this.poolUtils = poolUtils;
   }
@@ -20,30 +24,30 @@ export class NaviLoopingTransactions {
    * @returns Transaction ready for signing and execution
    */
   async depositNaviLoopingTx(amount: string, poolId: number): Promise<Transaction> {
-    console.log("Depositing Navi Looping", amount, poolId);
+    console.log('Depositing Navi Looping', amount, poolId);
     const poolinfo = poolDetailsMap[poolId];
-    
+
     if (!poolinfo) {
       throw new Error(`Pool with ID ${poolId} not found in poolDetailsMap`);
     }
-    
-    if (!poolinfo.poolName?.includes("NAVI-LOOP")) {
+
+    if (!poolinfo.poolName?.includes('NAVI-LOOP')) {
       throw new Error(`Pool ${poolId} is not a Navi Looping pool`);
     }
-    
-    console.log("Pool info", poolinfo);
+
+    console.log('Pool info', poolinfo);
     const poolName = poolinfo.poolName;
-    
+
     // Route to specific implementation based on pool name
-    if (poolName === "NAVI-LOOP-HASUI-SUI") {
+    if (poolName === 'NAVI-LOOP-HASUI-SUI') {
       return this.naviHasuiSuiLoopDepositTx(amount, poolId);
-    } else if (poolName === "NAVI-LOOP-SUI-VSUI") {
+    } else if (poolName === 'NAVI-LOOP-SUI-VSUI') {
       return this.naviSuiVsuiLoopDepositTx(amount, poolId);
-    } else if (poolName === "NAVI-LOOP-USDC-USDT") {
+    } else if (poolName === 'NAVI-LOOP-USDC-USDT') {
       return this.naviUsdcUsdtLoopDepositTx(amount, poolId);
-    } else if (poolName === "NAVI-LOOP-USDT-USDC") {
+    } else if (poolName === 'NAVI-LOOP-USDT-USDC') {
       return this.naviUsdtUsdcLoopDepositTx(amount, poolId);
-    } else if (poolName === "NAVI-LOOP-SUI-STSUI") {
+    } else if (poolName === 'NAVI-LOOP-SUI-STSUI') {
       return this.naviSuiStsuiLoopDepositTx(amount, poolId);
     } else {
       throw new Error(`Unsupported Navi Looping pool: ${poolName}`);
@@ -58,30 +62,30 @@ export class NaviLoopingTransactions {
    * @returns Transaction ready for signing and execution
    */
   async withdrawNaviLoopingTx(xTokens: string, poolId: number): Promise<Transaction> {
-    console.log("Withdrawing Navi Looping", xTokens, poolId);
+    console.log('Withdrawing Navi Looping', xTokens, poolId);
     const poolinfo = poolDetailsMap[poolId];
-    
+
     if (!poolinfo) {
       throw new Error(`Pool with ID ${poolId} not found in poolDetailsMap`);
     }
-    
-    if (!poolinfo.poolName?.includes("NAVI-LOOP")) {
+
+    if (!poolinfo.poolName?.includes('NAVI-LOOP')) {
       throw new Error(`Pool ${poolId} is not a Navi Looping pool`);
     }
-    
-    console.log("Pool info", poolinfo);
+
+    console.log('Pool info', poolinfo);
     const poolName = poolinfo.poolName;
-    
+
     // Route to specific implementation based on pool name
-    if (poolName === "NAVI-LOOP-HASUI-SUI") {
+    if (poolName === 'NAVI-LOOP-HASUI-SUI') {
       return this.naviHasuiSuiLoopWithdrawTx(xTokens, poolId);
-    } else if (poolName === "NAVI-LOOP-SUI-VSUI") {
+    } else if (poolName === 'NAVI-LOOP-SUI-VSUI') {
       return this.naviSuiVsuiLoopWithdrawTx(xTokens, poolId);
-    } else if (poolName === "NAVI-LOOP-USDC-USDT") {
+    } else if (poolName === 'NAVI-LOOP-USDC-USDT') {
       return this.naviUsdcUsdtLoopWithdrawTx(xTokens, poolId);
-    } else if (poolName === "NAVI-LOOP-USDT-USDC") {
+    } else if (poolName === 'NAVI-LOOP-USDT-USDC') {
       return this.naviUsdtUsdcLoopWithdrawTx(xTokens, poolId);
-    } else if (poolName === "NAVI-LOOP-SUI-STSUI") {
+    } else if (poolName === 'NAVI-LOOP-SUI-STSUI') {
       return this.naviSuiStsuiLoopWithdrawTx(xTokens, poolId);
     } else {
       throw new Error(`Unsupported Navi Looping pool: ${poolName}`);
@@ -100,9 +104,9 @@ export class NaviLoopingTransactions {
     // 1. Import the updateSingleTokenPrice function from naviOracle
     // 2. Get price feed info from naviPriceFeedMap
     // 3. Call updateSingleTokenPrice for both supply and borrow coins
-    
+
     console.log(`Updating price feeds for ${supplyCoinType} and ${borrowCoinType}`);
-    
+
     // Placeholder for price feed updates
     // updateSingleTokenPrice(naviPriceFeedMap[supplyCoinType].pythPriceInfo, naviPriceFeedMap[supplyCoinType].feedId, tx);
     // updateSingleTokenPrice(naviPriceFeedMap[borrowCoinType].pythPriceInfo, naviPriceFeedMap[borrowCoinType].feedId, tx);
@@ -117,27 +121,27 @@ export class NaviLoopingTransactions {
   private async naviHasuiSuiLoopDepositTx(amount: string, poolId: number): Promise<Transaction> {
     const tx = new Transaction();
     const poolinfo = poolDetailsMap[poolId];
-    
+
     // Update price feeds
-    this.updatePriceFeeds(tx, "HASUI", "SUI");
-    
+    this.updatePriceFeeds(tx, 'HASUI', 'SUI');
+
     // Get coin type for HASUI
     let hasuiCoinType: string;
     if ('token' in poolinfo.assetTypes) {
       hasuiCoinType = poolinfo.assetTypes.token;
     } else {
-      throw new Error("HASUI-SUI loop pool does not have single asset type configuration");
+      throw new Error('HASUI-SUI loop pool does not have single asset type configuration');
     }
 
     const coinName = hasuiCoinType.split('::').pop()?.toUpperCase() || 'HASUI';
-    
+
     // Get receipts for this pool
     const receipt: any[] = await this.blockchain.getReceipts(poolId, this.address);
-    
+
     // Fetch HASUI coins from the user's wallet
     let coins: CoinStruct[] = [];
     let currentCursor: string | null | undefined = null;
-    
+
     try {
       do {
         const response = await this.blockchain.client.getCoins({
@@ -155,7 +159,11 @@ export class NaviLoopingTransactions {
         }
       } while (true);
     } catch (error) {
-      throw new Error(`Failed to fetch ${coinName} coins: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to fetch ${coinName} coins: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
     }
 
     if (coins.length < 1) {
@@ -188,7 +196,7 @@ export class NaviLoopingTransactions {
 
     // TODO: Add reward collection logic here
     // This would involve calling getAvailableRewards and processing NAVX/VSUI rewards
-    
+
     // Execute the deposit
     tx.moveCall({
       target: `${poolinfo.packageId}::alphafi_navi_hasui_sui_pool::user_deposit`,
@@ -217,7 +225,7 @@ export class NaviLoopingTransactions {
     // Transfer remaining coins back to user
     tx.transferObjects([coin], this.address);
 
-    console.log("HASUI-SUI looping deposit transaction created successfully");
+    console.log('HASUI-SUI looping deposit transaction created successfully');
     return tx;
   }
 
@@ -230,20 +238,20 @@ export class NaviLoopingTransactions {
   private async naviHasuiSuiLoopWithdrawTx(xTokens: string, poolId: number): Promise<Transaction> {
     const tx = new Transaction();
     const poolinfo = poolDetailsMap[poolId];
-    
+
     // Update price feeds
-    this.updatePriceFeeds(tx, "HASUI", "SUI");
-    
+    this.updatePriceFeeds(tx, 'HASUI', 'SUI');
+
     // Get receipts for this pool
     const receipt: any[] = await this.blockchain.getReceipts(poolId, this.address);
-    
+
     if (receipt.length === 0) {
       throw new Error(`No ${poolinfo.poolName} Receipt found for withdrawal`);
     }
 
     // Get ALPHA receipt
     const alphaReceipt: any[] = await this.blockchain.getReceipts(1, this.address);
-    
+
     let alpha_receipt: any;
     if (alphaReceipt.length === 0) {
       [alpha_receipt] = tx.moveCall({
@@ -260,7 +268,7 @@ export class NaviLoopingTransactions {
     }
 
     // TODO: Add reward collection logic here
-    
+
     // Execute the withdrawal
     const [hasuiCoin] = tx.moveCall({
       target: `${poolinfo.packageId}::alphafi_navi_hasui_sui_pool::user_withdraw_v2`,
@@ -291,45 +299,45 @@ export class NaviLoopingTransactions {
     // Transfer the withdrawn HASUI to the user
     tx.moveCall({
       target: `0x2::transfer::public_transfer`,
-      typeArguments: [`0x2::coin::Coin<${coinsList["HASUI"]?.type}>`],
+      typeArguments: [`0x2::coin::Coin<${coinsList['HASUI']?.type}>`],
       arguments: [hasuiCoin, tx.pure.address(this.address)],
     });
 
-    console.log("HASUI-SUI looping withdrawal transaction created successfully");
+    console.log('HASUI-SUI looping withdrawal transaction created successfully');
     return tx;
   }
 
   // Placeholder methods for other looping pairs - these would be implemented similarly
   private async naviSuiVsuiLoopDepositTx(amount: string, poolId: number): Promise<Transaction> {
-    throw new Error("SUI-VSUI looping deposit not yet implemented");
+    throw new Error('SUI-VSUI looping deposit not yet implemented');
   }
 
   private async naviSuiVsuiLoopWithdrawTx(xTokens: string, poolId: number): Promise<Transaction> {
-    throw new Error("SUI-VSUI looping withdraw not yet implemented");
+    throw new Error('SUI-VSUI looping withdraw not yet implemented');
   }
 
   private async naviUsdcUsdtLoopDepositTx(amount: string, poolId: number): Promise<Transaction> {
-    throw new Error("USDC-USDT looping deposit not yet implemented");
+    throw new Error('USDC-USDT looping deposit not yet implemented');
   }
 
   private async naviUsdcUsdtLoopWithdrawTx(xTokens: string, poolId: number): Promise<Transaction> {
-    throw new Error("USDC-USDT looping withdraw not yet implemented");
+    throw new Error('USDC-USDT looping withdraw not yet implemented');
   }
 
   private async naviUsdtUsdcLoopDepositTx(amount: string, poolId: number): Promise<Transaction> {
-    throw new Error("USDT-USDC looping deposit not yet implemented");
+    throw new Error('USDT-USDC looping deposit not yet implemented');
   }
 
   private async naviUsdtUsdcLoopWithdrawTx(xTokens: string, poolId: number): Promise<Transaction> {
-    throw new Error("USDT-USDC looping withdraw not yet implemented");
+    throw new Error('USDT-USDC looping withdraw not yet implemented');
   }
 
   private async naviSuiStsuiLoopDepositTx(amount: string, poolId: number): Promise<Transaction> {
-    throw new Error("SUI-STSUI looping deposit not yet implemented");
+    throw new Error('SUI-STSUI looping deposit not yet implemented');
   }
 
   private async naviSuiStsuiLoopWithdrawTx(xTokens: string, poolId: number): Promise<Transaction> {
-    throw new Error("SUI-STSUI looping withdraw not yet implemented");
+    throw new Error('SUI-STSUI looping withdraw not yet implemented');
   }
 
   /**
@@ -339,12 +347,12 @@ export class NaviLoopingTransactions {
    */
   async getUserNaviLoopingBalance(poolId: number): Promise<string> {
     const receipt = await this.blockchain.getReceipts(poolId, this.address);
-    
+
     if (receipt.length === 0) {
-      return "0";
+      return '0';
     }
-    
-    return receipt[0].xTokenBalance?.toString() || "0";
+
+    return receipt[0].xTokenBalance?.toString() || '0';
   }
 
   /**
@@ -364,15 +372,15 @@ export class NaviLoopingTransactions {
    */
   getNaviLoopingPoolInfo(poolId: number) {
     const poolinfo = poolDetailsMap[poolId];
-    
+
     if (!poolinfo) {
       throw new Error(`Pool with ID ${poolId} not found`);
     }
-    
-    if (!poolinfo.poolName?.includes("NAVI-LOOP")) {
+
+    if (!poolinfo.poolName?.includes('NAVI-LOOP')) {
       throw new Error(`Pool ${poolId} is not a Navi Looping pool`);
     }
-    
+
     return {
       poolId: poolinfo.poolId,
       poolName: poolinfo.poolName,
@@ -381,7 +389,7 @@ export class NaviLoopingTransactions {
       investorId: poolinfo.investorId,
       receiptType: poolinfo.receipt.type,
       assetTypes: poolinfo.assetTypes,
-      protocol: "navi-looping",
+      protocol: 'navi-looping',
     };
   }
-} 
+}

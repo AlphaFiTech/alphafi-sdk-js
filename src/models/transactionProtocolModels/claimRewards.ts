@@ -1,12 +1,16 @@
-import { Transaction } from "@mysten/sui/transactions";
-import { getConf } from "../../common/constants.js";
-import { poolDetailsMap } from "../../common/maps.js";
-import { Blockchain } from "../blockchain.js";
-import { coinsList } from "../../common/coins.js";
-import { PoolUtils } from "../pool.js";
+import { Transaction } from '@mysten/sui/transactions';
+import { getConf } from '../../common/constants.js';
+import { poolDetailsMap } from '../../common/maps.js';
+import { Blockchain } from '../blockchain.js';
+import { coinsList } from '../../common/coins.js';
+import { PoolUtils } from '../pool.js';
 
 export class ClaimRewardsTransactions {
-  constructor(private address: string, private blockchain: Blockchain, private poolUtils: PoolUtils) {
+  constructor(
+    private address: string,
+    private blockchain: Blockchain,
+    private poolUtils: PoolUtils,
+  ) {
     this.blockchain = blockchain;
     this.poolUtils = poolUtils;
   }
@@ -16,16 +20,16 @@ export class ClaimRewardsTransactions {
    * This function iterates through all pools and claims rewards for each one
    */
   async claimAllRewardsTx(): Promise<Transaction> {
-    console.log("Creating claim all rewards transaction for address:", this.address);
+    console.log('Creating claim all rewards transaction for address:', this.address);
     const tx = new Transaction();
-    
+
     // Get multi receipts to warm up the cache
     await this.blockchain.getMultiReceipt(this.address);
-    
+
     // Get ALPHA receipt for the alpha_receipt parameter
     const alphaReceipt = await this.blockchain.getReceipts(1, this.address); // Pool ID 1 is typically ALPHA
     let alpha_receipt: any;
-    
+
     if (alphaReceipt.length === 0) {
       [alpha_receipt] = tx.moveCall({
         target: `0x1::option::none`,
@@ -41,21 +45,23 @@ export class ClaimRewardsTransactions {
     }
 
     // Get all pool IDs from poolDetailsMap
-    const poolIds = Object.keys(poolDetailsMap).map(Number).filter(id => !isNaN(id));
-    
+    const poolIds = Object.keys(poolDetailsMap)
+      .map(Number)
+      .filter((id) => !isNaN(id));
+
     for (const poolId of poolIds) {
       const poolinfo = poolDetailsMap[poolId];
-      
+
       // Skip pools without valid poolId
-      if (!poolinfo || !poolinfo.poolId || poolinfo.poolId === "") {
+      if (!poolinfo || !poolinfo.poolId || poolinfo.poolId === '') {
         continue;
       }
-      
+
       // Skip ALPHA pool (pool ID 1) as it's handled separately
       if (poolId === 1) {
         continue;
       }
-      
+
       try {
         alpha_receipt = await this.claimRewardsForPool(tx, poolId, alpha_receipt);
       } catch (error) {
@@ -72,16 +78,16 @@ export class ClaimRewardsTransactions {
    */
   async claimRewardsForPool(tx: Transaction, poolId: number, alpha_receipt: any): Promise<any> {
     const poolinfo = poolDetailsMap[poolId];
-    
+
     if (!poolinfo) {
       throw new Error(`Pool with ID ${poolId} not found`);
     }
 
     console.log(`Claiming rewards for pool ${poolId}: ${poolinfo.poolName}`);
-    
+
     // Get receipts for this pool
     const receipts = await this.blockchain.getReceipts(poolId, this.address);
-    
+
     if (receipts.length === 0) {
       console.log(`No receipts found for pool ${poolId}, skipping`);
       return alpha_receipt;
@@ -90,17 +96,17 @@ export class ClaimRewardsTransactions {
     // Determine pool strategy and call appropriate claim method
     const strategyType = poolinfo.strategyType;
     const poolName = poolinfo.poolName || `Pool-${poolId}`;
-    
+
     // Handle different pool types based on package number and protocol
-    if (poolinfo.packageId.includes("alphafi_navi_pool_v2")) {
+    if (poolinfo.packageId.includes('alphafi_navi_pool_v2')) {
       return this.claimNaviV2Rewards(tx, poolId, receipts, alpha_receipt);
-    } else if (poolinfo.packageId.includes("alphafi_bluefin")) {
+    } else if (poolinfo.packageId.includes('alphafi_bluefin')) {
       return this.claimBluefinRewards(tx, poolId, receipts, alpha_receipt, poolName);
-    } else if (poolinfo.packageId.includes("alphafi_navi")) {
+    } else if (poolinfo.packageId.includes('alphafi_navi')) {
       return this.claimNaviRewards(tx, poolId, receipts, alpha_receipt, poolName);
-    } else if (poolinfo.packageId.includes("alphafi_cetus")) {
+    } else if (poolinfo.packageId.includes('alphafi_cetus')) {
       return this.claimCetusRewards(tx, poolId, receipts, alpha_receipt, poolName);
-    } else if (poolinfo.packageId.includes("alphafi_bucket")) {
+    } else if (poolinfo.packageId.includes('alphafi_bucket')) {
       return this.claimBucketRewards(tx, poolId, receipts, alpha_receipt);
     } else {
       console.warn(`Unknown pool type for pool ${poolId}, skipping`);
@@ -111,9 +117,14 @@ export class ClaimRewardsTransactions {
   /**
    * Claim rewards for Navi V2 pools
    */
-  private claimNaviV2Rewards(tx: Transaction, poolId: number, receipts: any[], alpha_receipt: any): any {
+  private claimNaviV2Rewards(
+    tx: Transaction,
+    poolId: number,
+    receipts: any[],
+    alpha_receipt: any,
+  ): any {
     const poolinfo = poolDetailsMap[poolId];
-    
+
     // Get single asset type for Navi pools
     let coinType: string;
     if ('token' in poolinfo.assetTypes) {
@@ -123,7 +134,7 @@ export class ClaimRewardsTransactions {
     }
 
     const coinName = coinType.split('::').pop()?.toUpperCase() || 'UNKNOWN';
-    
+
     receipts.forEach((receipt) => {
       alpha_receipt = tx.moveCall({
         target: `${poolinfo.packageId}::alphafi_navi_pool_v2::get_user_rewards_all`,
@@ -147,9 +158,15 @@ export class ClaimRewardsTransactions {
   /**
    * Claim rewards for Bluefin pools
    */
-  private claimBluefinRewards(tx: Transaction, poolId: number, receipts: any[], alpha_receipt: any, poolName: string): any {
+  private claimBluefinRewards(
+    tx: Transaction,
+    poolId: number,
+    receipts: any[],
+    alpha_receipt: any,
+    poolName: string,
+  ): any {
     const poolinfo = poolDetailsMap[poolId];
-    
+
     // Get coin types for Bluefin pools
     let coinAType: string, coinBType: string;
     if ('token1' in poolinfo.assetTypes && 'token2' in poolinfo.assetTypes) {
@@ -164,10 +181,17 @@ export class ClaimRewardsTransactions {
 
     receipts.forEach((receipt) => {
       // Determine the specific Bluefin pool type and call appropriate method
-      if (poolName.includes("SUI-USDC") || poolName.includes("SUI-BUCK") || poolName.includes("SUI-AUSD")) {
+      if (
+        poolName.includes('SUI-USDC') ||
+        poolName.includes('SUI-BUCK') ||
+        poolName.includes('SUI-AUSD')
+      ) {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_bluefin_sui_first_pool::get_user_rewards_all`,
-          typeArguments: [coinsList[coinAName]?.type || coinAType, coinsList[coinBName]?.type || coinBType],
+          typeArguments: [
+            coinsList[coinAName]?.type || coinAType,
+            coinsList[coinBName]?.type || coinBType,
+          ],
           arguments: [
             tx.object(getConf().ALPHA_4_VERSION),
             tx.object(getConf().VERSION),
@@ -179,12 +203,20 @@ export class ClaimRewardsTransactions {
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName.includes("USDT-USDC") || poolName.includes("AUSD-USDC") || 
-                 poolName.includes("WBTC-USDC") || poolName.includes("SEND-USDC") || 
-                 poolName.includes("SUIUSDT-USDC") || poolName.includes("WAL-USDC")) {
+      } else if (
+        poolName.includes('USDT-USDC') ||
+        poolName.includes('AUSD-USDC') ||
+        poolName.includes('WBTC-USDC') ||
+        poolName.includes('SEND-USDC') ||
+        poolName.includes('SUIUSDT-USDC') ||
+        poolName.includes('WAL-USDC')
+      ) {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_bluefin_type_1_pool::get_user_rewards_all`,
-          typeArguments: [coinsList[coinAName]?.type || coinAType, coinsList[coinBName]?.type || coinBType],
+          typeArguments: [
+            coinsList[coinAName]?.type || coinAType,
+            coinsList[coinBName]?.type || coinBType,
+          ],
           arguments: [
             tx.object(getConf().ALPHA_4_VERSION),
             tx.object(getConf().VERSION),
@@ -196,10 +228,17 @@ export class ClaimRewardsTransactions {
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName.includes("ALPHA-USDC") || poolName.includes("NAVX-VSUI") || poolName.includes("BLUE-USDC")) {
+      } else if (
+        poolName.includes('ALPHA-USDC') ||
+        poolName.includes('NAVX-VSUI') ||
+        poolName.includes('BLUE-USDC')
+      ) {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_bluefin_type_2_pool::get_user_rewards_all`,
-          typeArguments: [coinsList[coinAName]?.type || coinAType, coinsList[coinBName]?.type || coinBType],
+          typeArguments: [
+            coinsList[coinAName]?.type || coinAType,
+            coinsList[coinBName]?.type || coinBType,
+          ],
           arguments: [
             tx.object(getConf().ALPHA_4_VERSION),
             tx.object(getConf().VERSION),
@@ -211,10 +250,17 @@ export class ClaimRewardsTransactions {
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName.includes("BLUE-SUI") || poolName.includes("WBTC-SUI") || poolName.includes("DEEP-SUI")) {
+      } else if (
+        poolName.includes('BLUE-SUI') ||
+        poolName.includes('WBTC-SUI') ||
+        poolName.includes('DEEP-SUI')
+      ) {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_bluefin_sui_second_pool::get_user_rewards_all`,
-          typeArguments: [coinsList[coinAName]?.type || coinAType, coinsList[coinBName]?.type || coinBType],
+          typeArguments: [
+            coinsList[coinAName]?.type || coinAType,
+            coinsList[coinBName]?.type || coinBType,
+          ],
           arguments: [
             tx.object(getConf().ALPHA_4_VERSION),
             tx.object(getConf().VERSION),
@@ -226,10 +272,13 @@ export class ClaimRewardsTransactions {
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName.includes("STSUI-SUI")) {
+      } else if (poolName.includes('STSUI-SUI')) {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_bluefin_stsui_sui_pool::get_user_rewards_all`,
-          typeArguments: [coinsList[coinAName]?.type || coinAType, coinsList[coinBName]?.type || coinBType],
+          typeArguments: [
+            coinsList[coinAName]?.type || coinAType,
+            coinsList[coinBName]?.type || coinBType,
+          ],
           arguments: [
             tx.object(getConf().ALPHA_4_VERSION),
             tx.object(getConf().VERSION),
@@ -241,12 +290,19 @@ export class ClaimRewardsTransactions {
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName.includes("STSUI-USDC") || poolName.includes("STSUI-WSOL") || 
-                 poolName.includes("STSUI-ETH") || poolName.includes("STSUI-BUCK") || 
-                 poolName.includes("STSUI-MUSD")) {
+      } else if (
+        poolName.includes('STSUI-USDC') ||
+        poolName.includes('STSUI-WSOL') ||
+        poolName.includes('STSUI-ETH') ||
+        poolName.includes('STSUI-BUCK') ||
+        poolName.includes('STSUI-MUSD')
+      ) {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_bluefin_stsui_first_pool::get_user_rewards_all`,
-          typeArguments: [coinsList[coinAName]?.type || coinAType, coinsList[coinBName]?.type || coinBType],
+          typeArguments: [
+            coinsList[coinAName]?.type || coinAType,
+            coinsList[coinBName]?.type || coinBType,
+          ],
           arguments: [
             tx.object(getConf().ALPHA_STSUI_VERSION),
             tx.object(getConf().VERSION),
@@ -258,10 +314,13 @@ export class ClaimRewardsTransactions {
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName.includes("ALPHA-STSUI") || poolName.includes("WAL-STSUI")) {
+      } else if (poolName.includes('ALPHA-STSUI') || poolName.includes('WAL-STSUI')) {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_bluefin_stsui_second_pool::get_user_rewards_all`,
-          typeArguments: [coinsList[coinAName]?.type || coinAType, coinsList[coinBName]?.type || coinBType],
+          typeArguments: [
+            coinsList[coinAName]?.type || coinAType,
+            coinsList[coinBName]?.type || coinBType,
+          ],
           arguments: [
             tx.object(getConf().ALPHA_STSUI_VERSION),
             tx.object(getConf().VERSION),
@@ -277,7 +336,10 @@ export class ClaimRewardsTransactions {
         // Default Bluefin V2 type 1 pool
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_bluefin_type_1_pool::get_user_rewards_all`,
-          typeArguments: [coinsList[coinAName]?.type || coinAType, coinsList[coinBName]?.type || coinBType],
+          typeArguments: [
+            coinsList[coinAName]?.type || coinAType,
+            coinsList[coinBName]?.type || coinBType,
+          ],
           arguments: [
             tx.object(getConf().ALPHA_BLUEFIN_V2_VERSION),
             tx.object(getConf().VERSION),
@@ -298,11 +360,17 @@ export class ClaimRewardsTransactions {
   /**
    * Claim rewards for Navi loop pools
    */
-  private claimNaviRewards(tx: Transaction, poolId: number, receipts: any[], alpha_receipt: any, poolName: string): any {
+  private claimNaviRewards(
+    tx: Transaction,
+    poolId: number,
+    receipts: any[],
+    alpha_receipt: any,
+    poolName: string,
+  ): any {
     const poolinfo = poolDetailsMap[poolId];
 
     receipts.forEach((receipt) => {
-      if (poolName.includes("USDT-USDC")) {
+      if (poolName.includes('USDT-USDC')) {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_navi_usdt_usdc_pool::get_user_rewards_all`,
           arguments: [
@@ -316,7 +384,7 @@ export class ClaimRewardsTransactions {
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName.includes("SUI-STSUI")) {
+      } else if (poolName.includes('SUI-STSUI')) {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_navi_sui_stsui_pool::get_user_rewards_all`,
           arguments: [
@@ -330,7 +398,7 @@ export class ClaimRewardsTransactions {
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName.includes("SUI-VSUI")) {
+      } else if (poolName.includes('SUI-VSUI')) {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_navi_sui_vsui_pool::get_user_rewards_all`,
           arguments: [
@@ -344,7 +412,7 @@ export class ClaimRewardsTransactions {
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName.includes("USDC-USDT")) {
+      } else if (poolName.includes('USDC-USDT')) {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_navi_native_usdc_usdt_pool::get_user_rewards_all`,
           arguments: [
@@ -358,7 +426,7 @@ export class ClaimRewardsTransactions {
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName.includes("HASUI-SUI")) {
+      } else if (poolName.includes('HASUI-SUI')) {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_navi_hasui_sui_pool::get_user_rewards_all`,
           arguments: [
@@ -374,9 +442,10 @@ export class ClaimRewardsTransactions {
         });
       } else {
         // Default Navi V2 single asset
-        const coinType = 'token' in poolinfo.assetTypes ? poolinfo.assetTypes.token : coinsList["SUI"].type;
+        const coinType =
+          'token' in poolinfo.assetTypes ? poolinfo.assetTypes.token : coinsList['SUI'].type;
         const coinName = coinType.split('::').pop()?.toUpperCase() || 'SUI';
-        
+
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_navi_pool_v2::get_user_rewards_all`,
           typeArguments: [coinsList[coinName]?.type || coinType],
@@ -400,9 +469,15 @@ export class ClaimRewardsTransactions {
   /**
    * Claim rewards for Cetus pools
    */
-  private claimCetusRewards(tx: Transaction, poolId: number, receipts: any[], alpha_receipt: any, poolName: string): any {
+  private claimCetusRewards(
+    tx: Transaction,
+    poolId: number,
+    receipts: any[],
+    alpha_receipt: any,
+    poolName: string,
+  ): any {
     const poolinfo = poolDetailsMap[poolId];
-    
+
     // Get coin types for Cetus pools
     let coinAType: string, coinBType: string;
     if ('token1' in poolinfo.assetTypes && 'token2' in poolinfo.assetTypes) {
@@ -416,10 +491,13 @@ export class ClaimRewardsTransactions {
     const coinBName = coinBType.split('::').pop()?.toUpperCase() || 'UNKNOWN';
 
     receipts.forEach((receipt) => {
-      if (poolName.includes("SUI")) {
+      if (poolName.includes('SUI')) {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_cetus_sui_pool::get_user_rewards_all`,
-          typeArguments: [coinsList[coinAName]?.type || coinAType, coinsList[coinBName]?.type || coinBType],
+          typeArguments: [
+            coinsList[coinAName]?.type || coinAType,
+            coinsList[coinBName]?.type || coinBType,
+          ],
           arguments: [
             tx.object(getConf().VERSION),
             tx.object(receipt.id),
@@ -430,11 +508,18 @@ export class ClaimRewardsTransactions {
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName.includes("WUSDC-WBTC") || poolName.includes("USDC-USDT") || 
-                 poolName.includes("USDC-WUSDC") || poolName.includes("USDC-ETH")) {
+      } else if (
+        poolName.includes('WUSDC-WBTC') ||
+        poolName.includes('USDC-USDT') ||
+        poolName.includes('USDC-WUSDC') ||
+        poolName.includes('USDC-ETH')
+      ) {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_cetus_pool_base_a::get_user_rewards_all`,
-          typeArguments: [coinsList[coinAName]?.type || coinAType, coinsList[coinBName]?.type || coinBType],
+          typeArguments: [
+            coinsList[coinAName]?.type || coinAType,
+            coinsList[coinBName]?.type || coinBType,
+          ],
           arguments: [
             tx.object(getConf().VERSION),
             tx.object(receipt.id),
@@ -448,7 +533,10 @@ export class ClaimRewardsTransactions {
       } else {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_cetus_pool::get_user_rewards_all`,
-          typeArguments: [coinsList[coinAName]?.type || coinAType, coinsList[coinBName]?.type || coinBType],
+          typeArguments: [
+            coinsList[coinAName]?.type || coinAType,
+            coinsList[coinBName]?.type || coinBType,
+          ],
           arguments: [
             tx.object(getConf().VERSION),
             tx.object(receipt.id),
@@ -468,7 +556,12 @@ export class ClaimRewardsTransactions {
   /**
    * Claim rewards for Bucket pools
    */
-  private claimBucketRewards(tx: Transaction, poolId: number, receipts: any[], alpha_receipt: any): any {
+  private claimBucketRewards(
+    tx: Transaction,
+    poolId: number,
+    receipts: any[],
+    alpha_receipt: any,
+  ): any {
     const poolinfo = poolDetailsMap[poolId];
 
     receipts.forEach((receipt) => {
@@ -496,11 +589,11 @@ export class ClaimRewardsTransactions {
   async claimRewardsForSpecificPool(poolId: number): Promise<Transaction> {
     console.log(`Creating claim rewards transaction for pool ${poolId}`);
     const tx = new Transaction();
-    
+
     // Get ALPHA receipt
     const alphaReceipt = await this.blockchain.getReceipts(1, this.address);
     let alpha_receipt: any;
-    
+
     if (alphaReceipt.length === 0) {
       [alpha_receipt] = tx.moveCall({
         target: `0x1::option::none`,
@@ -520,4 +613,4 @@ export class ClaimRewardsTransactions {
 
     return tx;
   }
-} 
+}

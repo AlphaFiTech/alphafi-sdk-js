@@ -94,4 +94,4 @@ export type BluefinPoolType = {
       };
     };
   };
-}; 
+};

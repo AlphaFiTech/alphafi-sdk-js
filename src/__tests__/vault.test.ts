@@ -1,6 +1,12 @@
 import { describe, test, expect, beforeEach, jest, afterEach } from '@jest/globals';
 import { SuiClient } from '@mysten/sui/client';
-import { VaultManager, VaultBalance, UserVaultSummary, VaultPerformanceMetrics, VaultAllocation } from '../models/vault.js';
+import {
+  VaultManager,
+  VaultBalance,
+  UserVaultSummary,
+  VaultPerformanceMetrics,
+  VaultAllocation,
+} from '../models/vault.js';
 import { APRManager } from '../models/apr.js';
 import { TVLManager } from '../models/tvl.js';
 import { Decimal } from 'decimal.js';
@@ -8,34 +14,37 @@ import { Decimal } from 'decimal.js';
 // Mock dependencies
 const mockSuiClient = {} as SuiClient;
 const mockAPRManager = {
-  getPoolAPRData: () => Promise.resolve({
-    poolName: 'ALPHA',
-    baseAPR: 10,
-    rewardAPR: 2,
-    totalAPR: 12,
-    apy: 12.75,
-    lastUpdated: new Date(),
-  }),
-  getPoolPerformanceMetrics: () => Promise.resolve({
-    poolName: 'ALPHA',
-    apr: 12,
-    apy: 12.75,
-    volatility: 15,
-    sharpeRatio: 0.8,
-    maxDrawdown: 10,
-    totalReturn: 12,
-  }),
+  getPoolAPRData: () =>
+    Promise.resolve({
+      poolName: 'ALPHA',
+      baseAPR: 10,
+      rewardAPR: 2,
+      totalAPR: 12,
+      apy: 12.75,
+      lastUpdated: new Date(),
+    }),
+  getPoolPerformanceMetrics: () =>
+    Promise.resolve({
+      poolName: 'ALPHA',
+      apr: 12,
+      apy: 12.75,
+      volatility: 15,
+      sharpeRatio: 0.8,
+      maxDrawdown: 10,
+      totalReturn: 12,
+    }),
 } as unknown as APRManager;
 
 const mockTVLManager = {
-  getPoolTVL: () => Promise.resolve({
-    poolName: 'ALPHA',
-    totalValueLocked: new Decimal(1000000),
-    totalValueLockedUSD: new Decimal(2000000),
-    tokensInvested: new Decimal(1000000),
-    priceUSD: new Decimal(2),
-    lastUpdated: new Date(),
-  }),
+  getPoolTVL: () =>
+    Promise.resolve({
+      poolName: 'ALPHA',
+      totalValueLocked: new Decimal(1000000),
+      totalValueLockedUSD: new Decimal(2000000),
+      tokensInvested: new Decimal(1000000),
+      priceUSD: new Decimal(2),
+      lastUpdated: new Date(),
+    }),
 } as unknown as TVLManager;
 
 describe('VaultManager', () => {
@@ -65,9 +74,9 @@ describe('VaultManager', () => {
   describe('getUserVaultBalances', () => {
     test('should return vault balances for a user', async () => {
       const balances = await vaultManager.getUserVaultBalances(testUserAddress);
-      
+
       expect(Array.isArray(balances)).toBe(true);
-      
+
       if (balances.length > 0) {
         const balance = balances[0];
         expect(balance).toHaveProperty('poolName');
@@ -83,7 +92,7 @@ describe('VaultManager', () => {
         expect(balance).toHaveProperty('apr');
         expect(balance).toHaveProperty('apy');
         expect(balance).toHaveProperty('lastUpdated');
-        
+
         expect(balance.xTokens).toBeInstanceOf(Decimal);
         expect(balance.tokensInvested).toBeInstanceOf(Decimal);
         expect(balance.tokensInvestedUSD).toBeInstanceOf(Decimal);
@@ -100,20 +109,20 @@ describe('VaultManager', () => {
     test('should use cache when available', async () => {
       // First call
       const balances1 = await vaultManager.getUserVaultBalances(testUserAddress);
-      
+
       // Second call should use cache
       const balances2 = await vaultManager.getUserVaultBalances(testUserAddress);
-      
+
       expect(balances1).toEqual(balances2);
     });
 
     test('should ignore cache when specified', async () => {
       // First call
       await vaultManager.getUserVaultBalances(testUserAddress);
-      
+
       // Second call with ignoreCache should fetch fresh data
       const balances = await vaultManager.getUserVaultBalances(testUserAddress, true);
-      
+
       expect(Array.isArray(balances)).toBe(true);
     });
   });
@@ -121,7 +130,7 @@ describe('VaultManager', () => {
   describe('getUserVaultBalance', () => {
     test('should return specific vault balance', async () => {
       const balance = await vaultManager.getUserVaultBalance(testUserAddress, 'ALPHA');
-      
+
       if (balance) {
         expect(balance).toHaveProperty('poolName');
         expect(balance.userAddress).toBe(testUserAddress);
@@ -130,7 +139,7 @@ describe('VaultManager', () => {
 
     test('should return null for non-existent vault', async () => {
       const balance = await vaultManager.getUserVaultBalance(testUserAddress, 'NONEXISTENT_POOL');
-      
+
       expect(balance).toBeNull();
     });
   });
@@ -138,7 +147,7 @@ describe('VaultManager', () => {
   describe('getUserVaultSummary', () => {
     test('should return comprehensive user summary', async () => {
       const summary = await vaultManager.getUserVaultSummary(testUserAddress);
-      
+
       expect(summary).toHaveProperty('userAddress', testUserAddress);
       expect(summary).toHaveProperty('totalValueUSD');
       expect(summary).toHaveProperty('totalReturnUSD');
@@ -150,7 +159,7 @@ describe('VaultManager', () => {
       expect(summary).toHaveProperty('topVaultByReturn');
       expect(summary).toHaveProperty('vaults');
       expect(summary).toHaveProperty('calculatedAt');
-      
+
       expect(summary.totalValueUSD).toBeInstanceOf(Decimal);
       expect(summary.totalReturnUSD).toBeInstanceOf(Decimal);
       expect(summary.totalReturnPercent).toBeInstanceOf(Decimal);
@@ -159,13 +168,13 @@ describe('VaultManager', () => {
       expect(typeof summary.vaultCount).toBe('number');
       expect(Array.isArray(summary.vaults)).toBe(true);
       expect(summary.calculatedAt).toBeInstanceOf(Date);
-      
+
       expect(summary.vaultCount).toBe(summary.vaults.length);
     });
 
     test('should return valid summary structure', async () => {
       const summary = await vaultManager.getUserVaultSummary('0xemptyuser');
-      
+
       expect(summary).toHaveProperty('totalValueUSD');
       expect(summary).toHaveProperty('totalReturnUSD');
       expect(summary).toHaveProperty('totalReturnPercent');
@@ -178,7 +187,7 @@ describe('VaultManager', () => {
 
     test('should handle summary calculations', async () => {
       const summary = await vaultManager.getUserVaultSummary(testUserAddress);
-      
+
       expect(summary.vaultCount).toBeGreaterThanOrEqual(0);
       expect(summary.totalValueUSD.toNumber()).toBeGreaterThanOrEqual(0);
       expect(summary.totalReturnUSD.toNumber()).toBeGreaterThanOrEqual(-Infinity);
@@ -190,10 +199,10 @@ describe('VaultManager', () => {
   describe('getAvailableVaults', () => {
     test('should return available vaults with APR and TVL data', async () => {
       const availableVaults = await vaultManager.getAvailableVaults();
-      
+
       expect(Array.isArray(availableVaults)).toBe(true);
       expect(availableVaults.length).toBeGreaterThan(0);
-      
+
       const vault = availableVaults[0];
       expect(vault).toHaveProperty('poolName');
       expect(vault).toHaveProperty('poolId');
@@ -202,13 +211,13 @@ describe('VaultManager', () => {
       expect(vault).toHaveProperty('apy');
       expect(vault).toHaveProperty('tvlUSD');
       expect(vault).toHaveProperty('isActive');
-      
+
       expect(typeof vault.poolId).toBe('number');
       expect(typeof vault.apr).toBe('number');
       expect(typeof vault.apy).toBe('number');
       expect(vault.tvlUSD).toBeInstanceOf(Decimal);
       expect(typeof vault.isActive).toBe('boolean');
-      
+
       // Should be sorted by APR descending
       if (availableVaults.length > 1) {
         for (let i = 0; i < availableVaults.length - 1; i++) {
@@ -235,11 +244,11 @@ describe('VaultManager', () => {
         apy: 12.75,
         lastUpdated: new Date(),
       };
-      
+
       jest.spyOn(vaultManager, 'getUserVaultBalance').mockResolvedValue(mockBalance);
-      
+
       const metrics = await vaultManager.getVaultPerformanceMetrics(testUserAddress, 'ALPHA');
-      
+
       expect(metrics).toBeDefined();
       expect(metrics!).toHaveProperty('vault');
       expect(metrics!).toHaveProperty('sharpeRatio');
@@ -247,22 +256,22 @@ describe('VaultManager', () => {
       expect(metrics!).toHaveProperty('maxDrawdown');
       expect(metrics!).toHaveProperty('riskAdjustedReturn');
       expect(metrics!).toHaveProperty('performanceScore');
-      
+
       expect(typeof metrics!.sharpeRatio).toBe('number');
       expect(typeof metrics!.volatility).toBe('number');
       expect(typeof metrics!.maxDrawdown).toBe('number');
       expect(typeof metrics!.riskAdjustedReturn).toBe('number');
       expect(typeof metrics!.performanceScore).toBe('number');
-      
+
       expect(metrics!.performanceScore).toBeGreaterThanOrEqual(0);
       expect(metrics!.performanceScore).toBeLessThanOrEqual(100);
     });
 
     test('should return null for non-existent vault', async () => {
       jest.spyOn(vaultManager, 'getUserVaultBalance').mockResolvedValue(null);
-      
+
       const metrics = await vaultManager.getVaultPerformanceMetrics(testUserAddress, 'NONEXISTENT');
-      
+
       expect(metrics).toBeNull();
     });
   });
@@ -313,29 +322,30 @@ describe('VaultManager', () => {
         ],
         calculatedAt: new Date(),
       };
-      
+
       jest.spyOn(vaultManager, 'getUserVaultSummary').mockResolvedValue(mockSummary);
-      
+
       const allocations = await vaultManager.getPortfolioAllocation(testUserAddress);
-      
+
       expect(Array.isArray(allocations)).toBe(true);
       expect(allocations.length).toBe(2);
-      
+
       const allocation = allocations[0];
       expect(allocation).toHaveProperty('vault');
       expect(allocation).toHaveProperty('allocationPercent');
       expect(allocation).toHaveProperty('recommendedAllocation');
       expect(allocation).toHaveProperty('status');
-      
+
       expect(allocation.allocationPercent).toBeInstanceOf(Decimal);
       expect(allocation.recommendedAllocation).toBeInstanceOf(Decimal);
       expect(['underweight', 'overweight', 'balanced']).toContain(allocation.status);
-      
+
       // Should be sorted by current value descending
       if (allocations.length > 1) {
         for (let i = 0; i < allocations.length - 1; i++) {
-          expect(allocations[i].vault.currentValueUSD.toNumber())
-            .toBeGreaterThanOrEqual(allocations[i + 1].vault.currentValueUSD.toNumber());
+          expect(allocations[i].vault.currentValueUSD.toNumber()).toBeGreaterThanOrEqual(
+            allocations[i + 1].vault.currentValueUSD.toNumber(),
+          );
         }
       }
     });
@@ -354,11 +364,11 @@ describe('VaultManager', () => {
         vaults: [],
         calculatedAt: new Date(),
       };
-      
+
       jest.spyOn(vaultManager, 'getUserVaultSummary').mockResolvedValue(emptySummary);
-      
+
       const allocations = await vaultManager.getPortfolioAllocation(testUserAddress);
-      
+
       expect(Array.isArray(allocations)).toBe(true);
       expect(allocations.length).toBe(0);
     });
@@ -398,14 +408,17 @@ describe('VaultManager', () => {
           lastUpdated: new Date(),
         },
       ];
-      
+
       jest.spyOn(vaultManager, 'getUserVaultBalances').mockResolvedValue(mockBalances);
-      
-      const loopingVaults = await vaultManager.getVaultsByStrategy(testUserAddress, 'SINGLE-ASSET-LOOPING');
-      
+
+      const loopingVaults = await vaultManager.getVaultsByStrategy(
+        testUserAddress,
+        'SINGLE-ASSET-LOOPING',
+      );
+
       expect(Array.isArray(loopingVaults)).toBe(true);
       // Should contain NAVI-LOOP vault but not CETUS vault
-      const naviVault = loopingVaults.find(v => v.poolName === 'NAVI-LOOP-SUI-VSUI');
+      const naviVault = loopingVaults.find((v) => v.poolName === 'NAVI-LOOP-SUI-VSUI');
       expect(naviVault).toBeDefined();
     });
   });
@@ -444,14 +457,14 @@ describe('VaultManager', () => {
           lastUpdated: new Date(),
         },
       ];
-      
+
       jest.spyOn(vaultManager, 'getUserVaultBalances').mockResolvedValue(mockBalances);
-      
+
       const naviVaults = await vaultManager.getVaultsByProtocol(testUserAddress, 'NAVI');
-      
+
       expect(Array.isArray(naviVaults)).toBe(true);
       // Should contain NAVI vault but not CETUS vault
-      const naviVault = naviVaults.find(v => v.poolName === 'NAVI-SUI');
+      const naviVault = naviVaults.find((v) => v.poolName === 'NAVI-SUI');
       expect(naviVault).toBeDefined();
     });
   });
@@ -470,12 +483,12 @@ describe('VaultManager', () => {
     test('should clear expired cache entries', async () => {
       // Use a very short cache timeout
       const shortCacheManager = new VaultManager(mockSuiClient, mockAPRManager, mockTVLManager, 1);
-      
+
       await shortCacheManager.getUserVaultBalances(testUserAddress);
-      
+
       // Wait for cache to expire
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
       shortCacheManager.clearExpiredCache();
       // No assertions needed, just ensuring it doesn't throw
     });
@@ -484,20 +497,20 @@ describe('VaultManager', () => {
   describe('mock data generation', () => {
     test('should generate realistic vault balances', async () => {
       const balances = await vaultManager.getUserVaultBalances(testUserAddress);
-      
-      balances.forEach(balance => {
+
+      balances.forEach((balance) => {
         // Check that all numeric values are positive
         expect(balance.xTokens.toNumber()).toBeGreaterThan(0);
         expect(balance.tokensInvested.toNumber()).toBeGreaterThan(0);
         expect(balance.tokensInvestedUSD.toNumber()).toBeGreaterThan(0);
         expect(balance.currentValue.toNumber()).toBeGreaterThan(0);
         expect(balance.currentValueUSD.toNumber()).toBeGreaterThan(0);
-        
+
         // APR and APY should be reasonable
         expect(balance.apr).toBeGreaterThanOrEqual(0);
         expect(balance.apr).toBeLessThan(100); // Reasonable upper bound
         expect(balance.apy).toBeGreaterThanOrEqual(balance.apr); // APY should be >= APR
-        
+
         // Returns can be positive or negative
         expect(balance.totalReturnPercent.toNumber()).toBeGreaterThan(-100); // Can't lose more than 100%
         expect(balance.totalReturnPercent.toNumber()).toBeLessThan(1000); // Reasonable upper bound
@@ -506,17 +519,19 @@ describe('VaultManager', () => {
 
     test('should have consistent relationships between values', async () => {
       const balances = await vaultManager.getUserVaultBalances(testUserAddress);
-      
-      balances.forEach(balance => {
+
+      balances.forEach((balance) => {
         // Current value should be based on tokens invested + returns
         const expectedCurrentValue = balance.tokensInvested.add(balance.totalReturn);
         expect(balance.currentValue.toNumber()).toBeCloseTo(expectedCurrentValue.toNumber(), 1);
-        
+
         // Return percentage should match calculation
         if (!balance.tokensInvested.isZero()) {
           const expectedReturnPercent = balance.totalReturn.div(balance.tokensInvested).mul(100);
-          expect(balance.totalReturnPercent.toNumber())
-            .toBeCloseTo(expectedReturnPercent.toNumber(), 1);
+          expect(balance.totalReturnPercent.toNumber()).toBeCloseTo(
+            expectedReturnPercent.toNumber(),
+            1,
+          );
         }
       });
     });
@@ -527,7 +542,7 @@ describe('VaultManager', () => {
       // Test that basic operations complete without throwing errors
       const availableVaults = await vaultManager.getAvailableVaults();
       expect(Array.isArray(availableVaults)).toBe(true);
-      
+
       const balances = await vaultManager.getUserVaultBalances('0xtest');
       expect(Array.isArray(balances)).toBe(true);
     });
@@ -550,20 +565,20 @@ describe('VaultManager', () => {
         apy: 16,
         lastUpdated: new Date(),
       };
-      
+
       jest.spyOn(vaultManager, 'getUserVaultBalance').mockResolvedValue(mockBalance);
-      
+
       const metrics = await vaultManager.getVaultPerformanceMetrics(testUserAddress, 'ALPHA');
-      
+
       expect(metrics).toBeDefined();
-      
+
       // Performance score should be calculated based on returns, APR, and risk
       const expectedReturnScore = Math.min(10 * 2, 50); // 10% return * 2, max 50
       const expectedAPRScore = Math.min(15, 25); // 15% APR, max 25
       const expectedRiskScore = Math.max(25 - 15, 0); // 25 - volatility(15), min 0
       const expectedTotalScore = expectedReturnScore + expectedAPRScore + expectedRiskScore;
-      
+
       expect(metrics!.performanceScore).toBeCloseTo(expectedTotalScore, 1);
     });
   });
-}); 
+});

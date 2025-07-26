@@ -1,24 +1,24 @@
 /**
  * AlphaFi SDK Withdraw Testing Script
- * 
+ *
  * This script tests withdraw functionality for all supported protocols:
  * - Bluefin (DEX with concentrated liquidity)
  * - Navi (Lending protocol)
  * - Cetus (AMM DEX)
- * 
+ *
  * Usage:
  * 1. Set up environment variables (see env.config.ts)
  * 2. Run: npx ts-node scripts/testWithdraws.ts
- * 
+ *
  * Note: This test requires existing deposits/receipts to withdraw from.
  * Make sure you have active positions before running withdraw tests.
  */
 
 import 'dotenv/config';
-import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
-import { SuiClient } from "@mysten/sui/client";
-import { fromB64 } from "@mysten/sui/utils";
-import { Transaction } from "@mysten/sui/transactions";
+import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { SuiClient } from '@mysten/sui/client';
+import { fromB64 } from '@mysten/sui/utils';
+import { Transaction } from '@mysten/sui/transactions';
 
 declare const process: {
   env: Record<string, string | undefined>;
@@ -26,15 +26,15 @@ declare const process: {
   exit: (code?: number) => never;
 };
 
-import { Blockchain } from "../src/models/blockchain.js";
-import { TransactionManager } from "../src/models/transaction.js";
-import { loadConfig, TestConfig } from "./env.config.js";
+import { Blockchain } from '../src/models/blockchain.js';
+import { TransactionManager } from '../src/models/transaction.js';
+import { loadConfig, TestConfig } from './env.config.js';
 import { PoolUtils } from '../src/models/pool.js';
 
 // Extended config interface for withdraw tests
 interface WithdrawTestConfig extends TestConfig {
   withdrawAmounts: {
-    xTokens: string;  // Amount of xTokens to withdraw
+    xTokens: string; // Amount of xTokens to withdraw
     percentage: number; // Percentage of total position to withdraw (0-100)
   };
   receiptIds?: string[45]; // Specific receipt IDs to withdraw from
@@ -45,20 +45,20 @@ interface WithdrawTestConfig extends TestConfig {
 // Utility function to get SuiClient based on network
 function getSuiClient(network: string): SuiClient {
   const networkUrls = {
-    mainnet: "https://fullnode.mainnet.sui.io/",
-    testnet: "https://fullnode.testnet.sui.io/",
-    devnet: "https://fullnode.devnet.sui.io/",
+    mainnet: 'https://fullnode.mainnet.sui.io/',
+    testnet: 'https://fullnode.testnet.sui.io/',
+    devnet: 'https://fullnode.devnet.sui.io/',
   };
 
   const url = networkUrls[network as keyof typeof networkUrls] || networkUrls.devnet;
-  
+
   return new SuiClient({ url });
 }
 
 // Setup function to initialize wallet and clients
 function setupTestEnvironment(config: WithdrawTestConfig) {
   if (!config.privateKeyB64) {
-    throw new Error("Private key not configured. Set PK_B64 environment variable.");
+    throw new Error('Private key not configured. Set PK_B64 environment variable.');
   }
 
   const keypair = Ed25519Keypair.fromSecretKey(fromB64(config.privateKeyB64).slice(1));
@@ -100,7 +100,7 @@ class WithdrawTester {
 
   private async checkBalance() {
     if (this.config.skipBalanceCheck) {
-      this.log("Skipping balance check as requested");
+      this.log('Skipping balance check as requested');
       return;
     }
 
@@ -108,12 +108,15 @@ class WithdrawTester {
       const balance = await this.suiClient.getBalance({
         owner: this.address,
       });
-      
+
       this.log(`Wallet Address: ${this.address}`);
-      this.log(`SUI Balance: ${balance.totalBalance} MIST (${Number(balance.totalBalance) / 1e9} SUI)`);
-      
-      if (Number(balance.totalBalance) < 1000000000) { // Less than 1 SUI
-        this.log("Warning: Low SUI balance. You may need more SUI for gas fees.", 'warn');
+      this.log(
+        `SUI Balance: ${balance.totalBalance} MIST (${Number(balance.totalBalance) / 1e9} SUI)`,
+      );
+
+      if (Number(balance.totalBalance) < 1000000000) {
+        // Less than 1 SUI
+        this.log('Warning: Low SUI balance. You may need more SUI for gas fees.', 'warn');
       }
     } catch (error) {
       this.log(`Error checking balance: ${error}`, 'error');
@@ -123,18 +126,22 @@ class WithdrawTester {
   private async executeTransaction(txb: Transaction, description: string): Promise<boolean> {
     try {
       this.log(`Executing transaction in ${this.config.dryRun ? 'dry run' : 'live'} mode`);
-      
+
       if (this.config.dryRun) {
         this.log(`DRY RUN: Would execute ${description}`);
-        
+
         try {
           txb.setSender(this.address);
-          
+
           const dryRunResult = await this.suiClient.dryRunTransactionBlock({
             transactionBlock: await txb.build({ client: this.suiClient }),
           });
-          
-          this.log(`Dry run successful. Gas used: ${dryRunResult.effects.gasUsed?.computationCost || 'unknown'}`);
+
+          this.log(
+            `Dry run successful. Gas used: ${
+              dryRunResult.effects.gasUsed?.computationCost || 'unknown'
+            }`,
+          );
           return true;
         } catch (dryRunError) {
           this.log(`Dry run failed: ${dryRunError}`, 'error');
@@ -142,9 +149,9 @@ class WithdrawTester {
         }
       } else {
         this.log(`Executing: ${description}`);
-        
+
         txb.setSender(this.address);
-        
+
         const result = await this.suiClient.signAndExecuteTransaction({
           signer: this.keypair,
           transaction: txb,
@@ -174,11 +181,11 @@ class WithdrawTester {
       this.log(`Fetching receipts for pool ${poolId}`);
       const receipts = await this.blockchain.getReceipts(poolId, this.address);
       this.log(`Found ${receipts.length} receipts for pool ${poolId}`);
-      
+
       if (receipts.length === 0) {
         this.log(`No receipts found for pool ${poolId}. You need to deposit first.`, 'warn');
       }
-      
+
       return receipts;
     } catch (error) {
       this.log(`Error fetching receipts: ${error}`, 'error');
@@ -188,7 +195,7 @@ class WithdrawTester {
 
   private async calculateWithdrawAmount(receipts: any[], percentage: number): Promise<string> {
     if (receipts.length === 0) {
-      throw new Error("No receipts available for withdrawal");
+      throw new Error('No receipts available for withdrawal');
     }
 
     // Calculate total xToken balance
@@ -200,44 +207,46 @@ class WithdrawTester {
     }
 
     this.log(`Total xToken balance: ${totalBalance.toString()}`);
-    
+
     // Calculate withdraw amount based on percentage
     const withdrawAmount = (totalBalance * BigInt(percentage)) / BigInt(100);
-    
+
     this.log(`Withdrawing ${percentage}% = ${withdrawAmount.toString()} xTokens`);
-    
+
     return withdrawAmount.toString();
   }
 
   async testBluefinWithdraw(): Promise<boolean> {
-    this.log("=== Testing Bluefin Withdraw ===");
-    console.log("Bluefin pool id", this.config.bluefinPoolId);
+    this.log('=== Testing Bluefin Withdraw ===');
+    console.log('Bluefin pool id', this.config.bluefinPoolId);
     try {
       // Get receipts first
       const receipts = await this.getReceipts(this.config.bluefinPoolId);
-      console.log("Bluefin receipts", receipts);
+      console.log('Bluefin receipts', receipts);
       if (receipts.length === 0) {
-        this.log("No receipts found for Bluefin pool. Skipping withdraw test.", 'warn');
+        this.log('No receipts found for Bluefin pool. Skipping withdraw test.', 'warn');
         return true; // Not a failure, just no receipts to withdraw
       }
 
       // Calculate withdraw amount
       const withdrawAmount = await this.calculateWithdrawAmount(
-        receipts, 
-        this.config.withdrawAmounts.percentage
+        receipts,
+        this.config.withdrawAmounts.percentage,
       );
 
-      this.log(`Creating withdraw transaction for pool ${this.config.bluefinPoolId} with amount ${withdrawAmount}`);
-      
-      const txb = await this.transactionManager.withdraw(
-        "bluefin",
-        withdrawAmount,
-        this.config.bluefinPoolId
+      this.log(
+        `Creating withdraw transaction for pool ${this.config.bluefinPoolId} with amount ${withdrawAmount}`,
       );
-      
+
+      const txb = await this.transactionManager.withdraw(
+        'bluefin',
+        withdrawAmount,
+        this.config.bluefinPoolId,
+      );
+
       return await this.executeTransaction(
-        txb, 
-        `Bluefin withdraw (Pool ${this.config.bluefinPoolId}, Amount: ${withdrawAmount})`
+        txb,
+        `Bluefin withdraw (Pool ${this.config.bluefinPoolId}, Amount: ${withdrawAmount})`,
       );
     } catch (error) {
       this.log(`Bluefin withdraw test failed: ${error}`, 'error');
@@ -249,29 +258,29 @@ class WithdrawTester {
   }
 
   async testNaviWithdraw(): Promise<boolean> {
-    this.log("=== Testing Navi Withdraw ===");
-    
+    this.log('=== Testing Navi Withdraw ===');
+
     try {
       const receipts = await this.getReceipts(this.config.naviPoolId);
       if (receipts.length === 0) {
-        this.log("No receipts found for Navi pool. Skipping withdraw test.", 'warn');
+        this.log('No receipts found for Navi pool. Skipping withdraw test.', 'warn');
         return true;
       }
 
       const withdrawAmount = await this.calculateWithdrawAmount(
-        receipts, 
-        this.config.withdrawAmounts.percentage
+        receipts,
+        this.config.withdrawAmounts.percentage,
       );
 
       const txb = await this.transactionManager.withdraw(
-        "navi",
+        'navi',
         withdrawAmount,
-        this.config.naviPoolId
+        this.config.naviPoolId,
       );
 
       return await this.executeTransaction(
-        txb, 
-        `Navi withdraw (Pool ${this.config.naviPoolId}, Amount: ${withdrawAmount})`
+        txb,
+        `Navi withdraw (Pool ${this.config.naviPoolId}, Amount: ${withdrawAmount})`,
       );
     } catch (error) {
       this.log(`Navi withdraw test failed: ${error}`, 'error');
@@ -280,29 +289,29 @@ class WithdrawTester {
   }
 
   async testCetusWithdraw(): Promise<boolean> {
-    this.log("=== Testing Cetus Withdraw ===");
-    
+    this.log('=== Testing Cetus Withdraw ===');
+
     try {
       const receipts = await this.getReceipts(this.config.cetusPoolId);
       if (receipts.length === 0) {
-        this.log("No receipts found for Cetus pool. Skipping withdraw test.", 'warn');
+        this.log('No receipts found for Cetus pool. Skipping withdraw test.', 'warn');
         return true;
       }
 
       const withdrawAmount = await this.calculateWithdrawAmount(
-        receipts, 
-        this.config.withdrawAmounts.percentage
+        receipts,
+        this.config.withdrawAmounts.percentage,
       );
 
       const txb = await this.transactionManager.withdraw(
-        "cetus",
+        'cetus',
         withdrawAmount,
-        this.config.cetusPoolId
+        this.config.cetusPoolId,
       );
 
       return await this.executeTransaction(
-        txb, 
-        `Cetus withdraw (Pool ${this.config.cetusPoolId}, Amount: ${withdrawAmount})`
+        txb,
+        `Cetus withdraw (Pool ${this.config.cetusPoolId}, Amount: ${withdrawAmount})`,
       );
     } catch (error) {
       this.log(`Cetus withdraw test failed: ${error}`, 'error');
@@ -312,31 +321,28 @@ class WithdrawTester {
 
   async testPartialWithdraw(): Promise<boolean> {
     if (!this.config.testPartialWithdraw) {
-      this.log("Skipping partial withdraw test as requested");
+      this.log('Skipping partial withdraw test as requested');
       return true;
     }
 
-    this.log("=== Testing Partial Withdraw (25%) ===");
-    
+    this.log('=== Testing Partial Withdraw (25%) ===');
+
     try {
       const receipts = await this.getReceipts(this.config.bluefinPoolId);
       if (receipts.length === 0) {
-        this.log("No receipts found. Skipping partial withdraw test.", 'warn');
+        this.log('No receipts found. Skipping partial withdraw test.', 'warn');
         return true;
       }
 
       const withdrawAmount = await this.calculateWithdrawAmount(receipts, 25);
 
       const txb = await this.transactionManager.withdraw(
-        "bluefin",
+        'bluefin',
         withdrawAmount,
-        this.config.bluefinPoolId
+        this.config.bluefinPoolId,
       );
 
-      return await this.executeTransaction(
-        txb, 
-        `Partial withdraw (25% of position)`
-      );
+      return await this.executeTransaction(txb, `Partial withdraw (25% of position)`);
     } catch (error) {
       this.log(`Partial withdraw test failed: ${error}`, 'error');
       return false;
@@ -345,31 +351,28 @@ class WithdrawTester {
 
   async testFullWithdraw(): Promise<boolean> {
     if (!this.config.testFullWithdraw) {
-      this.log("Skipping full withdraw test as requested");
+      this.log('Skipping full withdraw test as requested');
       return true;
     }
 
-    this.log("=== Testing Full Withdraw (100%) ===");
-    
+    this.log('=== Testing Full Withdraw (100%) ===');
+
     try {
       const receipts = await this.getReceipts(this.config.bluefinPoolId);
       if (receipts.length === 0) {
-        this.log("No receipts found. Skipping full withdraw test.", 'warn');
+        this.log('No receipts found. Skipping full withdraw test.', 'warn');
         return true;
       }
 
       const withdrawAmount = await this.calculateWithdrawAmount(receipts, 100);
 
       const txb = await this.transactionManager.withdraw(
-        "bluefin",
+        'bluefin',
         withdrawAmount,
-        this.config.bluefinPoolId
+        this.config.bluefinPoolId,
       );
 
-      return await this.executeTransaction(
-        txb, 
-        `Full withdraw (100% of position)`
-      );
+      return await this.executeTransaction(txb, `Full withdraw (100% of position)`);
     } catch (error) {
       this.log(`Full withdraw test failed: ${error}`, 'error');
       return false;
@@ -377,13 +380,13 @@ class WithdrawTester {
   }
 
   async testReceiptValidation(): Promise<boolean> {
-    this.log("=== Testing Receipt Validation ===");
-    
+    this.log('=== Testing Receipt Validation ===');
+
     try {
       const receipts = await this.getReceipts(this.config.bluefinPoolId);
-      
+
       if (receipts.length === 0) {
-        this.log("No receipts found - this is expected if no deposits were made", 'info');
+        this.log('No receipts found - this is expected if no deposits were made', 'info');
         return true;
       }
 
@@ -405,31 +408,31 @@ class WithdrawTester {
   }
 
   async runAllTests(): Promise<void> {
-    this.log("Starting withdraw tests...");
-    
+    this.log('Starting withdraw tests...');
+
     await this.checkBalance();
-    
+
     const results = {
       receiptValidation: await this.testReceiptValidation(),
       bluefinWithdraw: await this.testBluefinWithdraw(),
-    //   naviWithdraw: await this.testNaviWithdraw(),
-    //   cetusWithdraw: await this.testCetusWithdraw(),
-    //   partialWithdraw: await this.testPartialWithdraw(),
-    //   fullWithdraw: await this.testFullWithdraw(),
+      //   naviWithdraw: await this.testNaviWithdraw(),
+      //   cetusWithdraw: await this.testCetusWithdraw(),
+      //   partialWithdraw: await this.testPartialWithdraw(),
+      //   fullWithdraw: await this.testFullWithdraw(),
     };
 
     // Summary
-    this.log("=== Withdraw Test Results ===");
+    this.log('=== Withdraw Test Results ===');
     Object.entries(results).forEach(([test, passed]) => {
       const status = passed ? '✅ PASSED' : '❌ FAILED';
       this.log(`${test}: ${status}`);
     });
 
-    const allPassed = Object.values(results).every(result => result);
+    const allPassed = Object.values(results).every((result) => result);
     if (allPassed) {
-      this.log("All withdraw tests completed successfully! 🎉");
+      this.log('All withdraw tests completed successfully! 🎉');
     } else {
-      this.log("Some withdraw tests failed. Check the logs above for details.", 'warn');
+      this.log('Some withdraw tests failed. Check the logs above for details.', 'warn');
     }
   }
 }
@@ -437,7 +440,7 @@ class WithdrawTester {
 // Extended configuration with withdraw-specific settings
 function loadWithdrawConfig(): WithdrawTestConfig {
   const baseConfig = loadConfig();
-  
+
   return {
     ...baseConfig,
     withdrawAmounts: {
@@ -451,18 +454,17 @@ function loadWithdrawConfig(): WithdrawTestConfig {
 
 async function main() {
   try {
-    console.log("=== AlphaFi SDK Withdraw Test Suite ===");
-    
+    console.log('=== AlphaFi SDK Withdraw Test Suite ===');
+
     const config = loadWithdrawConfig();
     console.log(`Network: ${config.network}`);
     console.log(`Dry Run: ${config.dryRun}`);
     console.log(`Withdraw Percentage: ${config.withdrawAmounts.percentage}%`);
-    
+
     const tester = new WithdrawTester(config);
     await tester.runAllTests();
-    
   } catch (error) {
-    console.error("Test suite failed:", error);
+    console.error('Test suite failed:', error);
     process.exit(1);
   }
 }
@@ -472,4 +474,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch(console.error);
 }
 
-export { WithdrawTester, loadWithdrawConfig }; 
+export { WithdrawTester, loadWithdrawConfig };

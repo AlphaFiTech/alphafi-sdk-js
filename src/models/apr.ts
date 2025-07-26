@@ -1,7 +1,7 @@
-import { Decimal } from "decimal.js";
-import { PoolDetails, poolDetailsMap } from "../common/maps.ts";
-import { SuiClient } from "@mysten/sui/client";
-import { getConf } from "../common/constants.js";
+import { Decimal } from 'decimal.js';
+import { PoolDetails, poolDetailsMap } from '../common/maps.ts';
+import { SuiClient } from '@mysten/sui/client';
+import { getConf } from '../common/constants.js';
 
 export type PoolName = string;
 
@@ -92,7 +92,7 @@ export class APRManager {
   ): Promise<Record<string, number>> {
     const endTime = Date.now();
     const startTime = endTime - (options?.timeframe || 24) * 60 * 60 * 1000; // Default 24 hours
-    
+
     try {
       const events = await this.fetchAutoCompoundingEvents({
         startTime,
@@ -103,7 +103,8 @@ export class APRManager {
       const aprMap = await this.calculateAprForPools(events);
 
       // Ensure all pools have an APR entry (default to 0 if no events)
-      const targetPools = poolNames || Object.keys(poolDetailsMap).map(id => poolDetailsMap[Number(id)].poolName);
+      const targetPools =
+        poolNames || Object.keys(poolDetailsMap).map((id) => poolDetailsMap[Number(id)].poolName);
       for (const poolName of targetPools) {
         if (!(poolName in aprMap)) {
           aprMap[poolName] = 0;
@@ -112,7 +113,7 @@ export class APRManager {
 
       return aprMap;
     } catch (error) {
-      console.error("Error calculating APRs:", error);
+      console.error('Error calculating APRs:', error);
       // Fallback to mock data if real calculation fails
       return this.getFallbackAPRs(poolNames);
     }
@@ -126,7 +127,8 @@ export class APRManager {
     options?: APRCalculationOptions,
   ): Promise<Record<string, number>> {
     const aprMap: Record<string, number> = {};
-    const targetPools = poolNames || Object.keys(poolDetailsMap).map(id => poolDetailsMap[Number(id)].poolName);
+    const targetPools =
+      poolNames || Object.keys(poolDetailsMap).map((id) => poolDetailsMap[Number(id)].poolName);
 
     for (const poolName of targetPools) {
       try {
@@ -146,7 +148,7 @@ export class APRManager {
   async getPoolAPY(poolName: PoolName, options?: APRCalculationOptions): Promise<number> {
     const [apr, rewardApr] = await Promise.all([
       this.getPoolAPR(poolName, options),
-      this.getRewardAPRs([poolName], options).then(map => map[poolName] || 0)
+      this.getRewardAPRs([poolName], options).then((map) => map[poolName] || 0),
     ]);
     const totalApr = apr + rewardApr;
     return this.convertAprToApy(totalApr);
@@ -161,7 +163,7 @@ export class APRManager {
   ): Promise<Record<string, number>> {
     const [aprMap, rewardAprMap] = await Promise.all([
       this.getPoolAPRs(poolNames, options),
-      this.getRewardAPRs(poolNames, options)
+      this.getRewardAPRs(poolNames, options),
     ]);
 
     const apyMap: Record<string, number> = {};
@@ -181,9 +183,9 @@ export class APRManager {
   async getPoolAPRData(poolName: PoolName, options?: APRCalculationOptions): Promise<PoolAPRData> {
     const [baseAPR, rewardAPR] = await Promise.all([
       this.getPoolAPR(poolName, options),
-      this.getRewardAPRs([poolName], options).then(map => map[poolName] || 0)
+      this.getRewardAPRs([poolName], options).then((map) => map[poolName] || 0),
     ]);
-    
+
     const totalAPR = baseAPR + rewardAPR;
     const apy = this.convertAprToApy(totalAPR);
 
@@ -234,14 +236,12 @@ export class APRManager {
     count: number = 5,
     options?: APRCalculationOptions,
   ): Promise<PoolAPRData[]> {
-    const poolNames = Object.keys(poolDetailsMap).map(id => poolDetailsMap[Number(id)].poolName);
+    const poolNames = Object.keys(poolDetailsMap).map((id) => poolDetailsMap[Number(id)].poolName);
     const poolAPRs = await Promise.all(
-      poolNames.map(poolName => this.getPoolAPRData(poolName, options))
+      poolNames.map((poolName) => this.getPoolAPRData(poolName, options)),
     );
 
-    return poolAPRs
-      .sort((a, b) => b.totalAPR - a.totalAPR)
-      .slice(0, count);
+    return poolAPRs.sort((a, b) => b.totalAPR - a.totalAPR).slice(0, count);
   }
 
   /**
@@ -252,7 +252,7 @@ export class APRManager {
     options?: APRCalculationOptions,
   ): Promise<PoolPerformanceMetrics> {
     const aprData = await this.getPoolAPRData(poolName, options);
-    
+
     // These would typically be calculated from historical data
     // For now, providing simplified estimates
     const volatility = this.estimateVolatility(poolName);
@@ -284,19 +284,17 @@ export class APRManager {
     lowestRisk: PoolPerformanceMetrics;
   }> {
     const pools = await Promise.all(
-      poolNames.map(poolName => this.getPoolPerformanceMetrics(poolName, options))
+      poolNames.map((poolName) => this.getPoolPerformanceMetrics(poolName, options)),
     );
 
-    const bestAPR = pools.reduce((best, current) => 
-      current.apr > best.apr ? current : best
+    const bestAPR = pools.reduce((best, current) => (current.apr > best.apr ? current : best));
+
+    const bestSharpe = pools.reduce((best, current) =>
+      current.sharpeRatio > best.sharpeRatio ? current : best,
     );
-    
-    const bestSharpe = pools.reduce((best, current) => 
-      current.sharpeRatio > best.sharpeRatio ? current : best
-    );
-    
-    const lowestRisk = pools.reduce((best, current) => 
-      current.volatility < best.volatility ? current : best
+
+    const lowestRisk = pools.reduce((best, current) =>
+      current.volatility < best.volatility ? current : best,
     );
 
     return {
@@ -318,39 +316,50 @@ export class APRManager {
     try {
       // Get investor IDs for the specified pools
       const investorIds = this.getInvestorIdsForPools(params.poolNames);
-      
+
       const events: AutoCompoundingEvent[] = [];
-      
+
       for (const investorId of investorIds) {
         try {
           // Query events for each investor
           const investorEvents = await this.client.queryEvents({
             query: {
-              MoveEventType: "0x9bbd650b8442abb082c20f3bc95a9434a8d47b4bef98b0832dab57c1a8ba7e5b::alphafi_investor::AutoCompoundingEvent",
+              MoveEventType:
+                '0x9bbd650b8442abb082c20f3bc95a9434a8d47b4bef98b0832dab57c1a8ba7e5b::alphafi_investor::AutoCompoundingEvent',
             },
             limit: 100,
-            order: 'descending'
+            order: 'descending',
           });
 
           // Filter and parse events
           for (const eventWrapper of investorEvents.data) {
             const event = eventWrapper.parsedJson as any;
-            if (event && 
-                event.timestamp >= params.startTime && 
-                event.timestamp <= params.endTime &&
-                event.investor_id === investorId) {
+            if (
+              event &&
+              event.timestamp >= params.startTime &&
+              event.timestamp <= params.endTime &&
+              event.investor_id === investorId
+            ) {
               events.push({
                 investor_id: event.investor_id,
                 timestamp: event.timestamp,
                 compound_amount: event.compound_amount ? BigInt(event.compound_amount) : undefined,
-                compound_amount_a: event.compound_amount_a ? BigInt(event.compound_amount_a) : undefined,
-                compound_amount_b: event.compound_amount_b ? BigInt(event.compound_amount_b) : undefined,
+                compound_amount_a: event.compound_amount_a
+                  ? BigInt(event.compound_amount_a)
+                  : undefined,
+                compound_amount_b: event.compound_amount_b
+                  ? BigInt(event.compound_amount_b)
+                  : undefined,
                 total_amount: event.total_amount ? BigInt(event.total_amount) : undefined,
                 total_amount_a: event.total_amount_a ? BigInt(event.total_amount_a) : undefined,
                 total_amount_b: event.total_amount_b ? BigInt(event.total_amount_b) : undefined,
                 cur_total_debt: event.cur_total_debt ? BigInt(event.cur_total_debt) : undefined,
-                accrued_interest: event.accrued_interest ? BigInt(event.accrued_interest) : undefined,
-                blue_reward_amount: event.blue_reward_amount ? BigInt(event.blue_reward_amount) : undefined,
+                accrued_interest: event.accrued_interest
+                  ? BigInt(event.accrued_interest)
+                  : undefined,
+                blue_reward_amount: event.blue_reward_amount
+                  ? BigInt(event.blue_reward_amount)
+                  : undefined,
               });
             }
           }
@@ -361,7 +370,7 @@ export class APRManager {
 
       return events.sort((a, b) => a.timestamp - b.timestamp);
     } catch (error) {
-      console.error("Error fetching auto-compounding events:", error);
+      console.error('Error fetching auto-compounding events:', error);
       return [];
     }
   }
@@ -369,7 +378,9 @@ export class APRManager {
   /**
    * Calculate APR for pools based on auto-compounding events
    */
-  private async calculateAprForPools(events: AutoCompoundingEvent[]): Promise<Record<PoolName, number>> {
+  private async calculateAprForPools(
+    events: AutoCompoundingEvent[],
+  ): Promise<Record<PoolName, number>> {
     const aprMap: Record<string, number> = {};
     const investorPoolNameMap = this.getInvestorPoolNameMap();
 
@@ -386,7 +397,9 @@ export class APRManager {
   /**
    * Calculate APR for individual investors
    */
-  private async calculateAprForInvestors(events: AutoCompoundingEvent[]): Promise<Record<string, number>> {
+  private async calculateAprForInvestors(
+    events: AutoCompoundingEvent[],
+  ): Promise<Record<string, number>> {
     const investorEvents: Record<string, AutoCompoundingEvent[]> = {};
 
     // Step 1: Segregate events by investor_id
@@ -446,8 +459,12 @@ export class APRManager {
         const timeDiff = event.timestamp - previousTimestamp;
         let growthRate = 0;
 
-        if (event.total_amount_a !== undefined && event.total_amount_b !== undefined && 
-            event.compound_amount_a !== undefined && event.compound_amount_b !== undefined) {
+        if (
+          event.total_amount_a !== undefined &&
+          event.total_amount_b !== undefined &&
+          event.compound_amount_a !== undefined &&
+          event.compound_amount_b !== undefined
+        ) {
           // Double asset pool calculation
           let growthA = 0;
           let growthB = 0;
@@ -457,13 +474,18 @@ export class APRManager {
           } else {
             prevCompoundA = 0n;
           }
-          
+
           if (prevCompoundA > 0n) {
-            growthA = Number(event.total_amount_a) === 0 ? 0 :
-              Number(event.compound_amount_a + prevCompoundA) / Number(event.total_amount_a - prevCompoundA);
+            growthA =
+              Number(event.total_amount_a) === 0
+                ? 0
+                : Number(event.compound_amount_a + prevCompoundA) /
+                  Number(event.total_amount_a - prevCompoundA);
           } else {
-            growthA = Number(event.total_amount_a) === 0 ? 0 :
-              Number(event.compound_amount_a) / Number(event.total_amount_a);
+            growthA =
+              Number(event.total_amount_a) === 0
+                ? 0
+                : Number(event.compound_amount_a) / Number(event.total_amount_a);
           }
 
           if (Number(event.total_amount_b) === 0) {
@@ -473,11 +495,16 @@ export class APRManager {
           }
 
           if (prevCompoundB > 0n) {
-            growthB = Number(event.total_amount_b) === 0 ? 0 :
-              Number(event.compound_amount_b + prevCompoundB) / Number(event.total_amount_b - prevCompoundB);
+            growthB =
+              Number(event.total_amount_b) === 0
+                ? 0
+                : Number(event.compound_amount_b + prevCompoundB) /
+                  Number(event.total_amount_b - prevCompoundB);
           } else {
-            growthB = Number(event.total_amount_b) === 0 ? 0 :
-              Number(event.compound_amount_b) / Number(event.total_amount_b);
+            growthB =
+              Number(event.total_amount_b) === 0
+                ? 0
+                : Number(event.compound_amount_b) / Number(event.total_amount_b);
           }
 
           growthRate = (growthA + growthB) / 2;
@@ -493,7 +520,7 @@ export class APRManager {
           // Single asset pool calculation
           let compoundAmount = Number(event.compound_amount);
           let totalAmount = Number(event.total_amount);
-          
+
           if (event.cur_total_debt !== undefined && event.accrued_interest !== undefined) {
             compoundAmount = Number(event.compound_amount - event.accrued_interest);
             totalAmount = Number(event.total_amount - event.cur_total_debt);
@@ -516,7 +543,7 @@ export class APRManager {
 
       apr = (totalGrowth / totalTimeSpan) * (1000 * 60 * 60 * 24 * 365) * 100;
     } catch (error) {
-      console.error("Error calculating APR from events:", error);
+      console.error('Error calculating APR from events:', error);
     }
 
     return apr;
@@ -539,14 +566,14 @@ export class APRManager {
 
       // Different reward APRs based on protocol and strategy
       switch (poolDetails.parentProtocolName) {
-        case "ALPHA":
+        case 'ALPHA':
           return 2.5; // ALPHA pool typically has higher reward APR
-        case "NAVI":
-          return poolDetails.strategyType === "SINGLE-ASSET-LOOPING" ? 1.8 : 1.2;
-        case "CETUS":
-        case "BLUEFIN":
+        case 'NAVI':
+          return poolDetails.strategyType === 'SINGLE-ASSET-LOOPING' ? 1.8 : 1.2;
+        case 'CETUS':
+        case 'BLUEFIN':
           return 1.5; // LP pools get moderate rewards
-        case "BUCKET":
+        case 'BUCKET':
           return 0.8; // Stable strategies get lower rewards
         default:
           return 1.0;
@@ -569,7 +596,8 @@ export class APRManager {
    * Get investor IDs for specified pools
    */
   private getInvestorIdsForPools(poolNames?: PoolName[]): string[] {
-    const targetPools = poolNames || Object.keys(poolDetailsMap).map(id => poolDetailsMap[Number(id)].poolName);
+    const targetPools =
+      poolNames || Object.keys(poolDetailsMap).map((id) => poolDetailsMap[Number(id)].poolName);
     const investorIds: string[] = [];
 
     for (const poolName of targetPools) {
@@ -587,7 +615,7 @@ export class APRManager {
    */
   private getInvestorPoolNameMap(): Map<string, PoolName> {
     const map = new Map<string, PoolName>();
-    
+
     for (const [poolId, poolDetails] of Object.entries(poolDetailsMap)) {
       if (poolDetails.investorId) {
         map.set(poolDetails.investorId, poolDetails.poolName);
@@ -601,8 +629,8 @@ export class APRManager {
    * Get pool details by name
    */
   private getPoolDetails(poolName: PoolName): PoolDetails | null {
-    const poolEntry = Object.entries(poolDetailsMap).find(([, details]) => 
-      details.poolName === poolName
+    const poolEntry = Object.entries(poolDetailsMap).find(
+      ([, details]) => details.poolName === poolName,
     );
     return poolEntry ? poolEntry[1] : null;
   }
@@ -612,18 +640,19 @@ export class APRManager {
    */
   private getFallbackAPRs(poolNames?: PoolName[]): Record<string, number> {
     const aprMap: Record<string, number> = {};
-    const targetPools = poolNames || Object.keys(poolDetailsMap).map(id => poolDetailsMap[Number(id)].poolName);
-    
+    const targetPools =
+      poolNames || Object.keys(poolDetailsMap).map((id) => poolDetailsMap[Number(id)].poolName);
+
     for (const poolName of targetPools) {
       const poolDetails = this.getPoolDetails(poolName);
       if (poolDetails) {
         // Return conservative APRs based on strategy type
         switch (poolDetails.strategyType) {
-          case "SINGLE-ASSET-LOOPING":
+          case 'SINGLE-ASSET-LOOPING':
             aprMap[poolName] = 12;
-          case "DOUBLE-ASSET-STRATEGY":
+          case 'DOUBLE-ASSET-STRATEGY':
             aprMap[poolName] = 8;
-          case "SINGLE-ASSET-POOL":
+          case 'SINGLE-ASSET-POOL':
             aprMap[poolName] = 5;
           default:
             aprMap[poolName] = 6;
@@ -642,17 +671,17 @@ export class APRManager {
   private estimateVolatility(poolName: PoolName): number {
     const poolDetails = this.getPoolDetails(poolName);
     if (!poolDetails) return 10;
-    
+
     // Simplified volatility estimates based on pool type
     switch (poolDetails.parentProtocolName) {
-      case "NAVI":
-        return poolDetails.strategyType.includes("LOOPING") ? 15 : 8;
-      case "CETUS":
-      case "BLUEFIN":
+      case 'NAVI':
+        return poolDetails.strategyType.includes('LOOPING') ? 15 : 8;
+      case 'CETUS':
+      case 'BLUEFIN':
         return 12; // LP pools have moderate volatility
-      case "BUCKET":
+      case 'BUCKET':
         return 6; // Stablecoin strategies
-      case "ALPHAFI":
+      case 'ALPHAFI':
         return 10; // ALPHA token pools
       default:
         return 10;
@@ -706,4 +735,4 @@ export class APRManager {
       }
     }
   }
-} 
+}

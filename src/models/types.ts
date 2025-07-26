@@ -1,1 +1,1 @@
-export type SuiNetwork = "mainnet" | "testnet" | "devnet" | "localnet";
+export type SuiNetwork = 'mainnet' | 'testnet' | 'devnet' | 'localnet';

@@ -1,6 +1,6 @@
 /**
  * AlphaFi SDK for JavaScript
- * 
+ *
  * This SDK provides a comprehensive set of tools to interact with the AlphaFi platform.
  */
 
@@ -14,4 +14,4 @@ export * from './core/index.js';
 export * from './utils/index.js';
 
 // Export models/types
-export * from './models/index.js'; 
+export * from './models/index.js';

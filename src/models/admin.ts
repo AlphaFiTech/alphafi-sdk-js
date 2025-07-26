@@ -1,11 +1,11 @@
-import { Decimal } from "decimal.js";
-import { PoolDetails, poolDetailsMap } from "../common/maps.js";
-import { SuiClient } from "@mysten/sui/client";
-import { Transaction } from "@mysten/sui/transactions";
-import { getConf } from "../common/constants.js";
-import { PoolUtils } from "./pool.js";
-import { Blockchain } from "./blockchain.js";
-import BN from "bn.js";
+import { Decimal } from 'decimal.js';
+import { PoolDetails, poolDetailsMap } from '../common/maps.js';
+import { SuiClient } from '@mysten/sui/client';
+import { Transaction } from '@mysten/sui/transactions';
+import { getConf } from '../common/constants.js';
+import { PoolUtils } from './pool.js';
+import { Blockchain } from './blockchain.js';
+import BN from 'bn.js';
 
 export type PoolName = string;
 export type CoinName = string;
@@ -107,11 +107,11 @@ export class AdminManager {
       }
 
       const currentSqrtPrice = parentPool.content.fields.current_sqrt_price;
-      
+
       // Convert sqrt price to tick using simplified calculation
       // In production, this would use TickMath.sqrtPriceX64ToTickIndex()
       const tick = this.sqrtPriceToTick(currentSqrtPrice);
-      
+
       return tick;
     } catch (error) {
       console.error(`Error getting current tick for ${poolName}:`, error);
@@ -180,7 +180,7 @@ export class AdminManager {
       // Simplified price calculation from tick
       // In production, this would use TickMath.tickIndexToPrice()
       const price = this.tickToPrice(tick, 9, 9); // Assuming 9 decimals for both tokens
-      
+
       return price.toString();
     } catch (error) {
       console.error(`Error converting tick to price for ${poolName}:`, error);
@@ -192,10 +192,10 @@ export class AdminManager {
    * Convert price to tick for a given pool
    */
   getPriceToTick(
-    poolName: PoolName, 
-    price: string, 
-    tickSpacing: number, 
-    isUpper: boolean = false
+    poolName: PoolName,
+    price: string,
+    tickSpacing: number,
+    isUpper: boolean = false,
   ): number {
     try {
       const poolDetails = this.getPoolDetails(poolName);
@@ -246,13 +246,15 @@ export class AdminManager {
       let tickSpacing = 1;
       const protocol = poolDetails.parentProtocolName;
 
-      if (protocol === "CETUS") {
+      if (protocol === 'CETUS') {
         if ('tick_spacing' in parentPool.content.fields) {
           tickSpacing = Number(parentPool.content.fields.tick_spacing);
         }
-      } else if (protocol === "BLUEFIN") {
-        if ('ticks_manager' in parentPool.content.fields && 
-            parentPool.content.fields.ticks_manager.fields.tick_spacing) {
+      } else if (protocol === 'BLUEFIN') {
+        if (
+          'ticks_manager' in parentPool.content.fields &&
+          parentPool.content.fields.ticks_manager.fields.tick_spacing
+        ) {
           tickSpacing = Number(parentPool.content.fields.ticks_manager.fields.tick_spacing);
         }
       }
@@ -261,11 +263,11 @@ export class AdminManager {
         tickSpacing,
         protocol,
       };
-         } catch (error) {
-       console.error(`Error getting tick spacing for ${poolName}:`, error);
-       const poolDetails = this.getPoolDetails(poolName);
-       return { tickSpacing: 1, protocol: poolDetails?.parentProtocolName || "UNKNOWN" };
-     }
+    } catch (error) {
+      console.error(`Error getting tick spacing for ${poolName}:`, error);
+      const poolDetails = this.getPoolDetails(poolName);
+      return { tickSpacing: 1, protocol: poolDetails?.parentProtocolName || 'UNKNOWN' };
+    }
   }
 
   /**
@@ -274,9 +276,9 @@ export class AdminManager {
   async setWeights(params: SetWeightsParams, options?: AdminOptions): Promise<Transaction> {
     try {
       const { poolNames, weights, coinType, adminAddress } = params;
-      
+
       if (poolNames.length !== weights.length) {
-        throw new Error("Pool names and weights arrays must have the same length");
+        throw new Error('Pool names and weights arrays must have the same length');
       }
 
       // Get pool IDs from names
@@ -292,7 +294,7 @@ export class AdminManager {
       // Get admin capability
       const adminCap = await this.getAdminCap(adminAddress);
       if (!adminCap) {
-        throw new Error("No admin capability found for the provided address");
+        throw new Error('No admin capability found for the provided address');
       }
 
       // Create transaction
@@ -308,15 +310,15 @@ export class AdminManager {
           txb.object(adminCap),
           txb.object(getConf().ALPHA_DISTRIBUTOR),
           txb.object(getConf().VERSION),
-          txb.pure.vector("id", poolIds),
-          txb.pure.vector("u64", weights),
+          txb.pure.vector('id', poolIds),
+          txb.pure.vector('u64', weights),
           txb.object(getConf().CLOCK_PACKAGE_ID),
         ],
       });
 
       return txb;
     } catch (error) {
-      console.error("Error setting weights:", error);
+      console.error('Error setting weights:', error);
       throw error;
     }
   }
@@ -325,11 +327,11 @@ export class AdminManager {
    * Get pool weight distribution for a specific coin type
    */
   async getPoolsWeightDistribution(
-    coinType: CoinName, 
-    options?: AdminOptions
+    coinType: CoinName,
+    options?: AdminOptions,
   ): Promise<PoolWeightDistribution> {
     const cacheKey = `weight_distribution_${coinType}`;
-    
+
     // Check cache first
     if (!options?.ignoreCache) {
       const cached = this.getCachedData(cacheKey);
@@ -342,7 +344,7 @@ export class AdminManager {
       // Get distributor object
       const distributor = await this.getDistributor(options?.ignoreCache);
       if (!distributor || !distributor.content.fields.pool_allocator) {
-        throw new Error("Distributor or pool allocator not found");
+        throw new Error('Distributor or pool allocator not found');
       }
 
       const allocator = distributor.content.fields.pool_allocator;
@@ -352,7 +354,7 @@ export class AdminManager {
       const totalWeightArr = allocator.fields.total_weights.fields.contents;
       let totalWeight = 0;
       const coinTypeString = this.getCoinTypeString(coinType);
-      
+
       for (const entry of totalWeightArr) {
         if (entry.fields.key.fields.name === coinTypeString.substring(2)) {
           totalWeight = Number(entry.fields.value);
@@ -366,7 +368,7 @@ export class AdminManager {
       for (const member of members) {
         const poolId = member.fields.key;
         const poolDetails = this.getPoolDetailsByPoolId(poolId);
-        
+
         if (!poolDetails) {
           continue;
         }
@@ -384,13 +386,13 @@ export class AdminManager {
           }
         }
 
-                 poolDataArray.push({
-           weight,
-           imageUrl1: poolDetails.images?.imageUrl1 || "",
-           imageUrl2: poolDetails.images?.imageUrl2 || "",
-           lockIcon: poolDetails.lockIcon || "",
-           poolName,
-         });
+        poolDataArray.push({
+          weight,
+          imageUrl1: poolDetails.images?.imageUrl1 || '',
+          imageUrl2: poolDetails.images?.imageUrl2 || '',
+          lockIcon: poolDetails.lockIcon || '',
+          poolName,
+        });
       }
 
       const result: PoolWeightDistribution = {
@@ -401,7 +403,7 @@ export class AdminManager {
 
       // Cache the result
       this.cacheData(cacheKey, result);
-      
+
       return result;
     } catch (error) {
       console.error(`Error getting pool weight distribution for ${coinType}:`, error);
@@ -451,7 +453,7 @@ export class AdminManager {
 
       return { pools: poolsInfo };
     } catch (error) {
-      console.error("Error getting all pools admin info:", error);
+      console.error('Error getting all pools admin info:', error);
       throw error;
     }
   }
@@ -478,7 +480,7 @@ export class AdminManager {
       const objectData = adminCap.data[0].data;
       return objectData ? objectData.objectId : null;
     } catch (error) {
-      console.error("Error getting admin capability:", error);
+      console.error('Error getting admin capability:', error);
       return null;
     }
   }
@@ -498,7 +500,7 @@ export class AdminManager {
 
       return distributor.data;
     } catch (error) {
-      console.error("Error getting distributor:", error);
+      console.error('Error getting distributor:', error);
       return null;
     }
   }
@@ -545,8 +547,8 @@ export class AdminManager {
    * Helper: Get pool details by name
    */
   private getPoolDetails(poolName: PoolName): PoolDetails | null {
-    const poolEntry = Object.entries(poolDetailsMap).find(([, details]) => 
-      details.poolName === poolName
+    const poolEntry = Object.entries(poolDetailsMap).find(
+      ([, details]) => details.poolName === poolName,
     );
     return poolEntry ? poolEntry[1] : null;
   }
@@ -555,8 +557,8 @@ export class AdminManager {
    * Helper: Get pool details by pool ID
    */
   private getPoolDetailsByPoolId(poolId: string): PoolDetails | null {
-    const poolEntry = Object.entries(poolDetailsMap).find(([, details]) => 
-      details.poolId === poolId
+    const poolEntry = Object.entries(poolDetailsMap).find(
+      ([, details]) => details.poolId === poolId,
     );
     return poolEntry ? poolEntry[1] : null;
   }
@@ -565,8 +567,8 @@ export class AdminManager {
    * Helper: Get pool ID from pool name
    */
   private getPoolIdFromName(poolName: PoolName): number | null {
-    const poolEntry = Object.entries(poolDetailsMap).find(([, details]) => 
-      details.poolName === poolName
+    const poolEntry = Object.entries(poolDetailsMap).find(
+      ([, details]) => details.poolName === poolName,
     );
     return poolEntry ? Number(poolEntry[0]) : null;
   }
@@ -598,4 +600,4 @@ export class AdminManager {
   clearCache(): void {
     this.cache.clear();
   }
-} 
+}

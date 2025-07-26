@@ -27,7 +27,9 @@
     "test:deposits:build": "tsc scripts/testDeposits.ts --outDir scripts/build --module esnext --target es2022 --moduleResolution node --esModuleInterop && node scripts/build/testDeposits.js",
     "test:deposits:clean": "NODE_OPTIONS='--no-deprecation --no-warnings' npx ts-node --esm scripts/testDeposits.ts",
     "test:withdraws": "npx tsx scripts/testWithdraws.ts",
-    "docs": "typedoc"
+    "docs": "typedoc",
+    "pre-commit:install": "pre-commit install",
+    "pre-commit:run": "pre-commit run --all-files"
   },
   "keywords": [],
   "author": "",
@@ -48,6 +50,7 @@
     "eslint-plugin-prettier": "^5.2.1",
     "eslint-plugin-react": "^7.37.2",
     "jest": "^29.7.0",
+    "prettier": "^3.3.3",
     "ts-jest": "^29.3.4",
     "ts-node": "^10.9.2",
     "tslib": "^2.8.1",

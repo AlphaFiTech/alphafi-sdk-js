@@ -12,7 +12,7 @@ import {
   CetusParentPoolQueryType,
   BluefinParentPoolQueryType,
   DefaultReceiptQueryType,
-} from "./queryTypes.js";
+} from './queryTypes.js';
 
 import {
   DefaultPoolType,
@@ -28,7 +28,7 @@ import {
   DistributorType,
   CetusParentPoolType,
   BluefinParentPoolType,
-} from "./parsedTypes.js";
+} from './parsedTypes.js';
 
 // Helper function to parse flat contents array with key-value structure
 function parseContentsArray(
@@ -104,9 +104,7 @@ export function parsePool(query: DefaultPoolQueryType): DefaultPoolType {
   };
 }
 
-export function parseFungiblePool(
-  query: FungiblePoolQueryType,
-): FungiblePoolType {
+export function parseFungiblePool(query: FungiblePoolQueryType): FungiblePoolType {
   return {
     deposit_fee: query.content.fields.deposit_fee,
     deposit_fee_max_cap: query.content.fields.deposit_fee_max_cap,
@@ -115,8 +113,7 @@ export function parseFungiblePool(
     tokensInvested: query.content.fields.tokensInvested,
     treasury_cap: {
       id: query.content.fields.treasury_cap.fields.id.id,
-      total_supply:
-        query.content.fields.treasury_cap.fields.total_supply.fields.value,
+      total_supply: query.content.fields.treasury_cap.fields.total_supply.fields.value,
     },
     withdraw_fee_max_cap: query.content.fields.withdraw_fee_max_cap,
     withdrawal_fee: query.content.fields.withdrawal_fee,
@@ -134,8 +131,7 @@ export function parseAlphaPool(query: AlphaPoolQueryType): AlphaPoolType {
     id: query.content.fields.id.id,
     image_url: query.content.fields.image_url,
     instant_withdraw_fee: query.content.fields.instant_withdraw_fee,
-    instant_withdraw_fee_max_cap:
-      query.content.fields.instant_withdraw_fee_max_cap,
+    instant_withdraw_fee_max_cap: query.content.fields.instant_withdraw_fee_max_cap,
     locked_period_in_ms: query.content.fields.locked_period_in_ms,
     locking_start_ms: query.content.fields.locking_start_ms,
     name: query.content.fields.name,
@@ -155,9 +151,7 @@ export function parseAlphaPool(query: AlphaPoolQueryType): AlphaPoolType {
 
 // <--------- Parent Pool Parsers --------->
 
-export function parseCetusParentPool(
-  query: CetusParentPoolQueryType,
-): CetusParentPoolType {
+export function parseCetusParentPool(query: CetusParentPoolQueryType): CetusParentPoolType {
   return {
     coin_a: query.content.fields.coin_a,
     coin_b: query.content.fields.coin_b,
@@ -173,42 +167,31 @@ export function parseCetusParentPool(
     is_pause: query.content.fields.is_pause,
     liquidity: query.content.fields.liquidity,
     position_manager: {
-      position_index:
-        query.content.fields.position_manager.fields.position_index,
+      position_index: query.content.fields.position_manager.fields.position_index,
       positions: {
-        head: query.content.fields.position_manager.fields.positions.fields
-          .head,
+        head: query.content.fields.position_manager.fields.positions.fields.head,
         id: query.content.fields.position_manager.fields.positions.fields.id.id,
-        size: query.content.fields.position_manager.fields.positions.fields
-          .size,
-        tail: query.content.fields.position_manager.fields.positions.fields
-          .tail,
+        size: query.content.fields.position_manager.fields.positions.fields.size,
+        tail: query.content.fields.position_manager.fields.positions.fields.tail,
       },
       tick_spacing: query.content.fields.position_manager.fields.tick_spacing,
     },
     rewarder_manager: {
-      last_updated_time:
-        query.content.fields.rewarder_manager.fields.last_updated_time,
-      points_growth_global:
-        query.content.fields.rewarder_manager.fields.points_growth_global,
-      points_released:
-        query.content.fields.rewarder_manager.fields.points_released,
-      rewarders: query.content.fields.rewarder_manager.fields.rewarders.map(
-        (rewarder: any) => ({
-          emissions_per_second: rewarder.fields.emissions_per_second,
-          growth_global: rewarder.fields.growth_global,
-          reward_coin: rewarder.fields.reward_coin.fields.name,
-        }),
-      ),
+      last_updated_time: query.content.fields.rewarder_manager.fields.last_updated_time,
+      points_growth_global: query.content.fields.rewarder_manager.fields.points_growth_global,
+      points_released: query.content.fields.rewarder_manager.fields.points_released,
+      rewarders: query.content.fields.rewarder_manager.fields.rewarders.map((rewarder: any) => ({
+        emissions_per_second: rewarder.fields.emissions_per_second,
+        growth_global: rewarder.fields.growth_global,
+        reward_coin: rewarder.fields.reward_coin.fields.name,
+      })),
     },
     tick_spacing: query.content.fields.tick_spacing,
     url: query.content.fields.url,
   };
 }
 
-export function parseBluefinParentPool(
-  query: BluefinParentPoolQueryType,
-): BluefinParentPoolType {
+export function parseBluefinParentPool(query: BluefinParentPoolQueryType): BluefinParentPoolType {
   return {
     coin_a: query.content.fields.coin_a,
     coin_b: query.content.fields.coin_b,
@@ -223,14 +206,12 @@ export function parseBluefinParentPool(
     liquidity: query.content.fields.liquidity,
     name: query.content.fields.name,
     observations_manager: {
-      observation_index:
-        query.content.fields.observations_manager.fields.observation_index,
+      observation_index: query.content.fields.observations_manager.fields.observation_index,
       observations: query.content.fields.observations_manager.fields.observations,
       observation_cardinality:
         query.content.fields.observations_manager.fields.observation_cardinality,
       observation_cardinality_next:
-        query.content.fields.observations_manager.fields
-          .observation_cardinality_next,
+        query.content.fields.observations_manager.fields.observation_cardinality_next,
     },
     position_index: query.content.fields.position_index,
     protocol_fee_coin_a: query.content.fields.protocol_fee_coin_a,
@@ -254,9 +235,7 @@ export function parseBluefinParentPool(
 
 // <--------- Investor Parsers --------->
 
-export function parseCetusInvestor(
-  query: CetusInvestorQueryType,
-): CetusInvestorType {
+export function parseCetusInvestor(query: CetusInvestorQueryType): CetusInvestorType {
   return {
     emergency_balance_a: query.content.fields.emergency_balance_a,
     emergency_balance_b: query.content.fields.emergency_balance_b,
@@ -276,9 +255,7 @@ export function parseCetusInvestor(
   };
 }
 
-export function parseNaviInvestor(
-  query: NaviInvestorQueryType,
-): NaviInvestorType {
+export function parseNaviInvestor(query: NaviInvestorQueryType): NaviInvestorType {
   return {
     free_rewards: {
       id: query.content.fields.free_rewards.fields.id.id,
@@ -296,12 +273,9 @@ export function parseNaviInvestor(
   };
 }
 
-export function parseNaviLoopInvestor(
-  query: NaviLoopInvestorQueryType,
-): NaviLoopInvestorType {
+export function parseNaviLoopInvestor(query: NaviLoopInvestorQueryType): NaviLoopInvestorType {
   return {
-    current_debt_to_supply_ratio:
-      query.content.fields.current_debt_to_supply_ratio,
+    current_debt_to_supply_ratio: query.content.fields.current_debt_to_supply_ratio,
     free_rewards: {
       id: query.content.fields.free_rewards.fields.id.id,
       size: query.content.fields.free_rewards.fields.size,
@@ -320,9 +294,7 @@ export function parseNaviLoopInvestor(
   };
 }
 
-export function parseBucketInvestor(
-  query: BucketInvestorQueryType,
-): BucketInvestorType {
+export function parseBucketInvestor(query: BucketInvestorQueryType): BucketInvestorType {
   return {
     free_rewards: {
       id: query.content.fields.free_rewards.fields.id.id,
@@ -344,9 +316,7 @@ export function parseBucketInvestor(
   };
 }
 
-export function parseBluefinInvestor(
-  query: BluefinInvestorQueryType,
-): BluefinInvestorType {
+export function parseBluefinInvestor(query: BluefinInvestorQueryType): BluefinInvestorType {
   return {
     emergency_balance_a: query.content.fields.emergency_balance_a,
     emergency_balance_b: query.content.fields.emergency_balance_b,
@@ -368,9 +338,7 @@ export function parseBluefinInvestor(
 
 // <--------- Receipt Parsers --------->
 
-export function parseAlphaReceipt(
-  query: AlphaReceiptQueryType,
-): AlphaReceiptType {
+export function parseAlphaReceipt(query: AlphaReceiptQueryType): AlphaReceiptType {
   return {
     id: query.content.fields.id.id,
     image_url: query.content.fields.image_url,
@@ -385,9 +353,7 @@ export function parseAlphaReceipt(
     },
     name: query.content.fields.name,
     owner: query.content.fields.owner,
-    pending_rewards: parseContentsArray(
-      query.content.fields.pending_rewards.fields.contents,
-    ),
+    pending_rewards: parseContentsArray(query.content.fields.pending_rewards.fields.contents),
     pool_id: query.content.fields.pool_id,
     unlocked_xtokens: query.content.fields.unlocked_xtokens,
     xTokenBalance: query.content.fields.xTokenBalance,
@@ -395,9 +361,7 @@ export function parseAlphaReceipt(
   };
 }
 
-export function parseReceipt(
-  query: DefaultReceiptQueryType,
-): DefaultReceiptType {
+export function parseReceipt(query: DefaultReceiptQueryType): DefaultReceiptType {
   return {
     id: query.content.fields.id.id,
     image_url: query.content.fields.image_url,
@@ -406,9 +370,7 @@ export function parseReceipt(
     ),
     name: query.content.fields.name,
     owner: query.content.fields.owner,
-    pending_rewards: parseContentsArray(
-      query.content.fields.pending_rewards.fields.contents,
-    ),
+    pending_rewards: parseContentsArray(query.content.fields.pending_rewards.fields.contents),
     pool_id: query.content.fields.pool_id,
     xTokenBalance: query.content.fields.xTokenBalance,
     type: query.content.type,
@@ -425,28 +387,23 @@ export function parseDistributor(query: DistributorQueryType): DistributorType {
     fee_wallet: query.content.fields.fee_wallet,
     id: query.content.fields.id.id,
     next_halving_timestamp: query.content.fields.next_halving_timestamp,
-    onhold_receipts_wallet_address:
-      query.content.fields.onhold_receipts_wallet_address,
+    onhold_receipts_wallet_address: query.content.fields.onhold_receipts_wallet_address,
     pool_allocator: {
       id: query.content.fields.pool_allocator.fields.id.id,
-      members:
-        query.content.fields.pool_allocator.fields.members.fields.contents.map(
-          (member: any) => ({
-            key: member.fields.key,
-            value: {
-              pool_data: parseMemberPoolData(
-                member.fields.value.fields.pool_data.fields.contents,
-              ),
-            },
-          }),
-        ),
+      members: query.content.fields.pool_allocator.fields.members.fields.contents.map(
+        (member: any) => ({
+          key: member.fields.key,
+          value: {
+            pool_data: parseMemberPoolData(member.fields.value.fields.pool_data.fields.contents),
+          },
+        }),
+      ),
       rewards: {
         id: query.content.fields.pool_allocator.fields.rewards.fields.id.id,
         size: query.content.fields.pool_allocator.fields.rewards.fields.size,
       },
       total_weights: parseContentsArray(
-        query.content.fields.pool_allocator.fields.total_weights.fields
-          .contents,
+        query.content.fields.pool_allocator.fields.total_weights.fields.contents,
       ),
     },
     reward_unlock: query.content.fields.reward_unlock.fields.contents,

@@ -12,4 +12,4 @@ export const DEFAULT_OPTIONS = {
   retries: 3,
 };
 
-// Export additional constants 
+// Export additional constants

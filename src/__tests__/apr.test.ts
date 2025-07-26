@@ -60,14 +60,14 @@ describe('APRManager - Simple Tests', () => {
 
     test('should return comprehensive APR data', async () => {
       const aprData = await aprManager.getPoolAPRData('ALPHA');
-      
+
       expect(aprData).toHaveProperty('poolName', 'ALPHA');
       expect(aprData).toHaveProperty('baseAPR');
       expect(aprData).toHaveProperty('rewardAPR');
       expect(aprData).toHaveProperty('totalAPR');
       expect(aprData).toHaveProperty('apy');
       expect(aprData).toHaveProperty('lastUpdated');
-      
+
       expect(typeof aprData.baseAPR).toBe('number');
       expect(typeof aprData.rewardAPR).toBe('number');
       expect(typeof aprData.totalAPR).toBe('number');
@@ -77,42 +77,42 @@ describe('APRManager - Simple Tests', () => {
 
     test('should return batch results', async () => {
       const batch = await aprManager.getBatchAPRs(['ALPHA']);
-      
+
       expect(batch).toHaveProperty('aprs');
       expect(batch).toHaveProperty('rewardAprs');
       expect(batch).toHaveProperty('apys');
       expect(batch).toHaveProperty('calculatedAt');
-      
+
       expect(batch.calculatedAt).toBeInstanceOf(Date);
     });
 
     test('should return top performing pools', async () => {
       const topPools = await aprManager.getTopPerformingPools(3);
-      
+
       expect(Array.isArray(topPools)).toBe(true);
       expect(topPools.length).toBeLessThanOrEqual(3);
     });
 
     test('should return performance metrics', async () => {
       const metrics = await aprManager.getPoolPerformanceMetrics('ALPHA');
-      
+
       expect(metrics).toHaveProperty('poolName', 'ALPHA');
       expect(metrics).toHaveProperty('apr');
       expect(metrics).toHaveProperty('volatility');
       expect(metrics).toHaveProperty('sharpeRatio');
-      
+
       expect(typeof metrics.apr).toBe('number');
       expect(typeof metrics.volatility).toBe('number');
     });
 
     test('should compare pool performance', async () => {
       const comparison = await aprManager.comparePoolPerformance(['ALPHA', 'NAVI-SUI']);
-      
+
       expect(comparison).toHaveProperty('pools');
       expect(comparison).toHaveProperty('bestAPR');
       expect(comparison).toHaveProperty('bestSharpe');
       expect(comparison).toHaveProperty('lowestRisk');
-      
+
       expect(Array.isArray(comparison.pools)).toBe(true);
     });
   });
@@ -121,7 +121,7 @@ describe('APRManager - Simple Tests', () => {
     test('should have cache management methods', () => {
       expect(typeof aprManager.clearCache).toBe('function');
       expect(typeof aprManager.clearExpiredCache).toBe('function');
-      
+
       // Should not throw
       aprManager.clearCache();
       aprManager.clearExpiredCache();
@@ -145,7 +145,7 @@ describe('APRManager - Simple Tests', () => {
     test('should accept ignoreCache option', async () => {
       const apr1 = await aprManager.getPoolAPR('ALPHA');
       const apr2 = await aprManager.getPoolAPR('ALPHA', { ignoreCache: true });
-      
+
       expect(typeof apr1).toBe('number');
       expect(typeof apr2).toBe('number');
     });
@@ -159,7 +159,7 @@ describe('APRManager - Simple Tests', () => {
   describe('data consistency', () => {
     test('should have APY greater than or equal to APR', async () => {
       const aprData = await aprManager.getPoolAPRData('ALPHA');
-      
+
       if (aprData.totalAPR > 0) {
         expect(aprData.apy).toBeGreaterThanOrEqual(aprData.totalAPR);
       }
@@ -167,7 +167,7 @@ describe('APRManager - Simple Tests', () => {
 
     test('should have total APR equal to base plus reward APR', async () => {
       const aprData = await aprManager.getPoolAPRData('ALPHA');
-      
+
       const expectedTotal = aprData.baseAPR + aprData.rewardAPR;
       expect(aprData.totalAPR).toBeCloseTo(expectedTotal, 2);
     });
@@ -175,7 +175,7 @@ describe('APRManager - Simple Tests', () => {
     test('should return consistent results for same pool', async () => {
       const apr1 = await aprManager.getPoolAPR('ALPHA');
       const apr2 = await aprManager.getPoolAPR('ALPHA');
-      
+
       // Should be same due to caching
       expect(apr1).toBe(apr2);
     });
@@ -184,7 +184,7 @@ describe('APRManager - Simple Tests', () => {
   describe('realistic value ranges', () => {
     test('should return realistic APR values', async () => {
       const aprData = await aprManager.getPoolAPRData('ALPHA');
-      
+
       // APRs should be in reasonable range (0-100%)
       expect(aprData.baseAPR).toBeGreaterThanOrEqual(0);
       expect(aprData.baseAPR).toBeLessThan(100);
@@ -197,16 +197,16 @@ describe('APRManager - Simple Tests', () => {
       const alphaAPR = await aprManager.getPoolAPR('ALPHA');
       const naviAPR = await aprManager.getPoolAPR('NAVI-SUI');
       const cetusAPR = await aprManager.getPoolAPR('CETUS-SUI-USDC');
-      
+
       // All should be valid numbers
       expect(typeof alphaAPR).toBe('number');
       expect(typeof naviAPR).toBe('number');
       expect(typeof cetusAPR).toBe('number');
-      
+
       // They don't all have to be different (could be same by chance in mock)
       // but at least one pair should likely be different
-      const allSame = (alphaAPR === naviAPR && naviAPR === cetusAPR);
+      const allSame = alphaAPR === naviAPR && naviAPR === cetusAPR;
       expect(allSame).toBe(false);
     });
   });
-}); 
+});

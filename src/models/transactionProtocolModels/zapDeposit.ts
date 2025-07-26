@@ -1,10 +1,10 @@
-import { Transaction, TransactionObjectArgument } from "@mysten/sui/transactions";
-import { getConf } from "../../common/constants.js";
-import { poolDetailsMap } from "../../common/maps.js";
-import { Blockchain } from "../blockchain.js";
-import { coinsList } from "../../common/coins.js";
-import { CoinStruct } from "@mysten/sui/client";
-import { PoolUtils } from "../pool.js";
+import { Transaction, TransactionObjectArgument } from '@mysten/sui/transactions';
+import { getConf } from '../../common/constants.js';
+import { poolDetailsMap } from '../../common/maps.js';
+import { Blockchain } from '../blockchain.js';
+import { coinsList } from '../../common/coins.js';
+import { CoinStruct } from '@mysten/sui/client';
+import { PoolUtils } from '../pool.js';
 
 export interface ZapDepositOptions {
   inputCoinName: string;
@@ -21,7 +21,11 @@ export interface SwapResult {
 }
 
 export class ZapDepositTransactions {
-  constructor(private address: string, private blockchain: Blockchain, private poolUtils: PoolUtils) {
+  constructor(
+    private address: string,
+    private blockchain: Blockchain,
+    private poolUtils: PoolUtils,
+  ) {
     this.blockchain = blockchain;
     this.poolUtils = poolUtils;
   }
@@ -32,34 +36,34 @@ export class ZapDepositTransactions {
    * @returns Transaction ready for signing and execution
    */
   async zapDepositTx(options: ZapDepositOptions): Promise<Transaction> {
-    console.log("Creating zap deposit transaction", options);
-    
+    console.log('Creating zap deposit transaction', options);
+
     const { inputCoinName, inputCoinAmount, poolId, slippage } = options;
     const poolinfo = poolDetailsMap[poolId];
-    
+
     if (!poolinfo) {
       throw new Error(`Pool with ID ${poolId} not found in poolDetailsMap`);
     }
-    
+
     // Check if this is a dual asset pool that supports zap deposits
     if (!('tokenA' in poolinfo.assetTypes && 'tokenB' in poolinfo.assetTypes)) {
       throw new Error(`Pool ${poolId} is not a dual asset pool - zap deposits not supported`);
     }
-    
-    console.log("Pool info", poolinfo);
-    
+
+    console.log('Pool info', poolinfo);
+
     const tx = new Transaction();
-    
+
     // Get receipts for this pool
     const receipt: any[] = await this.blockchain.getReceipts(poolId, this.address);
-    
+
     // Get input coins from wallet
     const inputCoins = await this.getInputCoins(inputCoinName, inputCoinAmount);
-    
+
     if (inputCoins.length === 0) {
       throw new Error(`No ${inputCoinName} coins found in wallet`);
     }
-    
+
     // Prepare input coin
     const [inputCoin] = tx.splitCoins(tx.object(inputCoins[0].coinObjectId), [0]);
     tx.mergeCoins(
@@ -67,10 +71,10 @@ export class ZapDepositTransactions {
       inputCoins.map((c) => c.coinObjectId),
     );
     const [swapCoin] = tx.splitCoins(inputCoin, [inputCoinAmount.toString()]);
-    
+
     // Transfer remaining coins back to user
     tx.transferObjects([inputCoin], this.address);
-    
+
     // Handle receipt creation
     let someReceipt: any;
     if (receipt.length === 0) {
@@ -86,11 +90,11 @@ export class ZapDepositTransactions {
         arguments: [tx.object(receipt[0].id)],
       });
     }
-    
+
     // Perform zap logic based on pool type
-    if (poolinfo.strategyType === "CETUS") {
+    if (poolinfo.strategyType === 'CETUS') {
       return this.zapDepositCetus(tx, someReceipt, poolinfo, swapCoin, inputCoinName, slippage);
-    } else if (poolinfo.strategyType === "BLUEFIN") {
+    } else if (poolinfo.strategyType === 'BLUEFIN') {
       return this.zapDepositBluefin(tx, someReceipt, poolinfo, swapCoin, inputCoinName, slippage);
     } else {
       throw new Error(`Zap deposits not supported for strategy type: ${poolinfo.strategyType}`);
@@ -113,36 +117,36 @@ export class ZapDepositTransactions {
     poolinfo: any,
     inputCoin: TransactionObjectArgument,
     inputCoinName: string,
-    slippage: number
+    slippage: number,
   ): Promise<Transaction> {
-    console.log("Processing Cetus zap deposit");
-    
+    console.log('Processing Cetus zap deposit');
+
     // Get target token types for the pool
     const tokenAType = poolinfo.assetTypes.tokenA;
     const tokenBType = poolinfo.assetTypes.tokenB;
-    
+
     // Create zero coins for both target tokens initially
     const [coinA] = tx.moveCall({
-      target: "0x2::coin::zero",
+      target: '0x2::coin::zero',
       typeArguments: [tokenAType],
       arguments: [],
     });
-    
+
     const [coinB] = tx.moveCall({
-      target: "0x2::coin::zero",
+      target: '0x2::coin::zero',
       typeArguments: [tokenBType],
       arguments: [],
     });
-    
+
     // TODO: Implement swapping logic here
     // This would involve:
     // 1. Determine optimal split of input coin
     // 2. Swap portions to tokenA and tokenB
     // 3. Use 7k gateway or other DEX integrations
-    
+
     // For now, use placeholder logic
-    console.log("TODO: Implement Cetus swap logic for zap deposit");
-    
+    console.log('TODO: Implement Cetus swap logic for zap deposit');
+
     // Deposit into Cetus pool
     tx.moveCall({
       target: `${poolinfo.packageId}::alphafi_cetus_sui_pool::user_deposit`,
@@ -160,8 +164,8 @@ export class ZapDepositTransactions {
         tx.object(getConf().CLOCK_PACKAGE_ID),
       ],
     });
-    
-    console.log("Cetus zap deposit transaction prepared");
+
+    console.log('Cetus zap deposit transaction prepared');
     return tx;
   }
 
@@ -181,38 +185,38 @@ export class ZapDepositTransactions {
     poolinfo: any,
     inputCoin: TransactionObjectArgument,
     inputCoinName: string,
-    slippage: number
+    slippage: number,
   ): Promise<Transaction> {
-    console.log("Processing Bluefin zap deposit");
-    
+    console.log('Processing Bluefin zap deposit');
+
     // Get target token types for the pool
     const tokenAType = poolinfo.assetTypes.tokenA;
     const tokenBType = poolinfo.assetTypes.tokenB;
-    
+
     // Create zero coins for both target tokens initially
     const [coinA] = tx.moveCall({
-      target: "0x2::coin::zero",
+      target: '0x2::coin::zero',
       typeArguments: [tokenAType],
       arguments: [],
     });
-    
+
     const [coinB] = tx.moveCall({
-      target: "0x2::coin::zero",
+      target: '0x2::coin::zero',
       typeArguments: [tokenBType],
       arguments: [],
     });
-    
+
     // TODO: Implement swapping logic here
     // This would involve:
     // 1. Determine optimal split of input coin
     // 2. Swap portions to tokenA and tokenB
     // 3. Use 7k gateway or other DEX integrations
-    
+
     // For now, use placeholder logic
-    console.log("TODO: Implement Bluefin swap logic for zap deposit");
-    
+    console.log('TODO: Implement Bluefin swap logic for zap deposit');
+
     // Deposit into Bluefin pool based on pool type
-    if (poolinfo.poolName?.includes("SUI")) {
+    if (poolinfo.poolName?.includes('SUI')) {
       // SUI-based pool
       tx.moveCall({
         target: `${poolinfo.packageId}::alphafi_bluefin_sui_first_pool::user_deposit`,
@@ -249,8 +253,8 @@ export class ZapDepositTransactions {
         ],
       });
     }
-    
-    console.log("Bluefin zap deposit transaction prepared");
+
+    console.log('Bluefin zap deposit transaction prepared');
     return tx;
   }
 
@@ -263,10 +267,10 @@ export class ZapDepositTransactions {
   private async getInputCoins(coinName: string, amount: number): Promise<CoinStruct[]> {
     let coins: CoinStruct[] = [];
     let currentCursor: string | null | undefined = null;
-    
+
     // Get coin type from coinsList or use the coinName directly if it's a full type
     const coinType = coinsList[coinName]?.type || coinName;
-    
+
     try {
       do {
         const response = await this.blockchain.client.getCoins({
@@ -284,9 +288,13 @@ export class ZapDepositTransactions {
         }
       } while (true);
     } catch (error) {
-      throw new Error(`Failed to fetch ${coinName} coins: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to fetch ${coinName} coins: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
     }
-    
+
     return coins;
   }
 
@@ -300,22 +308,22 @@ export class ZapDepositTransactions {
     estimatedAmountB: string;
     swapRequired: boolean;
   }> {
-    console.log("Getting zap deposit estimate", options);
-    
+    console.log('Getting zap deposit estimate', options);
+
     const { inputCoinName, inputCoinAmount, poolId } = options;
     const poolinfo = poolDetailsMap[poolId];
-    
+
     if (!poolinfo) {
       throw new Error(`Pool with ID ${poolId} not found`);
     }
-    
+
     // TODO: Implement actual estimation logic
     // This would involve:
     // 1. Get current pool ratios
     // 2. Calculate optimal split of input token
     // 3. Get swap quotes from DEX
     // 4. Return estimated final amounts
-    
+
     return {
       estimatedAmountA: (inputCoinAmount * 0.5).toString(),
       estimatedAmountB: (inputCoinAmount * 0.5).toString(),
@@ -330,15 +338,15 @@ export class ZapDepositTransactions {
    */
   isZapDepositSupported(poolId: number): boolean {
     const poolinfo = poolDetailsMap[poolId];
-    
+
     if (!poolinfo) {
       return false;
     }
-    
+
     // Zap deposits are supported for dual asset pools (Cetus and Bluefin)
-    const supportedStrategies = ["CETUS", "BLUEFIN"];
+    const supportedStrategies = ['CETUS', 'BLUEFIN'];
     const isDualAsset = 'tokenA' in poolinfo.assetTypes && 'tokenB' in poolinfo.assetTypes;
-    
+
     return supportedStrategies.includes(poolinfo.strategyType) && isDualAsset;
   }
 
@@ -348,8 +356,17 @@ export class ZapDepositTransactions {
    */
   getSupportedInputTokens(): string[] {
     return [
-      "SUI", "USDC", "USDT", "WETH", "HASUI", "VSUI", "STSUI", 
-      "CETUS", "NAVX", "ALPHA", "BUCK"
+      'SUI',
+      'USDC',
+      'USDT',
+      'WETH',
+      'HASUI',
+      'VSUI',
+      'STSUI',
+      'CETUS',
+      'NAVX',
+      'ALPHA',
+      'BUCK',
     ];
   }
 
@@ -369,13 +386,17 @@ export class ZapDepositTransactions {
    * @param slippage - Slippage tolerance
    * @returns Minimum amounts considering slippage
    */
-  getMinimumAmounts(amountA: string, amountB: string, slippage: number): {
+  getMinimumAmounts(
+    amountA: string,
+    amountB: string,
+    slippage: number,
+  ): {
     minAmountA: string;
     minAmountB: string;
   } {
     const minAmountA = (Number(amountA) * (1 - slippage)).toString();
     const minAmountB = (Number(amountB) * (1 - slippage)).toString();
-    
+
     return { minAmountA, minAmountB };
   }
 
@@ -386,11 +407,11 @@ export class ZapDepositTransactions {
    */
   getZapPoolInfo(poolId: number) {
     const poolinfo = poolDetailsMap[poolId];
-    
+
     if (!poolinfo) {
       throw new Error(`Pool with ID ${poolId} not found`);
     }
-    
+
     return {
       poolId: poolinfo.poolId,
       poolName: poolinfo.poolName,
@@ -400,4 +421,4 @@ export class ZapDepositTransactions {
       protocol: poolinfo.strategyType.toLowerCase(),
     };
   }
-} 
+}
