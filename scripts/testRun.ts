@@ -9,14 +9,14 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export function getSuiClient(network: string) {
-  const mainnetUrl = "https://fullnode.mainnet.sui.io/";
-  const testnetUrl = "https://fullnode.testnet.sui.io/";
-  const devnetUrl = "https://fullnode.devnet.sui.io/";
+  const mainnetUrl = 'https://fullnode.mainnet.sui.io/';
+  const testnetUrl = 'https://fullnode.testnet.sui.io/';
+  const devnetUrl = 'https://fullnode.devnet.sui.io/';
 
   let rpcUrl = devnetUrl;
-  if (network === "mainnet") {
+  if (network === 'mainnet') {
     rpcUrl = mainnetUrl;
-  } else if (network === "testnet") {
+  } else if (network === 'testnet') {
     rpcUrl = testnetUrl;
   }
 
@@ -27,7 +27,7 @@ export function getSuiClient(network: string) {
 
 export function getExecStuff() {
   if (!process.env.PK_B64) {
-    throw new Error("env var PK_B64 not configured");
+    throw new Error('env var PK_B64 not configured');
   }
 
   const b64PrivateKey = process.env.PK_B64 as string;
@@ -35,7 +35,7 @@ export function getExecStuff() {
   const address = `${keypair.getPublicKey().toSuiAddress()}`;
 
   if (!process.env.NETWORK) {
-    throw new Error("env var NETWORK not configured");
+    throw new Error('env var NETWORK not configured');
   }
 
   const suiClient = getSuiClient(process.env.NETWORK);

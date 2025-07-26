@@ -37,7 +37,7 @@ export interface ClmmPool {
 /**
  * Main transaction manager that orchestrates all protocol-specific transaction builders
  */
-export class TransactionManager{
+export class TransactionManager {
   private bluefin: BluefinTransactions;
   private navi: NaviTransactions;
   private cetus: CetusTransactions;
@@ -60,11 +60,11 @@ export class TransactionManager{
    */
   getProtocolHandler(protocol: string) {
     switch (protocol.toLowerCase()) {
-      case "bluefin":
+      case 'bluefin':
         return this.bluefin;
-      case "navi":
+      case 'navi':
         return this.navi;
-      case "cetus":
+      case 'cetus':
         return this.cetus;
       default:
         throw new Error(`Unknown protocol: ${protocol}`);
@@ -76,40 +76,44 @@ export class TransactionManager{
    */
   async deposit(options: DepositOptions): Promise<Transaction> {
     try {
-    let protocol = poolDetailsMap[options.poolId].parentProtocolName.toLowerCase();
-    if (protocol === "navi" && this.poolUtils.categorizeNaviPool(poolDetailsMap[options.poolId]) === "looping") {
-      protocol = "navi-looping";
-    } else if (protocol === "navi" && this.poolUtils.categorizeNaviPool(poolDetailsMap[options.poolId]) === "single-asset") {
-      protocol = "navi";
-    }
-    switch (protocol) {
-      case "bluefin":
-        return this.bluefin.depositBluefinSuiFirstTx(options.amount, options.poolId);
-      case "navi":
-        return this.navi.depositNaviTx(options.amount, options.poolId);
-      case "cetus":
-        return this.cetus.depositCetusTx(options.amount, options.poolId, options?.isAmountA);
-      case "bucket":
-        return this.bucketTransactions.depositBucketTx(options.amount, options.poolId);
-      case "navi-looping":
-        return this.naviLoopingTransactions.depositNaviLoopingTx(options.amount, options.poolId);
-      default:
-        throw new Error(`Unknown protocol: ${protocol}`);
-    }
+      let protocol = poolDetailsMap[options.poolId].parentProtocolName.toLowerCase();
+      if (
+        protocol === 'navi' &&
+        this.poolUtils.categorizeNaviPool(poolDetailsMap[options.poolId]) === 'looping'
+      ) {
+        protocol = 'navi-looping';
+      } else if (
+        protocol === 'navi' &&
+        this.poolUtils.categorizeNaviPool(poolDetailsMap[options.poolId]) === 'single-asset'
+      ) {
+        protocol = 'navi';
+      }
+      switch (protocol) {
+        case 'bluefin':
+          return this.bluefin.depositBluefinSuiFirstTx(options.amount, options.poolId);
+        case 'navi':
+          return this.navi.depositNaviTx(options.amount, options.poolId);
+        case 'cetus':
+          return this.cetus.depositCetusTx(options.amount, options.poolId, options?.isAmountA);
+        case 'bucket':
+          return this.bucketTransactions.depositBucketTx(options.amount, options.poolId);
+        case 'navi-looping':
+          return this.naviLoopingTransactions.depositNaviLoopingTx(options.amount, options.poolId);
+        default:
+          throw new Error(`Unknown protocol: ${protocol}`);
+      }
     } catch (error) {
       throw new Error(`Deposit failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  
 
-
-/**
+  /**
    * Withdraw assets from a pool
    * @param options - Withdraw configuration options
    * @returns Transaction result with gas estimate and pool information
    */
 
-/*
+  /*
 async withdraw(options: WithdrawOptions): Promise<TransactionResult> {
   try {
     // Validate pool exists
@@ -126,7 +130,7 @@ async withdraw(options: WithdrawOptions): Promise<TransactionResult> {
 
     // Determine protocol from pool information
     const protocol = this.getProtocolFromPool(options.poolId);
-    
+
     // Create the withdraw transaction
     const transaction = await this.transactionManager.withdraw(
       protocol,
@@ -162,22 +166,31 @@ async withdraw(options: WithdrawOptions): Promise<TransactionResult> {
   async withdraw(options: WithdrawOptions): Promise<Transaction> {
     try {
       let protocol = poolDetailsMap[options.poolId].parentProtocolName.toLowerCase();
-      if (protocol === "navi" && this.poolUtils.categorizeNaviPool(poolDetailsMap[options.poolId]) === "looping") {
-        protocol = "navi-looping";
-      } else if (protocol === "navi" && this.poolUtils.categorizeNaviPool(poolDetailsMap[options.poolId]) === "single-asset") {
-        protocol = "navi";
+      if (
+        protocol === 'navi' &&
+        this.poolUtils.categorizeNaviPool(poolDetailsMap[options.poolId]) === 'looping'
+      ) {
+        protocol = 'navi-looping';
+      } else if (
+        protocol === 'navi' &&
+        this.poolUtils.categorizeNaviPool(poolDetailsMap[options.poolId]) === 'single-asset'
+      ) {
+        protocol = 'navi';
       }
       switch (protocol.toLowerCase()) {
-        case "bluefin":
+        case 'bluefin':
           return this.bluefin.withdrawBluefinSuiFirstTx(options.xTokens, options.poolId);
-        case "navi":
+        case 'navi':
           return this.navi.withdrawNaviTx(options.xTokens, options.poolId);
-        case "cetus":
+        case 'cetus':
           return this.cetus.withdrawCetusTx(options.xTokens, options.poolId);
-        case "bucket":
+        case 'bucket':
           return this.bucketTransactions.withdrawBucketTx(options.xTokens, options.poolId);
-        case "navi-looping":
-          return this.naviLoopingTransactions.withdrawNaviLoopingTx(options.xTokens, options.poolId);
+        case 'navi-looping':
+          return this.naviLoopingTransactions.withdrawNaviLoopingTx(
+            options.xTokens,
+            options.poolId,
+          );
         default:
           throw new Error(`Unknown protocol: ${protocol}`);
       }
@@ -192,7 +205,7 @@ async withdraw(options: WithdrawOptions): Promise<TransactionResult> {
   async claim(options: ClaimOptions): Promise<Transaction> {
     try {
       switch (options.poolId) {
-        case 1: // ALPHA pool                 
+        case 1: // ALPHA pool
           return this.claimRewardsTransactions.claimRewardsForSpecificPool(options.poolId);
         case 2: // BLUEFIN pool
           return this.claimRewardsTransactions.claimRewardsForSpecificPool(options.poolId);
@@ -207,13 +220,12 @@ async withdraw(options: WithdrawOptions): Promise<TransactionResult> {
       throw new Error(`Claim failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  
 
   /**
    * Get all available protocols
    */
   getAvailableProtocols(): string[] {
-    return ["bluefin", "navi", "cetus"];
+    return ['bluefin', 'navi', 'cetus'];
   }
 
   /**

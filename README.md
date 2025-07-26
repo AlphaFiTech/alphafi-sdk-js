@@ -44,7 +44,7 @@ SKIP_BALANCE_CHECK=false     # Skip balance verification before transactions
 ```bash
 # Test Pool IDs for different protocols
 TEST_BLUEFIN_POOL_ID=45      # Bluefin protocol pool ID
-TEST_NAVI_POOL_ID=2          # Navi protocol pool ID  
+TEST_NAVI_POOL_ID=2          # Navi protocol pool ID
 TEST_CETUS_POOL_ID=3         # Cetus protocol pool ID
 ```
 
@@ -163,6 +163,7 @@ sui client export your_address --key-identity your_key_name
 ### Network Configuration
 
 The SDK supports multiple networks:
+
 - `mainnet` - Production Sui network
 - `testnet` - Sui testnet for testing
 - `devnet` - Development network
@@ -170,6 +171,7 @@ The SDK supports multiple networks:
 ### Testing Different Protocols
 
 The SDK includes test scripts for various DeFi protocols:
+
 - **Bluefin**: Automated market maker and liquidity provision
 - **Navi**: Lending and borrowing protocol
 - **Cetus**: Concentrated liquidity DEX

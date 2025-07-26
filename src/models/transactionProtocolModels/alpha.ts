@@ -7,7 +7,11 @@ import { CoinStruct } from "@mysten/sui/client";
 import { PoolUtils } from "../pool.js";
 
 export class AlphaTransactions {
-  constructor(private address: string, private blockchain: Blockchain, private poolUtils: PoolUtils) {
+  constructor(
+    private address: string,
+    private blockchain: Blockchain,
+    private poolUtils: PoolUtils,
+  ) {
     this.blockchain = blockchain;
     this.poolUtils = poolUtils;
   }
@@ -18,30 +22,30 @@ export class AlphaTransactions {
    * @returns Transaction ready for signing and execution
    */
   async depositAlphaTx(amount: string): Promise<Transaction> {
-    console.log("Depositing ALPHA", amount);
+    console.log('Depositing ALPHA', amount);
     const tx = new Transaction();
-    
-    // ALPHA pool is typically pool ID 1 
+
+    // ALPHA pool is typically pool ID 1
     const alphaPoolId = 1;
     const poolinfo = poolDetailsMap[alphaPoolId];
-    
+
     if (!poolinfo) {
       throw new Error(`ALPHA pool with ID ${alphaPoolId} not found in poolDetailsMap`);
     }
-    
-    if (poolinfo.poolName !== "ALPHA") {
+
+    if (poolinfo.poolName !== 'ALPHA') {
       throw new Error(`Pool ${alphaPoolId} is not the ALPHA pool`);
     }
-    
-    console.log("Pool info", poolinfo);
-    
+
+    console.log('Pool info', poolinfo);
+
     // Get receipts for ALPHA pool
     const receipt: any[] = await this.blockchain.getReceipts(alphaPoolId, this.address);
-    
+
     // Fetch ALPHA coins from the user's wallet
     let coins: CoinStruct[] = [];
     let currentCursor: string | null | undefined = null;
-    
+
     try {
       do {
         const response = await this.blockchain.client.getCoins({
@@ -59,11 +63,13 @@ export class AlphaTransactions {
         }
       } while (true);
     } catch (error) {
-      throw new Error(`Failed to fetch ALPHA coins: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to fetch ALPHA coins: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
 
     if (coins.length < 1) {
-      throw new Error("No ALPHA Coins found in wallet for deposit");
+      throw new Error('No ALPHA Coins found in wallet for deposit');
     }
 
     // Handle coin splitting and merging
@@ -73,7 +79,7 @@ export class AlphaTransactions {
       coins.map((c) => c.coinObjectId),
     );
     const [depositCoin] = tx.splitCoins(coin, [amount]);
-    
+
     // Transfer remaining coins back to user
     tx.transferObjects([coin], this.address);
 
@@ -84,7 +90,7 @@ export class AlphaTransactions {
         typeArguments: [getConf().ALPHA_POOL_RECEIPT],
         arguments: [],
       });
-      
+
       tx.moveCall({
         target: `${getConf().ALPHA_LATEST_PACKAGE_ID}::alphapool::user_deposit`,
         typeArguments: [getConf().ALPHA_COIN_TYPE],
@@ -103,7 +109,7 @@ export class AlphaTransactions {
         typeArguments: [getConf().ALPHA_POOL_RECEIPT],
         arguments: [tx.object(receipt[0].id)],
       });
-      
+
       tx.moveCall({
         target: `${getConf().ALPHA_LATEST_PACKAGE_ID}::alphapool::user_deposit`,
         typeArguments: [getConf().ALPHA_COIN_TYPE],
@@ -118,7 +124,7 @@ export class AlphaTransactions {
       });
     }
 
-    console.log("ALPHA deposit transaction created successfully");
+    console.log('ALPHA deposit transaction created successfully');
     return tx;
   }
 
@@ -128,16 +134,19 @@ export class AlphaTransactions {
    * @param withdrawFromLocked - Whether to withdraw from locked amount
    * @returns Transaction ready for signing and execution
    */
-  async withdrawAlphaTx(xTokens: string, withdrawFromLocked: boolean = false): Promise<Transaction> {
-    console.log("Withdrawing ALPHA", xTokens, "withdrawFromLocked:", withdrawFromLocked);
+  async withdrawAlphaTx(
+    xTokens: string,
+    withdrawFromLocked: boolean = false,
+  ): Promise<Transaction> {
+    console.log('Withdrawing ALPHA', xTokens, 'withdrawFromLocked:', withdrawFromLocked);
     const tx = new Transaction();
-    
+
     // ALPHA pool is typically pool ID 1
     const alphaPoolId = 1;
     const receipt: any[] = await this.blockchain.getReceipts(alphaPoolId, this.address);
-    
+
     if (receipt.length === 0) {
-      throw new Error("No ALPHA Receipt found for withdrawal");
+      throw new Error('No ALPHA Receipt found for withdrawal');
     }
 
     tx.moveCall({
@@ -154,7 +163,7 @@ export class AlphaTransactions {
       ],
     });
 
-    console.log("ALPHA withdrawal transaction created successfully");
+    console.log('ALPHA withdrawal transaction created successfully');
     return tx;
   }
 
@@ -165,12 +174,12 @@ export class AlphaTransactions {
   async getUserAlphaBalance(): Promise<string> {
     const alphaPoolId = 1;
     const receipt = await this.blockchain.getReceipts(alphaPoolId, this.address);
-    
+
     if (receipt.length === 0) {
-      return "0";
+      return '0';
     }
-    
-    return receipt[0].xTokenBalance?.toString() || "0";
+
+    return receipt[0].xTokenBalance?.toString() || '0';
   }
 
   /**
@@ -190,15 +199,15 @@ export class AlphaTransactions {
   getAlphaPoolInfo() {
     const alphaPoolId = 1;
     const poolinfo = poolDetailsMap[alphaPoolId];
-    
+
     if (!poolinfo) {
       throw new Error(`ALPHA pool with ID ${alphaPoolId} not found`);
     }
-    
-    if (poolinfo.poolName !== "ALPHA") {
+
+    if (poolinfo.poolName !== 'ALPHA') {
       throw new Error(`Pool ${alphaPoolId} is not the ALPHA pool`);
     }
-    
+
     return {
       poolId: poolinfo.poolId,
       poolName: poolinfo.poolName,
@@ -206,7 +215,7 @@ export class AlphaTransactions {
       packageId: poolinfo.packageId,
       receiptType: poolinfo.receipt.type,
       assetTypes: poolinfo.assetTypes,
-      protocol: "alpha",
+      protocol: 'alpha',
     };
   }
 
@@ -217,8 +226,8 @@ export class AlphaTransactions {
   async getEstimatedRewards(): Promise<string> {
     // Note: This would require implementing rewards calculation logic
     // For now, return placeholder
-    console.log("Getting estimated ALPHA rewards...");
-    return "0";
+    console.log('Getting estimated ALPHA rewards...');
+    return '0';
   }
 
   /**
@@ -229,7 +238,7 @@ export class AlphaTransactions {
     let coins: CoinStruct[] = [];
     let currentCursor: string | null | undefined = null;
     let totalBalance = BigInt(0);
-    
+
     try {
       do {
         const response = await this.blockchain.client.getCoins({
@@ -246,16 +255,16 @@ export class AlphaTransactions {
           break;
         }
       } while (true);
-      
+
       // Sum up all coin balances
-      coins.forEach(coin => {
+      coins.forEach((coin) => {
         totalBalance += BigInt(coin.balance);
       });
-      
+
       return totalBalance.toString();
     } catch (error) {
-      console.error("Error fetching ALPHA balance:", error);
-      return "0";
+      console.error('Error fetching ALPHA balance:', error);
+      return '0';
     }
   }
-} 
+}

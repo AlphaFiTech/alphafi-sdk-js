@@ -12,7 +12,7 @@ export interface ApiResponse<T> {
 }
 
 // Export transaction models
-export { 
+export {
   TransactionManager,
   type LiquidityResult,
   type CommonInvestorFields,
@@ -33,7 +33,7 @@ export { Protocol } from "./protocol.js";
 export { Pool } from "./pool.js";
 
 // Export management models
-export { APRManager } from "./apr.js";
-export { AdminManager } from "./admin.js";
+export { APRManager } from './apr.js';
+export { AdminManager } from './admin.js';
 
-// Export additional models 
+// Export additional models

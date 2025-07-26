@@ -1,14 +1,14 @@
-import { SuiClient, SuiObjectData } from "@mysten/sui/client";
-import { conf, CONF_ENV } from "../common/constants.js";
-import { SuiNetwork } from "./types.js";
-import { poolDetailsMap } from "../common/maps.js";
+import { SuiClient, SuiObjectData } from '@mysten/sui/client';
+import { conf, CONF_ENV } from '../common/constants.js';
+import { SuiNetwork } from './types.js';
+import { poolDetailsMap } from '../common/maps.js';
 import {
   PoolType,
   ParentPoolType,
   InvestorType,
   ReceiptType,
   DistributorType,
-} from "../utils/parsedTypes.js";
+} from '../utils/parsedTypes.js';
 import {
   // pool
   AlphaPoolQueryType,
@@ -29,8 +29,8 @@ import {
   BucketInvestorQueryType,
   NaviInvestorQueryType,
   NaviLoopInvestorQueryType,
-} from "../utils/queryTypes.js";
-import { parsers } from "../utils/parser.js";
+} from '../utils/queryTypes.js';
+import { parsers } from '../utils/parser.js';
 
 export class Blockchain {
   client: SuiClient;
@@ -46,7 +46,7 @@ export class Blockchain {
   async getMultiPool(): Promise<Map<string, PoolType>> {
     let pools = Object.keys(poolDetailsMap);
     pools = pools.filter((pool) => {
-      return poolDetailsMap[pool].poolId !== "";
+      return poolDetailsMap[pool].poolId !== '';
     });
 
     const result: Map<string, PoolType> = new Map();
@@ -111,9 +111,9 @@ export class Blockchain {
 
     if (pool.data) {
       switch (poolDetailsMap[poolId].strategyType) {
-        case "ALPHA-VAULT":
+        case 'ALPHA-VAULT':
           return parsers.parseAlphaPool(pool.data as AlphaPoolQueryType);
-        case "FUNGIBLE-DOUBLE-ASSET-POOL":
+        case 'FUNGIBLE-DOUBLE-ASSET-POOL':
           return parsers.parseFungiblePool(pool.data as FungiblePoolQueryType);
         default:
           return parsers.parsePool(pool.data as DefaultPoolQueryType);
@@ -127,18 +127,15 @@ export class Blockchain {
     let pools = Object.keys(poolDetailsMap);
     pools = pools.filter((pool) => {
       return (
-        poolDetailsMap[pool].parentPoolId !== "" &&
-        (poolDetailsMap[pool].parentProtocolName === "CETUS" ||
-          poolDetailsMap[pool].parentProtocolName === "BLUEFIN")
+        poolDetailsMap[pool].parentPoolId !== '' &&
+        (poolDetailsMap[pool].parentProtocolName === 'CETUS' ||
+          poolDetailsMap[pool].parentProtocolName === 'BLUEFIN')
       );
     });
     const parentPoolSet: Map<string, string> = new Map();
 
     pools.forEach((pool) => {
-      parentPoolSet.set(
-        poolDetailsMap[pool].parentPoolId,
-        poolDetailsMap[pool].parentProtocolName,
-      );
+      parentPoolSet.set(poolDetailsMap[pool].parentPoolId, poolDetailsMap[pool].parentProtocolName);
     });
     const protocolIds: {
       id: string;
@@ -240,8 +237,8 @@ export class Blockchain {
     let pools = Object.keys(poolDetailsMap);
     pools = pools.filter((pool) => {
       return (
-        poolDetailsMap[pool].investorId !== "" &&
-        poolDetailsMap[pool].strategyType !== "ALPHA-VAULT"
+        poolDetailsMap[pool].investorId !== '' &&
+        poolDetailsMap[pool].strategyType !== 'ALPHA-VAULT'
       );
     });
 
@@ -337,32 +334,22 @@ export class Blockchain {
 
     if (investor.data) {
       switch (poolDetailsMap[poolId].parentProtocolName) {
-        case "BLUEFIN":
-          return parsers.parseBluefinInvestor(
-            investor.data as BluefinInvestorQueryType,
-          );
-        case "BUCKET":
-          return parsers.parseBucketInvestor(
-            investor.data as BucketInvestorQueryType,
-          );
-        case "NAVI":
-          if (poolDetailsMap[poolId].strategyType === "SINGLE-ASSET-LOOPING") {
-            return parsers.parseNaviLoopInvestor(
-              investor.data as NaviLoopInvestorQueryType,
-            );
+        case 'BLUEFIN':
+          return parsers.parseBluefinInvestor(investor.data as BluefinInvestorQueryType);
+        case 'BUCKET':
+          return parsers.parseBucketInvestor(investor.data as BucketInvestorQueryType);
+        case 'NAVI':
+          if (poolDetailsMap[poolId].strategyType === 'SINGLE-ASSET-LOOPING') {
+            return parsers.parseNaviLoopInvestor(investor.data as NaviLoopInvestorQueryType);
           } else {
-            return parsers.parseNaviInvestor(
-              investor.data as NaviInvestorQueryType,
-            );
+            return parsers.parseNaviInvestor(investor.data as NaviInvestorQueryType);
           }
         case "ALPHALEND":
           return parsers.parseNaviLoopInvestor(
             investor.data as NaviLoopInvestorQueryType,
           );
         default:
-          return parsers.parseCetusInvestor(
-            investor.data as CetusInvestorQueryType,
-          );
+          return parsers.parseCetusInvestor(investor.data as CetusInvestorQueryType);
       }
     }
 
@@ -373,8 +360,8 @@ export class Blockchain {
     let pools = Object.keys(poolDetailsMap);
     pools = pools.filter((pool) => {
       return (
-        poolDetailsMap[pool].receipt.type !== "" &&
-        poolDetailsMap[pool].strategyType !== "FUNGIBLE-DOUBLE-ASSET-POOL"
+        poolDetailsMap[pool].receipt.type !== '' &&
+        poolDetailsMap[pool].strategyType !== 'FUNGIBLE-DOUBLE-ASSET-POOL'
       );
     });
     const receiptTypes: Map<string, string> = new Map();
@@ -395,8 +382,7 @@ export class Blockchain {
 
       // Traverse the current page data and push to coins array
       paginatedObjects.data.forEach((obj) => {
-        if (obj.data && receiptTypes.has((obj.data.content as any).type))
-          res.push(obj.data);
+        if (obj.data && receiptTypes.has((obj.data.content as any).type)) res.push(obj.data);
       });
       // Check if there's a next page
       if (paginatedObjects.hasNextPage && paginatedObjects.nextCursor) {
@@ -467,22 +453,15 @@ export class Blockchain {
     let receipts: ReceiptType[] = [];
 
     res.forEach((receipt) => {
-      if (
-        (receipt.content as any).fields.name !==
-        poolDetailsMap[poolId].receipt.name
-      ) {
+      if ((receipt.content as any).fields.name !== poolDetailsMap[poolId].receipt.name) {
         return;
       }
 
       switch (poolDetailsMap[poolId].strategyType) {
-        case "ALPHA-VAULT":
-          receipts.push(
-            parsers.parseAlphaReceipt(receipt as AlphaReceiptQueryType),
-          );
+        case 'ALPHA-VAULT':
+          receipts.push(parsers.parseAlphaReceipt(receipt as AlphaReceiptQueryType));
         default:
-          receipts.push(
-            parsers.parseReceipt(receipt as DefaultReceiptQueryType),
-          );
+          receipts.push(parsers.parseReceipt(receipt as DefaultReceiptQueryType));
       }
     });
 
@@ -502,8 +481,6 @@ export class Blockchain {
       return parsers.parseDistributor(distributor.data as DistributorQueryType);
     }
 
-    throw new Error(
-      `Distributor with object id - ${distributorObjectId} not found`,
-    );
+    throw new Error(`Distributor with object id - ${distributorObjectId} not found`);
   }
 }

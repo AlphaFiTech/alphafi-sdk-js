@@ -52,7 +52,7 @@ if npx tsc scripts/testDeposits.ts scripts/env.config.ts \
     --skipLibCheck \
     --resolveJsonModule \
     --strict false; then
-    
+
     echo "📄 Running compiled JavaScript..."
     if node scripts/build/testDeposits.js; then
         echo "✅ Test completed successfully!"
@@ -83,4 +83,4 @@ echo "   npx ts-node --esm scripts/testDeposits.ts"
 echo ""
 echo "For more help, see scripts/README.md"
 
-exit 1 
+exit 1

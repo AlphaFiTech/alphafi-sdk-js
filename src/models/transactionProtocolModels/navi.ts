@@ -1,9 +1,9 @@
-import { Transaction } from "@mysten/sui/transactions";
-import { SuiClient } from "@mysten/sui/client";
-import { getConf } from "../../common/constants.js";
-import { poolDetailsMap } from "../../common/maps.js";
+import { Transaction } from '@mysten/sui/transactions';
+import { SuiClient } from '@mysten/sui/client';
+import { getConf } from '../../common/constants.js';
+import { poolDetailsMap } from '../../common/maps.js';
 // import { coinsList } from "../../common/coins.js";
-import { Blockchain } from "../blockchain.js";
+import { Blockchain } from '../blockchain.js';
 
 // Receipt type definition
 interface Receipt {
@@ -39,7 +39,10 @@ const naviAssetMap: Record<string, number> = {
 };
 
 export class NaviTransactions {
-  constructor(private address: string, private blockchain: Blockchain) {
+  constructor(
+    private address: string,
+    private blockchain: Blockchain,
+  ) {
     this.blockchain = blockchain;
   }
 
@@ -51,9 +54,9 @@ export class NaviTransactions {
    * @returns Promise<Receipt[]> - Array of receipts
    */
   static async getReceiptsWithoutCache(
-    poolId: number, 
-    address: string, 
-    suiClient: SuiClient
+    poolId: number,
+    address: string,
+    suiClient: SuiClient,
   ): Promise<Receipt[]> {
     const poolinfo = poolDetailsMap[poolId];
     if (!poolinfo || !poolinfo.receipt || !poolinfo.receipt.type) {
@@ -107,7 +110,7 @@ export class NaviTransactions {
   async depositNaviTx(amount: string, poolId: number): Promise<Transaction> {
     const tx = new Transaction();
     const poolinfo = poolDetailsMap[poolId];
-    
+
     // Get the coin type - handle both single and double asset types
     let coin: string;
     if ('token' in poolinfo.assetTypes) {
@@ -115,7 +118,7 @@ export class NaviTransactions {
     } else if ('token1' in poolinfo.assetTypes) {
       coin = poolinfo.assetTypes.token1;
     } else {
-      throw new Error("No coin type found for this pool");
+      throw new Error('No coin type found for this pool');
     }
 
     // Extract coin name from type (assuming it's the last part after ::)
@@ -139,9 +142,9 @@ export class NaviTransactions {
     }
 
     // Handle coin splitting for deposit
-    if (coinName === "SUI") {
+    if (coinName === 'SUI') {
       const [depositCoin] = tx.splitCoins(tx.gas, [amount]);
-      
+
       tx.moveCall({
         target: `${poolinfo.packageId}::alphafi_navi_pool::user_deposit`,
         typeArguments: [coin],
@@ -164,7 +167,9 @@ export class NaviTransactions {
     } else {
       // For other coins, we'll need to implement getCoinObject method
       // For now, throw an error suggesting implementation
-      throw new Error(`Non-SUI deposits not yet implemented for ${coinName}. Please use the main SDK for full functionality.`);
+      throw new Error(
+        `Non-SUI deposits not yet implemented for ${coinName}. Please use the main SDK for full functionality.`,
+      );
     }
 
     return tx;
@@ -174,7 +179,7 @@ export class NaviTransactions {
   async withdrawNaviTx(xTokens: string, poolId: number): Promise<Transaction> {
     const tx = new Transaction();
     const poolinfo = poolDetailsMap[poolId];
-    
+
     // Get the coin type - handle both single and double asset types
     let coin: string;
     if ('token' in poolinfo.assetTypes) {
@@ -182,7 +187,7 @@ export class NaviTransactions {
     } else if ('token1' in poolinfo.assetTypes) {
       coin = poolinfo.assetTypes.token1;
     } else {
-      throw new Error("No coin type found for this pool");
+      throw new Error('No coin type found for this pool');
     }
 
     const coinName = coin.split('::').pop()?.toUpperCase() || 'SUI';
@@ -231,7 +236,9 @@ export class NaviTransactions {
         });
       } else if (poolinfo.packageNumber === 9) {
         tx.moveCall({
-          target: `${getConf().ALPHA_NAVI_V2_LATEST_PACKAGE_ID}::alphafi_navi_pool_v2::user_withdraw_v2`,
+          target: `${
+            getConf().ALPHA_NAVI_V2_LATEST_PACKAGE_ID
+          }::alphafi_navi_pool_v2::user_withdraw_v2`,
           typeArguments: [coin],
           arguments: [
             tx.object(getConf().ALPHA_NAVI_V2_VERSION),
@@ -276,11 +283,11 @@ export class NaviTransactions {
         });
       }
     } else {
-      throw new Error("No receipt found!");
+      throw new Error('No receipt found!');
     }
 
     return tx;
   }
 
   // Add more NAVI specific methods as needed...
-} 
+}

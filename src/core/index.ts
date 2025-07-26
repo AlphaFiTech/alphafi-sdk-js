@@ -90,6 +90,7 @@ export class AlphaFiSDK {
   constructor(config: AlphaFiSDKConfig) {
     this.config = config;
 
+
     // Initialize core components
     this.blockchain = new Blockchain(config.client, config.network);
     this.protocol = new Protocol(config.client, config.network);
@@ -116,6 +117,7 @@ export class AlphaFiSDK {
    * @param options - Deposit configuration options
    * @returns Promise<TransactionResult> - Transaction result with gas estimate
    *
+   *
    * @example
    * ```typescript
    * const result = await sdk.deposit({
@@ -135,6 +137,7 @@ export class AlphaFiSDK {
    * @param options - Withdraw configuration options
    * @returns Promise<TransactionResult> - Transaction result with gas estimate
    *
+   *
    * @example
    * ```typescript
    * // Withdraw specific amount of xTokens
@@ -143,6 +146,7 @@ export class AlphaFiSDK {
    *   xTokens: "500000",
    *   dryRun: false
    * });
+   *
    *
    * // Or withdraw percentage of balance
    * const result = await sdk.withdraw({
@@ -161,6 +165,7 @@ export class AlphaFiSDK {
    * Claim rewards from a DeFi pool
    * @param options - Claim configuration options
    * @returns Promise<TransactionResult> - Transaction result with gas estimate
+   *
    *
    * @example
    * ```typescript

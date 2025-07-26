@@ -7,7 +7,11 @@ import { CoinStruct } from "@mysten/sui/client";
 import { PoolUtils } from "../pool.js";
 
 export class BucketTransactions {
-  constructor(private address: string, private blockchain: Blockchain, private poolUtils: PoolUtils) {
+  constructor(
+    private address: string,
+    private blockchain: Blockchain,
+    private poolUtils: PoolUtils,
+  ) {
     this.blockchain = blockchain;
     this.poolUtils = poolUtils;
   }
@@ -19,41 +23,41 @@ export class BucketTransactions {
    * @returns Transaction ready for signing and execution
    */
   async depositBucketTx(amount: string, poolId: number): Promise<Transaction> {
-    console.log("Depositing Bucket BUCK", amount, poolId);
+    console.log('Depositing Bucket BUCK', amount, poolId);
     const tx = new Transaction();
     const poolinfo = poolDetailsMap[poolId];
-    
+
     if (!poolinfo) {
       throw new Error(`Pool with ID ${poolId} not found in poolDetailsMap`);
     }
-    
-    if (!poolinfo.poolName?.includes("BUCKET")) {
+
+    if (!poolinfo.poolName?.includes('BUCKET')) {
       throw new Error(`Pool ${poolId} is not a Bucket protocol pool`);
     }
-    
-    console.log("Pool info", poolinfo);
-    
+
+    console.log('Pool info', poolinfo);
+
     // Get the coin type for BUCK
     let bucketCoinType: string;
     if ('token' in poolinfo.assetTypes) {
       bucketCoinType = poolinfo.assetTypes.token;
     } else {
-      throw new Error("Bucket pool does not have single asset type configuration");
+      throw new Error('Bucket pool does not have single asset type configuration');
     }
 
     const coinName = bucketCoinType.split('::').pop()?.toUpperCase() || 'BUCK';
-    console.log("Coin name", coinName);
-    
+    console.log('Coin name', coinName);
+
     // Get receipts for this pool
     const receipt: any[] = await this.blockchain.getReceipts(poolId, this.address);
-    console.log("Receipt", receipt);
-    console.log("Pool ID", poolId);
-    console.log("Address", this.address);
-    
+    console.log('Receipt', receipt);
+    console.log('Pool ID', poolId);
+    console.log('Address', this.address);
+
     // Fetch BUCK coins from the user's wallet
     let coins: CoinStruct[] = [];
     let currentCursor: string | null | undefined = null;
-    
+
     console.log(`Fetching coins for ${coinName} (${coinsList[coinName]?.type || bucketCoinType})`);
 
     try {
@@ -74,11 +78,15 @@ export class BucketTransactions {
           break;
         }
       } while (true);
-      
+
       console.log(`Found ${coins.length} coins of type ${coinName}`);
     } catch (error) {
       console.log(`Error fetching coins: ${error}`);
-      throw new Error(`Failed to fetch ${coinName} coins: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to fetch ${coinName} coins: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
     }
 
     if (coins.length < 1) {
@@ -146,7 +154,7 @@ export class BucketTransactions {
     // Transfer remaining coins back to user
     tx.transferObjects([coin], this.address);
 
-    console.log("Bucket deposit transaction created successfully");
+    console.log('Bucket deposit transaction created successfully');
     return tx;
   }
 
@@ -157,30 +165,30 @@ export class BucketTransactions {
    * @returns Transaction ready for signing and execution
    */
   async withdrawBucketTx(xTokens: string, poolId: number): Promise<Transaction> {
-    console.log("Withdrawing Bucket BUCK", xTokens, poolId);
+    console.log('Withdrawing Bucket BUCK', xTokens, poolId);
     const tx = new Transaction();
     const poolinfo = poolDetailsMap[poolId];
-    
+
     if (!poolinfo) {
       throw new Error(`Pool with ID ${poolId} not found in poolDetailsMap`);
     }
-    
-    if (!poolinfo.poolName?.includes("BUCKET")) {
+
+    if (!poolinfo.poolName?.includes('BUCKET')) {
       throw new Error(`Pool ${poolId} is not a Bucket protocol pool`);
     }
-    
-    console.log("Pool info", poolinfo);
-    
+
+    console.log('Pool info', poolinfo);
+
     // Get receipts for this pool
     const receipt: any[] = await this.blockchain.getReceipts(poolId, this.address);
-    
+
     if (receipt.length === 0) {
       throw new Error(`No ${poolinfo.poolName} Receipt found for withdrawal`);
     }
 
     // Get ALPHA receipt for the alpha_receipt parameter
     const alphaReceipt: any[] = await this.blockchain.getReceipts(1, this.address); // Pool ID 1 is typically ALPHA
-    
+
     let alpha_receipt: any;
     if (alphaReceipt.length === 0) {
       [alpha_receipt] = tx.moveCall({
@@ -235,11 +243,11 @@ export class BucketTransactions {
     // Transfer the withdrawn BUCK to the user
     tx.moveCall({
       target: `0x2::transfer::public_transfer`,
-      typeArguments: [`0x2::coin::Coin<${coinsList["BUCK"]?.type}>`],
+      typeArguments: [`0x2::coin::Coin<${coinsList['BUCK']?.type}>`],
       arguments: [buck, tx.pure.address(this.address)],
     });
 
-    console.log("Bucket withdrawal transaction created successfully");
+    console.log('Bucket withdrawal transaction created successfully');
     return tx;
   }
 
@@ -250,13 +258,13 @@ export class BucketTransactions {
    */
   async getUserBucketBalance(poolId: number): Promise<string> {
     const receipt = await this.blockchain.getReceipts(poolId, this.address);
-    
+
     if (receipt.length === 0) {
-      return "0";
+      return '0';
     }
-    
+
     // Extract balance from receipt if available
-    return receipt[0].xTokenBalance?.toString() || "0";
+    return receipt[0].xTokenBalance?.toString() || '0';
   }
 
   /**
@@ -279,13 +287,13 @@ export class BucketTransactions {
     // This would require pool state information to calculate accurately
     // For now, return a placeholder implementation
     console.log(`Estimating withdrawal for pool ${poolId}, xTokens: ${xTokens}`);
-    
+
     // In a real implementation, you would:
     // 1. Get pool state from the blockchain
     // 2. Calculate the current exchange rate
     // 3. Apply any fees
     // 4. Return the estimated amount
-    
+
     return xTokens; // Placeholder - 1:1 ratio
   }
 
@@ -296,15 +304,15 @@ export class BucketTransactions {
    */
   getBucketPoolInfo(poolId: number) {
     const poolinfo = poolDetailsMap[poolId];
-    
+
     if (!poolinfo) {
       throw new Error(`Pool with ID ${poolId} not found`);
     }
-    
-    if (!poolinfo.poolName?.includes("BUCKET")) {
+
+    if (!poolinfo.poolName?.includes('BUCKET')) {
       throw new Error(`Pool ${poolId} is not a Bucket protocol pool`);
     }
-    
+
     return {
       poolId: poolinfo.poolId,
       poolName: poolinfo.poolName,
@@ -313,7 +321,7 @@ export class BucketTransactions {
       investorId: poolinfo.investorId,
       receiptType: poolinfo.receipt.type,
       assetTypes: poolinfo.assetTypes,
-      protocol: "bucket",
+      protocol: 'bucket',
     };
   }
-} 
+}

@@ -9,7 +9,7 @@ export function formatAmount(amount: number, decimals: number = 8): string {
   return amount.toFixed(decimals);
 }
 
-// Export additional utility functions 
+// Export additional utility functions
 
 // Export pool types
 export { CetusPoolType, BluefinPoolType } from './poolTypes.js';

@@ -1,10 +1,10 @@
-import { Transaction } from "@mysten/sui/transactions";
-import { getConf } from "../../common/constants.js";
-import { poolDetailsMap, poolDetailsMapByPoolName } from "../../common/maps.js";
-import { Blockchain } from "../blockchain.js";
-import { coinsList, coinsListByType } from "../../common/coinsList.ts";
-import { CoinStruct } from "@mysten/sui/client";
-import { PoolUtils } from "../pool.js";
+import { Transaction } from '@mysten/sui/transactions';
+import { getConf } from '../../common/constants.js';
+import { poolDetailsMap, poolDetailsMapByPoolName } from '../../common/maps.js';
+import { Blockchain } from '../blockchain.js';
+import { coinsList, coinsListByType } from '../../common/coinsList.ts';
+import { CoinStruct } from '@mysten/sui/client';
+import { PoolUtils } from '../pool.js';
 
 export class BluefinTransactions {
   constructor(
@@ -18,7 +18,7 @@ export class BluefinTransactions {
   }
 
   async getCoinFromWallet(tx: Transaction, address: string, coinType: string) {
-    if (coinsListByType[coinType].name === "SUI") {
+    if (coinsListByType[coinType].name === 'SUI') {
       return tx.gas;
     }
     let coins: CoinStruct[] = [];
@@ -84,11 +84,7 @@ export class BluefinTransactions {
     }
 
     // Simple amount calculation - using imported getAmounts function
-    const [amount1, amount2] = await this.poolUtils.getAmounts(
-      poolId,
-      true,
-      amount,
-    );
+    const [amount1, amount2] = await this.poolUtils.getAmounts(poolId, true, amount);
     const coin1 = await this.getCoinFromWallet(tx, this.address, pool_token1);
     const coin2 = await this.getCoinFromWallet(tx, this.address, pool_token2);
     const [depositCoinA] = tx.splitCoins(coin1, [amount1]);
@@ -97,15 +93,15 @@ export class BluefinTransactions {
     const poolName = poolinfo.poolName;
 
     // Pool-specific deposit logic
-    if (poolName === "BLUEFIN-SUI-USDC") {
-      console.log("Depositing Bluefin SUI USDC");
+    if (poolName === 'BLUEFIN-SUI-USDC') {
+      console.log('Depositing Bluefin SUI USDC');
       tx.moveCall({
         target: `${poolinfo.packageId}::alphafi_bluefin_sui_first_pool::user_deposit_v2`,
         typeArguments: [
           coinsList[coin1Name]?.type || pool_token1,
           coinsList[coin2Name]?.type || pool_token2,
-          coinsList["BLUE"]?.type,
-          coinsList["SUI"].type,
+          coinsList['BLUE']?.type,
+          coinsList['SUI'].type,
         ],
         arguments: [
           tx.object(getConf().ALPHA_4_VERSION),
@@ -126,14 +122,14 @@ export class BluefinTransactions {
           tx.object(getConf().CLOCK_PACKAGE_ID),
         ],
       });
-    } else if (poolName === "BLUEFIN-SUI-BUCK") {
+    } else if (poolName === 'BLUEFIN-SUI-BUCK') {
       tx.moveCall({
         target: `${poolinfo.packageId}::alphafi_bluefin_sui_first_pool::user_deposit_v2`,
         typeArguments: [
           coinsList[coin1Name]?.type || pool_token1,
           coinsList[coin2Name]?.type || pool_token2,
-          coinsList["BLUE"]?.type,
-          coinsList["SUI"].type,
+          coinsList['BLUE']?.type,
+          coinsList['SUI'].type,
         ],
         arguments: [
           tx.object(getConf().ALPHA_4_VERSION),
@@ -154,14 +150,14 @@ export class BluefinTransactions {
           tx.object(getConf().CLOCK_PACKAGE_ID),
         ],
       });
-    } else if (poolName === "BLUEFIN-SUI-AUSD") {
+    } else if (poolName === 'BLUEFIN-SUI-AUSD') {
       tx.moveCall({
         target: `${poolinfo.packageId}::alphafi_bluefin_sui_first_pool::user_deposit_v2`,
         typeArguments: [
           coinsList[coin1Name]?.type || pool_token1,
           coinsList[coin2Name]?.type || pool_token2,
-          coinsList["BLUE"]?.type,
-          coinsList["SUI"].type,
+          coinsList['BLUE']?.type,
+          coinsList['SUI'].type,
         ],
         arguments: [
           tx.object(getConf().ALPHA_4_VERSION),
@@ -182,14 +178,14 @@ export class BluefinTransactions {
           tx.object(getConf().CLOCK_PACKAGE_ID),
         ],
       });
-    } else if (poolName === "BLUEFIN-AUTOBALANCE-SUI-USDC") {
+    } else if (poolName === 'BLUEFIN-AUTOBALANCE-SUI-USDC') {
       tx.moveCall({
         target: `${poolinfo.packageId}::alphafi_bluefin_sui_first_pool::user_deposit_v2`,
         typeArguments: [
           coinsList[coin1Name]?.type || pool_token1,
           coinsList[coin2Name]?.type || pool_token2,
-          coinsList["BLUE"]?.type,
-          coinsList["SUI"].type,
+          coinsList['BLUE']?.type,
+          coinsList['SUI'].type,
         ],
         arguments: [
           tx.object(getConf().ALPHA_BLUEFIN_AUTOBALANCE_VERSION),
@@ -209,15 +205,15 @@ export class BluefinTransactions {
           tx.object(getConf().CLOCK_PACKAGE_ID),
         ],
       });
-    } else if (poolName === "BLUEFIN-AUTOBALANCE-SUI-LBTC") {
+    } else if (poolName === 'BLUEFIN-AUTOBALANCE-SUI-LBTC') {
       tx.moveCall({
         target: `${poolinfo.packageId}::alphafi_bluefin_sui_first_pool::user_deposit_v3`,
         typeArguments: [
           coinsList[coin1Name]?.type || pool_token1,
           coinsList[coin2Name]?.type || pool_token2,
-          coinsList["BLUE"]?.type,
-          coinsList["SUI"].type,
-          coinsList["DEEP"]?.type,
+          coinsList['BLUE']?.type,
+          coinsList['SUI'].type,
+          coinsList['DEEP']?.type,
         ],
         arguments: [
           tx.object(getConf().ALPHA_BLUEFIN_AUTOBALANCE_VERSION),
@@ -245,9 +241,9 @@ export class BluefinTransactions {
         typeArguments: [
           pool_token1,
           pool_token2,
-          coinsList["BLUE"]?.type ||
-            "0x0000000000000000000000000000000000000000000000000000000000000000::blue::BLUE",
-          coinsList["SUI"].type,
+          coinsList['BLUE']?.type ||
+            '0x0000000000000000000000000000000000000000000000000000000000000000::blue::BLUE',
+          coinsList['SUI'].type,
         ],
         arguments: [
           tx.object(getConf().ALPHA_4_VERSION),
@@ -275,10 +271,7 @@ export class BluefinTransactions {
   }
 
   // Example: Withdraw Type 1
-  async withdrawBluefinSuiFirstTx(
-    xTokens: string,
-    poolId: string,
-  ): Promise<Transaction> {
+  async withdrawBluefinSuiFirstTx(xTokens: string, poolId: string): Promise<Transaction> {
     const tx = new Transaction();
     const poolinfo = poolDetailsMap[poolId];
 
@@ -297,7 +290,7 @@ export class BluefinTransactions {
 
     const receipt = await this.blockchain.getReceipt(poolId, this.address);
     const alphaReceipt = await this.blockchain.getReceipt(
-      poolDetailsMapByPoolName["ALPHA"].poolId,
+      poolDetailsMapByPoolName['ALPHA'].poolId,
       this.address,
     );
 
@@ -318,14 +311,14 @@ export class BluefinTransactions {
       }
 
       // Use different argument patterns based on pool type, similar to deposit function
-      if (poolName === "BLUEFIN-SUI-USDC") {
+      if (poolName === 'BLUEFIN-SUI-USDC') {
         tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_bluefin_sui_first_pool::user_withdraw_v2`,
           typeArguments: [
             coinsList[coin1Name]?.type || pool_token1,
             coinsList[coin2Name]?.type || pool_token2,
-            coinsList["BLUE"]?.type,
-            coinsList["SUI"].type,
+            coinsList['BLUE']?.type,
+            coinsList['SUI'].type,
           ],
           arguments: [
             tx.object(getConf().ALPHA_4_VERSION),
@@ -347,14 +340,14 @@ export class BluefinTransactions {
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName === "BLUEFIN-SUI-BUCK") {
+      } else if (poolName === 'BLUEFIN-SUI-BUCK') {
         tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_bluefin_sui_first_pool::user_withdraw_v2`,
           typeArguments: [
             coinsList[coin1Name]?.type || pool_token1,
             coinsList[coin2Name]?.type || pool_token2,
-            coinsList["BLUE"]?.type,
-            coinsList["SUI"].type,
+            coinsList['BLUE']?.type,
+            coinsList['SUI'].type,
           ],
           arguments: [
             tx.object(getConf().ALPHA_4_VERSION),
@@ -376,14 +369,14 @@ export class BluefinTransactions {
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName === "BLUEFIN-AUTOBALANCE-SUI-USDC") {
+      } else if (poolName === 'BLUEFIN-AUTOBALANCE-SUI-USDC') {
         tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_bluefin_sui_first_pool::user_withdraw_v2`,
           typeArguments: [
             coinsList[coin1Name]?.type || pool_token1,
             coinsList[coin2Name]?.type || pool_token2,
-            coinsList["BLUE"]?.type,
-            coinsList["SUI"].type,
+            coinsList['BLUE']?.type,
+            coinsList['SUI'].type,
           ],
           arguments: [
             tx.object(getConf().ALPHA_BLUEFIN_AUTOBALANCE_VERSION),
@@ -404,15 +397,15 @@ export class BluefinTransactions {
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName === "BLUEFIN-AUTOBALANCE-SUI-LBTC") {
+      } else if (poolName === 'BLUEFIN-AUTOBALANCE-SUI-LBTC') {
         tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_bluefin_sui_first_pool::user_withdraw_v3`,
           typeArguments: [
             coinsList[coin1Name]?.type || pool_token1,
             coinsList[coin2Name]?.type || pool_token2,
-            coinsList["BLUE"]?.type,
-            coinsList["SUI"].type,
-            coinsList["DEEP"]?.type,
+            coinsList['BLUE']?.type,
+            coinsList['SUI'].type,
+            coinsList['DEEP']?.type,
           ],
           arguments: [
             tx.object(getConf().ALPHA_BLUEFIN_AUTOBALANCE_VERSION),
@@ -441,9 +434,9 @@ export class BluefinTransactions {
           typeArguments: [
             pool_token1,
             pool_token2,
-            coinsList["BLUE"]?.type ||
-              "0x0000000000000000000000000000000000000000000000000000000000000000::blue::BLUE",
-            coinsList["SUI"].type,
+            coinsList['BLUE']?.type ||
+              '0x0000000000000000000000000000000000000000000000000000000000000000::blue::BLUE',
+            coinsList['SUI'].type,
           ],
           arguments: [
             tx.object(getConf().ALPHA_4_VERSION),
@@ -468,7 +461,7 @@ export class BluefinTransactions {
         });
       }
     } else {
-      throw new Error("No receipt found!");
+      throw new Error('No receipt found!');
     }
     return tx;
   }
