@@ -1,13 +1,13 @@
-import { Transaction } from "@mysten/sui/transactions";
-import { Blockchain } from "./blockchain.js";
-import { BluefinTransactions } from "./transactionProtocolModels/bluefin.js";
-import { NaviTransactions } from "./transactionProtocolModels/navi.js";
-import { CetusTransactions } from "./transactionProtocolModels/cetus.js";
-import { poolDetailsMap } from "../common/maps.js";
-import { ClaimOptions, DepositOptions, WithdrawOptions } from "../core/index.js";
-import { ClaimRewardsTransactions } from "./transactionProtocolModels/claimRewards.js";
-import { BucketTransactions } from "./transactionProtocolModels/bucket.js";
-import { NaviLoopingTransactions } from "./transactionProtocolModels/naviLooping.js";
+import { Transaction } from '@mysten/sui/transactions';
+import { Blockchain } from './blockchain.js';
+import { BluefinTransactions } from './transactionProtocolModels/bluefin.js';
+import { NaviTransactions } from './transactionProtocolModels/navi.js';
+import { CetusTransactions } from './transactionProtocolModels/cetus.js';
+import { poolDetailsMap } from '../common/maps.js';
+import { ClaimOptions, DepositOptions, WithdrawOptions } from '../core/index.js';
+import { ClaimRewardsTransactions } from './transactionProtocolModels/claimRewards.js';
+import { BucketTransactions } from './transactionProtocolModels/bucket.js';
+import { NaviLoopingTransactions } from './transactionProtocolModels/naviLooping.js';
 
 /**
  * Types for liquidity calculations
@@ -45,7 +45,11 @@ export class TransactionManager {
   private bucketTransactions: BucketTransactions;
   private naviLoopingTransactions: NaviLoopingTransactions;
 
-  constructor(private address: string, private blockchain: Blockchain, private poolUtils: PoolUtils) {
+  constructor(
+    private address: string,
+    private blockchain: Blockchain,
+    private poolUtils: PoolUtils,
+  ) {
     this.bluefin = new BluefinTransactions(address, blockchain, poolUtils);
     this.navi = new NaviTransactions(address, blockchain);
     this.cetus = new CetusTransactions(address, blockchain);

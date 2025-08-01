@@ -1,41 +1,36 @@
 import { Transaction } from '@mysten/sui/transactions';
 import { getConf } from '../../common/constants.js';
-import { poolDetailsMap } from '../../common/maps.js';
-// import { coinsList } from "../../common/coins.js";
+import { poolDetailsMap, poolDetailsMapByPoolName } from '../../common/maps.js';
 import { Blockchain } from '../blockchain.js';
+import { PoolUtils } from '../pool.ts';
+import { coinsListByType } from 'src/common/coinsList.ts';
 
 export class CetusTransactions {
   constructor(
     private address: string,
     private blockchain: Blockchain,
+    private poolUtils: PoolUtils,
   ) {
+    this.address = address;
     this.blockchain = blockchain;
+    this.poolUtils = poolUtils;
   }
 
   // CETUS Double Asset Pool Deposit
-  async depositCetusTx(
-    amount: string,
-    poolId: number,
-    isAmountA: boolean = true,
-  ): Promise<Transaction> {
+  async depositCetusTx(amount: string, poolId: string, isAmountA: boolean): Promise<Transaction> {
     const tx = new Transaction();
     const poolinfo = poolDetailsMap[poolId];
 
-    // Get the coin types - CETUS pools are double asset
-    if (!('token1' in poolinfo.assetTypes && 'token2' in poolinfo.assetTypes)) {
-      throw new Error('This is not a double asset pool');
-    }
+    const coin1 = poolinfo.assetTypes[0];
+    const coin2 = poolinfo.assetTypes[1];
+    const coin1Name = coinsListByType[coin1].name;
+    const coin2Name = coinsListByType[coin2].name;
 
-    const coin1 = poolinfo.assetTypes.token1;
-    const coin2 = poolinfo.assetTypes.token2;
-    const coin1Name = coin1.split('::').pop()?.toUpperCase() || 'UNKNOWN';
-    const coin2Name = coin2.split('::').pop()?.toUpperCase() || 'UNKNOWN';
-
-    const receipt: any[] = await this.blockchain.getReceipts(poolId, this.address);
+    const receipt = await this.blockchain.getReceipt(poolId, this.address);
 
     // Handle receipt creation
     let someReceipt: any;
-    if (receipt.length === 0) {
+    if (!receipt) {
       [someReceipt] = tx.moveCall({
         target: `0x1::option::none`,
         typeArguments: [poolinfo.receipt.type],
@@ -44,8 +39,8 @@ export class CetusTransactions {
     } else {
       [someReceipt] = tx.moveCall({
         target: `0x1::option::some`,
-        typeArguments: [receipt[0].content.type],
-        arguments: [tx.object(receipt[0].objectId)],
+        typeArguments: [receipt.type],
+        arguments: [tx.object(receipt.id)],
       });
     }
 
@@ -106,24 +101,22 @@ export class CetusTransactions {
   }
 
   // CETUS Withdraw
-  async withdrawCetusTx(xTokens: string, poolId: number): Promise<Transaction> {
+  async withdrawCetusTx(xTokens: string, poolId: string): Promise<Transaction> {
     const tx = new Transaction();
     const poolinfo = poolDetailsMap[poolId];
 
-    // Get the coin types
-    if (!('token1' in poolinfo.assetTypes && 'token2' in poolinfo.assetTypes)) {
-      throw new Error('This is not a double asset pool');
-    }
+    const coin1 = poolinfo.assetTypes[0];
+    const coin2 = poolinfo.assetTypes[1];
 
-    const coin1 = poolinfo.assetTypes.token1;
-    const coin2 = poolinfo.assetTypes.token2;
+    const receipt = await this.blockchain.getReceipt(poolId, this.address);
+    const alphaReceipt = await this.blockchain.getReceipt(
+      poolDetailsMapByPoolName['ALPHA'].poolId,
+      this.address,
+    );
 
-    const receipt: any[] = await this.blockchain.getReceipts(poolId, this.address);
-    const alphaReceipt: any[] = await this.blockchain.getReceipts(1, this.address); // Pool ID 1 is ALPHA
-
-    if (receipt.length > 0) {
+    if (receipt) {
       let alpha_receipt: any;
-      if (alphaReceipt.length === 0) {
+      if (!alphaReceipt) {
         [alpha_receipt] = tx.moveCall({
           target: `0x1::option::none`,
           typeArguments: [getConf().ALPHA_POOL_RECEIPT],
@@ -132,8 +125,8 @@ export class CetusTransactions {
       } else {
         [alpha_receipt] = tx.moveCall({
           target: `0x1::option::some`,
-          typeArguments: [alphaReceipt[0].content.type],
-          arguments: [tx.object(alphaReceipt[0].objectId)],
+          typeArguments: [alphaReceipt.type],
+          arguments: [tx.object(alphaReceipt.id)],
         });
       }
 
@@ -143,7 +136,7 @@ export class CetusTransactions {
           typeArguments: [coin1, coin2],
           arguments: [
             tx.object(getConf().VERSION),
-            tx.object(receipt[0].objectId),
+            tx.object(receipt.id),
             alpha_receipt,
             tx.object(getConf().ALPHA_POOL),
             tx.object(poolinfo.poolId),
@@ -173,7 +166,7 @@ export class CetusTransactions {
             typeArguments: [coin1, coin2],
             arguments: [
               tx.object(getConf().VERSION),
-              tx.object(receipt[0].objectId),
+              tx.object(receipt.id),
               alpha_receipt,
               tx.object(getConf().ALPHA_POOL),
               tx.object(poolinfo.poolId),
@@ -194,7 +187,7 @@ export class CetusTransactions {
             typeArguments: [coin1, coin2],
             arguments: [
               tx.object(getConf().VERSION),
-              tx.object(receipt[0].objectId),
+              tx.object(receipt.id),
               alpha_receipt,
               tx.object(getConf().ALPHA_POOL),
               tx.object(poolinfo.poolId),

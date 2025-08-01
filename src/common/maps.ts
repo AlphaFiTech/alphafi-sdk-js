@@ -1,5 +1,5 @@
-import { coinsList } from "./coinsList.js";
-import { conf, CONF_ENV } from "./constants.js";
+import { coinsList } from './coinsList.js';
+import { conf, CONF_ENV } from './constants.js';
 
 export type PoolDetails = {
   packageId: string;
@@ -39,30 +39,24 @@ export type PoolDetails = {
 export const poolDetailsMap: Record<string, PoolDetails> = {
   [conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_BLUEFIN_AUTOBALANCE_LATEST_PACKAGE_ID,
-    poolName: "BLUEFIN-AUTOBALANCE-SUIUSDT-USDC-ZERO-ZERO",
+    poolName: 'BLUEFIN-AUTOBALANCE-SUIUSDT-USDC-ZERO-ZERO',
     packageNumber: 7,
-    strategyType: "BLUEFIN-AUTOBALANCE-DOUBLE-ASSET-POOL",
-    parentProtocolName: "BLUEFIN",
+    strategyType: 'BLUEFIN-AUTOBALANCE-DOUBLE-ASSET-POOL',
+    parentProtocolName: 'BLUEFIN',
     parentPoolId: conf[CONF_ENV].BLUEFIN_SUIUSDT_USDC_ZERO_ZERO_POOL,
-    poolId:
-      conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_POOL,
-    investorId:
-      conf[CONF_ENV]
-        .ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_INVESTOR,
+    poolId: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_POOL,
+    investorId: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_INVESTOR,
     receipt: {
-      name: conf[CONF_ENV]
-        .ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_RECEIPT_NAME,
-      type: conf[CONF_ENV]
-        .ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_RECEIPT,
+      name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_RECEIPT_NAME,
+      type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_RECEIPT,
     },
-    assetTypes: [coinsList["SUIUSDT"].type, coinsList["USDC"].type],
+    assetTypes: [coinsList['SUIUSDT'].type, coinsList['USDC'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV]
           .ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType:
-        conf[CONF_ENV]
-          .ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_POOL_REBALANCE_EVENT,
+        conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_POOL_REBALANCE_EVENT,
       liquidityChangeEventType:
         conf[CONF_ENV]
           .ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_POOL_LIQUIDITY_CHANGE_EVENT,
@@ -83,7 +77,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       type: conf[CONF_ENV].ALPHA_POOL_RECEIPT,
     },
     assetTypes: [
-      "0xfe3afec26c59e874f3c1d60b8203cb3852d2bb2aa415df9548b8d688e6683f93::alpha::ALPHA",
+      '0xfe3afec26c59e874f3c1d60b8203cb3852d2bb2aa415df9548b8d688e6683f93::alpha::ALPHA',
     ],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].ALPHA_POOL_AUTO_COMPOUNDING_EVENT,
@@ -111,7 +105,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_DEEP_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_DEEP_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["DEEP"].type],
+    assetTypes: [coinsList['DEEP'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_DEEP_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
@@ -136,7 +130,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_WAL_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_WAL_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["WAL"].type],
+    assetTypes: [coinsList['WAL'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_AUSD_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
@@ -161,7 +155,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_WAL_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_WAL_USDC_RECEIPT,
     },
-    assetTypes: [coinsList["WAL"].type, coinsList["USDC"].type],
+    assetTypes: [coinsList['WAL'].type, coinsList['USDC'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_WAL_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -184,7 +178,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_WAL_STSUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_WAL_STSUI_RECEIPT,
     },
-    assetTypes: [coinsList["WAL"].type, coinsList["STSUI"].type],
+    assetTypes: [coinsList['WAL'].type, coinsList['STSUI'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_WAL_STSUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -211,7 +205,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_WAL_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_WAL_USDC_RECEIPT,
     },
-    assetTypes: [coinsList["WAL"].type, coinsList["USDC"].type],
+    assetTypes: [coinsList['WAL'].type, coinsList['USDC'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].ALPHAFI_BLUEFIN_WAL_USDC_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].ALPHAFI_BLUEFIN_WAL_USDC_POOL_REBALANCE_EVENT,
@@ -232,7 +226,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].USDC_SUIUSDT_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].USDC_SUIUSDT_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["USDC"].type, coinsList["SUIUSDT"].type],
+    assetTypes: [coinsList['USDC'].type, coinsList['SUIUSDT'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].USDC_SUIUSDT_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].USDC_SUIUSDT_POOL_REBALANCE_EVENT,
@@ -257,7 +251,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_LBTC_SUIBTC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_LBTC_SUIBTC_RECEIPT,
     },
-    assetTypes: [coinsList["LBTC"].type, coinsList["SUIBTC"].type],
+    assetTypes: [coinsList['LBTC'].type, coinsList['SUIBTC'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_LBTC_SUIBTC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -280,7 +274,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_LBTC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_LBTC_RECEIPT,
     },
-    assetTypes: [coinsList["SUI"].type, coinsList["LBTC"].type],
+    assetTypes: [coinsList['SUI'].type, coinsList['LBTC'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_LBTC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -307,7 +301,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_FUNGIBLE_STSUI_SUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_FUNGIBLE_STSUI_SUI_RECEIPT,
     },
-    assetTypes: [coinsList["STSUI"].type, coinsList["SUI"].type],
+    assetTypes: [coinsList['STSUI'].type, coinsList['SUI'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_FUNGIBLE_STSUI_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -315,7 +309,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       liquidityChangeEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_FUNGIBLE_STSUI_SUI_POOL_LIQUIDITY_CHANGE_EVENT,
     },
-    fungibleCoinType: coinsList["AlphaFi stSUI-SUI LP"].type,
+    fungibleCoinType: coinsList['AlphaFi stSUI-SUI LP'].type,
     images: {
       imageUrl1: 'https://images.alphafi.xyz/adminweb/stsui.svg',
       imageUrl2: 'https://images.alphafi.xyz/adminweb/sui-logo1.svg',
@@ -335,7 +329,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_SUIUSDT_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_SUIUSDT_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["SUIUSDT"].type],
+    assetTypes: [coinsList['SUIUSDT'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_SUIUSDT_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
@@ -360,7 +354,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_SUIBTC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_SUIBTC_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["SUIBTC"].type],
+    assetTypes: [coinsList['SUIBTC'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_SUIBTC_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
@@ -385,7 +379,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUIBTC_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUIBTC_USDC_RECEIPT,
     },
-    assetTypes: [coinsList["SUIBTC"].type, coinsList["USDC"].type],
+    assetTypes: [coinsList['SUIBTC'].type, coinsList['USDC'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_SUIBTC_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -398,10 +392,10 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
   },
   [conf[CONF_ENV].ALPHALEND_LOOP_SUI_STSUI_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_5_LATEST_PACKAGE_ID,
-    poolName: "ALPHALEND-LOOP-SUI-STSUI",
+    poolName: 'ALPHALEND-LOOP-SUI-STSUI',
     packageNumber: 5,
-    strategyType: "SINGLE-ASSET-LOOPING",
-    parentProtocolName: "ALPHALEND",
+    strategyType: 'SINGLE-ASSET-LOOPING',
+    parentProtocolName: 'ALPHALEND',
     parentPoolId: conf[CONF_ENV].NAVI_STSUI_POOL,
     poolId: conf[CONF_ENV].ALPHALEND_LOOP_SUI_STSUI_POOL,
     investorId: conf[CONF_ENV].ALPHALEND_LOOP_SUI_STSUI_INVESTOR,
@@ -409,17 +403,15 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHALEND_SUI_STSUI_LOOP_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHALEND_LOOP_SUI_STSUI_RECEIPT,
     },
-    assetTypes: [coinsList["SUI"].type],
+    assetTypes: [coinsList['SUI'].type],
     events: {
-      autoCompoundingEventType:
-        conf[CONF_ENV].ALPHALEND_LOOP_SUI_STSUI_POOL_AUTO_COMPOUNDING_EVENT,
+      autoCompoundingEventType: conf[CONF_ENV].ALPHALEND_LOOP_SUI_STSUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
-      liquidityChangeEventType:
-        conf[CONF_ENV].ALPHALEND_LOOP_SUI_STSUI_POOL_LIQUIDITY_CHANGE_EVENT,
+      liquidityChangeEventType: conf[CONF_ENV].ALPHALEND_LOOP_SUI_STSUI_POOL_LIQUIDITY_CHANGE_EVENT,
     },
     loopingPoolCoinMap: {
-      supplyCoin: coinsList["STSUI"].type,
-      borrowCoin: coinsList["SUI"].type,
+      supplyCoin: coinsList['STSUI'].type,
+      borrowCoin: coinsList['SUI'].type,
     },
     images: {
       imageUrl1: 'https://images.alphafi.xyz/adminweb/sui-logo1.svg',
@@ -440,7 +432,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_MUSD_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_MUSD_RECEIPT,
     },
-    assetTypes: [coinsList["STSUI"].type, coinsList["MUSD"].type],
+    assetTypes: [coinsList['STSUI'].type, coinsList['MUSD'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_MUSD_POOL_AUTO_COMPOUNDING_EVENT,
@@ -463,7 +455,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_BUCK_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_BUCK_RECEIPT,
     },
-    assetTypes: [coinsList["STSUI"].type, coinsList["BUCK"].type],
+    assetTypes: [coinsList['STSUI'].type, coinsList['BUCK'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_BUCK_POOL_AUTO_COMPOUNDING_EVENT,
@@ -487,7 +479,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_STSUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_STSUI_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["STSUI"].type],
+    assetTypes: [coinsList['STSUI'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_STSUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
@@ -512,7 +504,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_SUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_SUI_RECEIPT,
     },
-    assetTypes: [coinsList["DEEP"].type, coinsList["SUI"].type],
+    assetTypes: [coinsList['DEEP'].type, coinsList['SUI'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -535,7 +527,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_BLUE_SUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_BLUE_SUI_RECEIPT,
     },
-    assetTypes: [coinsList["BLUE"].type, coinsList["SUI"].type],
+    assetTypes: [coinsList['BLUE'].type, coinsList['SUI'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_BLUE_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -558,7 +550,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_BLUE_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_BLUE_RECEIPT,
     },
-    assetTypes: [coinsList["DEEP"].type, coinsList["BLUE"].type],
+    assetTypes: [coinsList['DEEP'].type, coinsList['BLUE'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_BLUE_POOL_AUTO_COMPOUNDING_EVENT,
@@ -581,7 +573,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUIUSDT_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUIUSDT_USDC_RECEIPT,
     },
-    assetTypes: [coinsList["SUIUSDT"].type, coinsList["USDC"].type],
+    assetTypes: [coinsList['SUIUSDT'].type, coinsList['USDC'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_SUIUSDT_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -604,7 +596,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_RECEIPT,
     },
-    assetTypes: [coinsList["SUIUSDT"].type, coinsList["USDC"].type],
+    assetTypes: [coinsList['SUIUSDT'].type, coinsList['USDC'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -628,7 +620,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_USDC_RECEIPT,
     },
-    assetTypes: [coinsList["SUI"].type, coinsList["USDC"].type],
+    assetTypes: [coinsList['SUI'].type, coinsList['USDC'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -655,7 +647,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_USDT_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_USDT_USDC_RECEIPT,
     },
-    assetTypes: [coinsList["USDT"].type, coinsList["USDC"].type],
+    assetTypes: [coinsList['USDT'].type, coinsList['USDC'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_USDT_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -682,7 +674,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_ALPHA_STSUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_ALPHA_STSUI_RECEIPT,
     },
-    assetTypes: [coinsList["ALPHA"].type, coinsList["STSUI"].type],
+    assetTypes: [coinsList['ALPHA'].type, coinsList['STSUI'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_ALPHA_STSUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -709,7 +701,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_WSOL_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_WSOL_RECEIPT,
     },
-    assetTypes: [coinsList["STSUI"].type, coinsList["WSOL"].type],
+    assetTypes: [coinsList['STSUI'].type, coinsList['WSOL'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_WSOL_POOL_AUTO_COMPOUNDING_EVENT,
@@ -732,7 +724,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_ETH_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_ETH_RECEIPT,
     },
-    assetTypes: [coinsList["STSUI"].type, coinsList["ETH"].type],
+    assetTypes: [coinsList['STSUI'].type, coinsList['ETH'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_ETH_POOL_AUTO_COMPOUNDING_EVENT,
@@ -755,7 +747,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_USDC_RECEIPT,
     },
-    assetTypes: [coinsList["STSUI"].type, coinsList["USDC"].type],
+    assetTypes: [coinsList['STSUI'].type, coinsList['USDC'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -782,7 +774,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_SUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_SUI_RECEIPT,
     },
-    assetTypes: [coinsList["STSUI"].type, coinsList["SUI"].type],
+    assetTypes: [coinsList['STSUI'].type, coinsList['SUI'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_STSUI_SUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -809,7 +801,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_DEEP_SUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_DEEP_SUI_RECEIPT,
     },
-    assetTypes: [coinsList["DEEP"].type, coinsList["SUI"].type],
+    assetTypes: [coinsList['DEEP'].type, coinsList['SUI'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].ALPHAFI_BLUEFIN_DEEP_SUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].ALPHAFI_BLUEFIN_DEEP_SUI_POOL_REBALANCE_EVENT,
@@ -834,7 +826,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_WBTC_SUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_WBTC_SUI_RECEIPT,
     },
-    assetTypes: [coinsList["WBTC"].type, coinsList["SUI"].type],
+    assetTypes: [coinsList['WBTC'].type, coinsList['SUI'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].ALPHAFI_BLUEFIN_WBTC_SUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].ALPHAFI_BLUEFIN_WBTC_SUI_POOL_REBALANCE_EVENT,
@@ -859,7 +851,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_SEND_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_SEND_USDC_RECEIPT,
     },
-    assetTypes: [coinsList["SEND"].type, coinsList["USDC"].type],
+    assetTypes: [coinsList['SEND'].type, coinsList['USDC'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_SEND_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -886,7 +878,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_BLUE_SUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_BLUE_SUI_RECEIPT,
     },
-    assetTypes: [coinsList["BLUE"].type, coinsList["SUI"].type],
+    assetTypes: [coinsList['BLUE'].type, coinsList['SUI'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].ALPHAFI_BLUEFIN_BLUE_SUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].ALPHAFI_BLUEFIN_BLUE_SUI_POOL_REBALANCE_EVENT,
@@ -911,7 +903,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_BLUE_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_BLUE_USDC_RECEIPT,
     },
-    assetTypes: [coinsList["BLUE"].type, coinsList["USDC"].type],
+    assetTypes: [coinsList['BLUE'].type, coinsList['USDC'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_BLUE_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -938,7 +930,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_NAVX_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_NAVX_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["NAVX"].type],
+    assetTypes: [coinsList['NAVX'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_NAVX_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
@@ -963,7 +955,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_NAVX_VSUI_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_NAVX_VSUI_RECEIPT,
     },
-    assetTypes: [coinsList["NAVX"].type, coinsList["VSUI"].type],
+    assetTypes: [coinsList['NAVX'].type, coinsList['VSUI'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_NAVX_VSUI_POOL_AUTO_COMPOUNDING_EVENT,
@@ -990,7 +982,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_AUSD_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_AUSD_RECEIPT,
     },
-    assetTypes: [coinsList["SUI"].type, coinsList["AUSD"].type],
+    assetTypes: [coinsList['SUI'].type, coinsList['AUSD'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_AUSD_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_AUSD_POOL_REBALANCE_EVENT,
@@ -1015,7 +1007,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_ALPHA_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_ALPHA_USDC_RECEIPT,
     },
-    assetTypes: [coinsList["ALPHA"].type, coinsList["USDC"].type],
+    assetTypes: [coinsList['ALPHA'].type, coinsList['USDC'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_ALPHA_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1042,7 +1034,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_WBTC_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_WBTC_USDC_RECEIPT,
     },
-    assetTypes: [coinsList["WBTC"].type, coinsList["USDC"].type],
+    assetTypes: [coinsList['WBTC'].type, coinsList['USDC'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_WBTC_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1069,7 +1061,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_NS_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_NS_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["NS"].type],
+    assetTypes: [coinsList['NS'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_NS_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
@@ -1094,7 +1086,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUSD_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUSD_USDC_RECEIPT,
     },
-    assetTypes: [coinsList["AUSD"].type, coinsList["USDC"].type],
+    assetTypes: [coinsList['AUSD'].type, coinsList['USDC'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_AUSD_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1121,7 +1113,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_BUCK_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_BUCK_RECEIPT,
     },
-    assetTypes: [coinsList["SUI"].type, coinsList["BUCK"].type],
+    assetTypes: [coinsList['SUI'].type, coinsList['BUCK'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_BUCK_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_BUCK_POOL_REBALANCE_EVENT,
@@ -1146,18 +1138,16 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_USDT_USDC_LOOP_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_LOOP_USDT_USDC_RECEIPT,
     },
-    assetTypes: [coinsList["USDT"].type],
+    assetTypes: [coinsList['USDT'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_LOOP_USDT_USDC_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
-      liquidityChangeEventType:
-        conf[CONF_ENV].NAVI_LOOP_USDT_USDC_POOL_LIQUIDITY_CHANGE_EVENT,
-      checkRatioEventType:
-        conf[CONF_ENV].NAVI_LOOP_USDT_USDC_POOL_CHECK_RATIO_EVENT,
+      liquidityChangeEventType: conf[CONF_ENV].NAVI_LOOP_USDT_USDC_POOL_LIQUIDITY_CHANGE_EVENT,
+      checkRatioEventType: conf[CONF_ENV].NAVI_LOOP_USDT_USDC_POOL_CHECK_RATIO_EVENT,
     },
     loopingPoolCoinMap: {
-      supplyCoin: coinsList["USDT"].type,
-      borrowCoin: coinsList["USDC"].type,
+      supplyCoin: coinsList['USDT'].type,
+      borrowCoin: coinsList['USDC'].type,
     },
     images: {
       imageUrl1: 'https://images.alphafi.xyz/adminweb/USDT.svg',
@@ -1178,7 +1168,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_USDT_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_USDT_USDC_RECEIPT,
     },
-    assetTypes: [coinsList["USDT"].type, coinsList["USDC"].type],
+    assetTypes: [coinsList['USDT'].type, coinsList['USDC'].type],
     events: {
       autoCompoundingEventType:
         conf[CONF_ENV].ALPHAFI_BLUEFIN_USDT_USDC_POOL_AUTO_COMPOUNDING_EVENT,
@@ -1205,7 +1195,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_USDC_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_USDC_RECEIPT,
     },
-    assetTypes: [coinsList["SUI"].type, coinsList["USDC"].type],
+    assetTypes: [coinsList['SUI'].type, coinsList['USDC'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_USDC_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUI_USDC_POOL_REBALANCE_EVENT,
@@ -1230,18 +1220,16 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_HASUI_SUI_LOOP_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_LOOP_HASUI_SUI_RECEIPT,
     },
-    assetTypes: [coinsList["HASUI"].type],
+    assetTypes: [coinsList['HASUI'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_LOOP_HASUI_SUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
-      liquidityChangeEventType:
-        conf[CONF_ENV].NAVI_LOOP_HASUI_SUI_POOL_LIQUIDITY_CHANGE_EVENT,
-      checkRatioEventType:
-        conf[CONF_ENV].NAVI_LOOP_HASUI_SUI_POOL_CHECK_RATIO_EVENT,
+      liquidityChangeEventType: conf[CONF_ENV].NAVI_LOOP_HASUI_SUI_POOL_LIQUIDITY_CHANGE_EVENT,
+      checkRatioEventType: conf[CONF_ENV].NAVI_LOOP_HASUI_SUI_POOL_CHECK_RATIO_EVENT,
     },
     loopingPoolCoinMap: {
-      supplyCoin: coinsList["HASUI"].type,
-      borrowCoin: coinsList["SUI"].type,
+      supplyCoin: coinsList['HASUI'].type,
+      borrowCoin: coinsList['SUI'].type,
     },
     images: {
       imageUrl1: 'https://images.alphafi.xyz/adminweb/hasui.svg',
@@ -1262,7 +1250,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_USDY_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_USDY_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["USDY"].type],
+    assetTypes: [coinsList['USDY'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_USDY_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
@@ -1287,7 +1275,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_AUSD_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_AUSD_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["AUSD"].type],
+    assetTypes: [coinsList['AUSD'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_AUSD_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
@@ -1312,7 +1300,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_ETH_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_ETH_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["ETH"].type],
+    assetTypes: [coinsList['ETH'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_ETH_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
@@ -1337,7 +1325,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].BUCKET_BUCK_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].BUCKET_BUCK_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["BUCK"].type],
+    assetTypes: [coinsList['BUCK'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].BUCKET_BUCK_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].BUCKET_BUCK_POOL_REBALANCE_EVENT,
@@ -1362,7 +1350,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].BUCK_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].BUCK_SUI_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["BUCK"].type, coinsList["SUI"].type],
+    assetTypes: [coinsList['BUCK'].type, coinsList['SUI'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].BUCK_SUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].BUCK_SUI_POOL_REBALANCE_EVENT,
@@ -1387,7 +1375,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].USDC_ETH_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].USDC_ETH_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["USDC"].type, coinsList["ETH"].type],
+    assetTypes: [coinsList['USDC'].type, coinsList['ETH'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].USDC_ETH_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].USDC_ETH_POOL_REBALANCE_EVENT,
@@ -1412,7 +1400,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].DEEP_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].DEEP_SUI_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["DEEP"].type, coinsList["SUI"].type],
+    assetTypes: [coinsList['DEEP'].type, coinsList['SUI'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].DEEP_SUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].DEEP_SUI_POOL_REBALANCE_EVENT,
@@ -1437,7 +1425,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHA_USDC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHA_USDC_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["ALPHA"].type, coinsList["USDC"].type],
+    assetTypes: [coinsList['ALPHA'].type, coinsList['USDC'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].ALPHA_USDC_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].ALPHA_USDC_POOL_REBALANCE_EVENT,
@@ -1462,7 +1450,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].USDC_WUSDC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].USDC_WUSDC_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["USDC"].type, coinsList["WUSDC"].type],
+    assetTypes: [coinsList['USDC'].type, coinsList['WUSDC'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].USDC_WUSDC_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].USDC_WUSDC_POOL_REBALANCE_EVENT,
@@ -1487,7 +1475,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].USDC_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].USDC_SUI_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["USDC"].type, coinsList["SUI"].type],
+    assetTypes: [coinsList['USDC'].type, coinsList['SUI'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].USDC_SUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].USDC_SUI_POOL_REBALANCE_EVENT,
@@ -1512,7 +1500,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].USDC_USDT_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].USDC_USDT_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["USDC"].type, coinsList["USDT"].type],
+    assetTypes: [coinsList['USDC'].type, coinsList['USDT'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].USDC_USDT_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].USDC_USDT_POOL_REBALANCE_EVENT,
@@ -1537,7 +1525,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_USDC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_USDC_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["USDC"].type],
+    assetTypes: [coinsList['USDC'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_USDC_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
@@ -1562,18 +1550,16 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_USDC_USDT_LOOP_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_LOOP_USDC_USDT_RECEIPT,
     },
-    assetTypes: [coinsList["USDC"].type],
+    assetTypes: [coinsList['USDC'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_LOOP_USDC_USDT_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
-      liquidityChangeEventType:
-        conf[CONF_ENV].NAVI_LOOP_USDC_USDT_POOL_LIQUIDITY_CHANGE_EVENT,
-      checkRatioEventType:
-        conf[CONF_ENV].NAVI_LOOP_USDC_USDT_POOL_CHECK_RATIO_EVENT,
+      liquidityChangeEventType: conf[CONF_ENV].NAVI_LOOP_USDC_USDT_POOL_LIQUIDITY_CHANGE_EVENT,
+      checkRatioEventType: conf[CONF_ENV].NAVI_LOOP_USDC_USDT_POOL_CHECK_RATIO_EVENT,
     },
     loopingPoolCoinMap: {
-      supplyCoin: coinsList["USDC"].type,
-      borrowCoin: coinsList["USDT"].type,
+      supplyCoin: coinsList['USDC'].type,
+      borrowCoin: coinsList['USDT'].type,
     },
     images: {
       imageUrl1: 'https://images.alphafi.xyz/adminweb/USDC.svg',
@@ -1594,18 +1580,16 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_SUI_VSUI_LOOP_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_LOOP_SUI_VSUI_RECEIPT,
     },
-    assetTypes: [coinsList["SUI"].type],
+    assetTypes: [coinsList['SUI'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_LOOP_SUI_VSUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
-      liquidityChangeEventType:
-        conf[CONF_ENV].NAVI_LOOP_SUI_VSUI_POOL_LIQUIDITY_CHANGE_EVENT,
-      checkRatioEventType:
-        conf[CONF_ENV].NAVI_LOOP_SUI_VSUI_POOL_CHECK_RATIO_EVENT,
+      liquidityChangeEventType: conf[CONF_ENV].NAVI_LOOP_SUI_VSUI_POOL_LIQUIDITY_CHANGE_EVENT,
+      checkRatioEventType: conf[CONF_ENV].NAVI_LOOP_SUI_VSUI_POOL_CHECK_RATIO_EVENT,
     },
     loopingPoolCoinMap: {
-      supplyCoin: coinsList["VSUI"].type,
-      borrowCoin: coinsList["SUI"].type,
+      supplyCoin: coinsList['VSUI'].type,
+      borrowCoin: coinsList['SUI'].type,
     },
     images: {
       imageUrl1: 'https://images.alphafi.xyz/adminweb/sui-logo1.svg',
@@ -1626,7 +1610,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_SUI_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["SUI"].type],
+    assetTypes: [coinsList['SUI'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_SUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
@@ -1652,7 +1636,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_VSUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_VSUI_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["VSUI"].type],
+    assetTypes: [coinsList['VSUI'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_VSUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
@@ -1678,7 +1662,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_WETH_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_WETH_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["WETH"].type],
+    assetTypes: [coinsList['WETH'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_WETH_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
@@ -1704,7 +1688,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_USDT_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_USDT_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["USDT"].type],
+    assetTypes: [coinsList['USDT'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_USDT_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
@@ -1730,7 +1714,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVI_WUSDC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVI_WUSDC_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["WUSDC"].type],
+    assetTypes: [coinsList['WUSDC'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVI_WUSDC_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: undefined,
@@ -1773,7 +1757,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHA_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHA_SUI_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["ALPHA"].type, coinsList["SUI"].type],
+    assetTypes: [coinsList['ALPHA'].type, coinsList['SUI'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].ALPHA_SUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].ALPHA_SUI_POOL_REBALANCE_EVENT,
@@ -1816,7 +1800,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].USDT_WUSDC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].USDT_WUSDC_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["USDT"].type, coinsList["WUSDC"].type],
+    assetTypes: [coinsList['USDT'].type, coinsList['WUSDC'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].USDT_WUSDC_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].USDT_WUSDC_POOL_REBALANCE_EVENT,
@@ -1859,7 +1843,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].WUSDC_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].WUSDC_SUI_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["WUSDC"].type, coinsList["SUI"].type],
+    assetTypes: [coinsList['WUSDC'].type, coinsList['SUI'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].WUSDC_SUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].WUSDC_SUI_POOL_REBALANCE_EVENT,
@@ -1885,7 +1869,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].WETH_WUSDC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].WETH_WUSDC_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["WETH"].type, coinsList["WUSDC"].type],
+    assetTypes: [coinsList['WETH'].type, coinsList['WUSDC'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].WETH_WUSDC_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].WETH_WUSDC_POOL_REBALANCE_EVENT,
@@ -1911,7 +1895,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].WUSDC_WBTC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].WUSDC_WBTC_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["WUSDC"].type, coinsList["WBTC"].type],
+    assetTypes: [coinsList['WUSDC'].type, coinsList['WBTC'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].WUSDC_WBTC_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].WUSDC_WBTC_POOL_REBALANCE_EVENT,
@@ -1937,7 +1921,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].NAVX_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].NAVX_SUI_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["NAVX"].type, coinsList["SUI"].type],
+    assetTypes: [coinsList['NAVX'].type, coinsList['SUI'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].NAVX_SUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].NAVX_SUI_POOL_REBALANCE_EVENT,
@@ -1980,7 +1964,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].CETUS_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].CETUS_SUI_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["CETUS"].type, coinsList["SUI"].type],
+    assetTypes: [coinsList['CETUS'].type, coinsList['SUI'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].CETUS_SUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].CETUS_SUI_POOL_REBALANCE_EVENT,
@@ -2005,7 +1989,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].ALPHA_WUSDC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHA_WUSDC_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["ALPHA"].type, coinsList["WUSDC"].type],
+    assetTypes: [coinsList['ALPHA'].type, coinsList['WUSDC'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].ALPHA_WUSDC_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].ALPHA_WUSDC_POOL_REBALANCE_EVENT,
@@ -2030,7 +2014,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].WSOL_WUSDC_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].WSOL_WUSDC_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["WSOL"].type, coinsList["WUSDC"].type],
+    assetTypes: [coinsList['WSOL'].type, coinsList['WUSDC'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].WSOL_WUSDC_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].WSOL_WUSDC_POOL_REBALANCE_EVENT,
@@ -2055,7 +2039,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
       name: conf[CONF_ENV].FUD_SUI_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].FUD_SUI_POOL_RECEIPT,
     },
-    assetTypes: [coinsList["FUD"].type, coinsList["SUI"].type],
+    assetTypes: [coinsList['FUD'].type, coinsList['SUI'].type],
     events: {
       autoCompoundingEventType: conf[CONF_ENV].FUD_SUI_POOL_AUTO_COMPOUNDING_EVENT,
       rebalanceEventType: conf[CONF_ENV].FUD_SUI_POOL_REBALANCE_EVENT,
@@ -2170,9 +2154,7 @@ export function getSingleAssetNaviPools(): PoolDetails[] {
  * @returns Array of pool details for all NAVI pools
  */
 export function getAllNaviPools(): PoolDetails[] {
-  return Object.values(poolDetailsMap).filter(
-    (pool) => pool.parentProtocolName === "NAVI",
-  );
+  return Object.values(poolDetailsMap).filter((pool) => pool.parentProtocolName === 'NAVI');
 }
 
 /**
@@ -2198,20 +2180,18 @@ export function getSingleAssetNaviPoolNames(): string[] {
  */
 export function categorizeNaviPool(
   poolDetails: PoolDetails,
-): "looping" | "single-asset" | "not-navi" {
-  if (poolDetails.parentProtocolName !== "NAVI") {
-    return "not-navi";
+): 'looping' | 'single-asset' | 'not-navi' {
+  if (poolDetails.parentProtocolName !== 'NAVI') {
+    return 'not-navi';
   }
-
 
   if (isNaviLoopPool(poolDetails)) {
     return 'looping';
   }
 
-
   if (isSingleAssetNaviPool(poolDetails)) {
     return 'single-asset';
   }
 
-  return "not-navi";
+  return 'not-navi';
 }

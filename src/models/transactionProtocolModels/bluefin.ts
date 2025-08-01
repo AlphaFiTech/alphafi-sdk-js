@@ -3,7 +3,6 @@ import { getConf } from '../../common/constants.js';
 import { poolDetailsMap, poolDetailsMapByPoolName } from '../../common/maps.js';
 import { Blockchain } from '../blockchain.js';
 import { coinsList, coinsListByType } from '../../common/coinsList.ts';
-import { CoinStruct } from '@mysten/sui/client';
 import { PoolUtils } from '../pool.js';
 
 export class BluefinTransactions {
@@ -15,39 +14,6 @@ export class BluefinTransactions {
     this.blockchain = blockchain;
     this.poolUtils = poolUtils;
     this.address = address;
-  }
-
-  async getCoinFromWallet(tx: Transaction, address: string, coinType: string) {
-    if (coinsListByType[coinType].name === 'SUI') {
-      return tx.gas;
-    }
-    let coins: CoinStruct[] = [];
-    let currentCursor: string | null | undefined = null;
-    do {
-      const response = await this.blockchain.client.getCoins({
-        owner: address,
-        coinType: coinType,
-        cursor: currentCursor,
-      });
-      coins = coins.concat(response.data);
-
-      // Check if there's a next page
-      if (response.hasNextPage && response.nextCursor) {
-        currentCursor = response.nextCursor;
-      } else {
-        // No more pages available
-        break;
-      }
-    } while (true);
-
-    let coin;
-    [coin] = tx.splitCoins(tx.object(coins[0].coinObjectId), [0]);
-    tx.mergeCoins(
-      coin,
-      coins.map((c) => c.coinObjectId),
-    );
-
-    return coin;
   }
 
   // Bluefin Deposit Type 1
@@ -84,12 +50,13 @@ export class BluefinTransactions {
     }
 
     // Simple amount calculation - using imported getAmounts function
-    const [amount1, amount2] = await this.poolUtils.getAmounts(poolId, true, amount);
-    const coin1 = await this.getCoinFromWallet(tx, this.address, pool_token1);
-    const coin2 = await this.getCoinFromWallet(tx, this.address, pool_token2);
+    const [amount1, amount2] = await this.poolUtils.getAmounts(poolId, isAmountA, amount);
+    const coin1 = await this.poolUtils.getCoinFromWallet(tx, this.address, pool_token1);
+    const coin2 = await this.poolUtils.getCoinFromWallet(tx, this.address, pool_token2);
     const [depositCoinA] = tx.splitCoins(coin1, [amount1]);
     const [depositCoinB] = tx.splitCoins(coin2, [amount2]);
 
+    tx.transferObjects([coin1, coin2], this.address);
     const poolName = poolinfo.poolName;
 
     // Pool-specific deposit logic

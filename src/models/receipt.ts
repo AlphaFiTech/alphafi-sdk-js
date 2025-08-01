@@ -1,11 +1,7 @@
-import {
-  AlphaReceiptType,
-  NaviLoopInvestorType,
-  ReceiptType,
-} from "src/utils/parsedTypes.ts";
-import { Pool } from "./pool.ts";
-import { Decimal } from "decimal.js";
-import { coinsListByType } from "src/common/coinsList.ts";
+import { AlphaReceiptType, NaviLoopInvestorType, ReceiptType } from 'src/utils/parsedTypes.ts';
+import { Pool } from './pool.ts';
+import { Decimal } from 'decimal.js';
+import { coinsListByType } from 'src/common/coinsList.ts';
 
 export class Receipt {
   receipt: ReceiptType;
@@ -31,11 +27,7 @@ export class Receipt {
         stsuiExchangeRate,
       );
     } else {
-      return this.getDoubleAssetDepositedAmount(
-        priceMap,
-        naviLoopingPoolDebt,
-        walletCoins,
-      );
+      return this.getDoubleAssetDepositedAmount(priceMap, naviLoopingPoolDebt, walletCoins);
     }
   }
 
@@ -56,10 +48,7 @@ export class Receipt {
       }
     }
 
-    const poolExchangeRate = this.pool.poolExchangeRate(
-      priceMap,
-      naviLoopingPoolDebt,
-    );
+    const poolExchangeRate = this.pool.poolExchangeRate(priceMap, naviLoopingPoolDebt);
     const lockedAmount = lockedXtokens.mul(poolExchangeRate).div(1e9);
     const totalAmount = totalXTokens.mul(poolExchangeRate).div(1e9);
     return { lockedAmount, totalAmount };
@@ -74,52 +63,38 @@ export class Receipt {
     let totalXTokens = new Decimal(this.receipt.xTokenBalance);
     if (totalXTokens.gt(0)) {
       if (
-        this.pool.poolDetails.poolName == "NAVI-LOOP-HASUI-SUI" ||
-        this.pool.poolDetails.poolName == "NAVI-LOOP-SUI-VSUI" ||
-        this.pool.poolDetails.poolName == "ALPHALEND-LOOP-SUI-STSUI"
+        this.pool.poolDetails.poolName == 'NAVI-LOOP-HASUI-SUI' ||
+        this.pool.poolDetails.poolName == 'NAVI-LOOP-SUI-VSUI' ||
+        this.pool.poolDetails.poolName == 'ALPHALEND-LOOP-SUI-STSUI'
       ) {
         let depositedAmount = totalXTokens.mul(
           this.pool.poolExchangeRate(priceMap, naviLoopingPoolDebt),
         );
         depositedAmount = depositedAmount.div(
-          Math.pow(
-            10,
-            9 - coinsListByType[this.pool.poolDetails.assetTypes[0]].expo,
-          ),
+          Math.pow(10, 9 - coinsListByType[this.pool.poolDetails.assetTypes[0]].expo),
         );
-        if (this.pool.poolDetails.poolName == "NAVI-LOOP-SUI-VSUI") {
+        if (this.pool.poolDetails.poolName == 'NAVI-LOOP-SUI-VSUI') {
           depositedAmount = depositedAmount.mul(voloExchangeRate);
-        } else if (
-          this.pool.poolDetails.poolName == "ALPHALEND-LOOP-SUI-STSUI"
-        ) {
+        } else if (this.pool.poolDetails.poolName == 'ALPHALEND-LOOP-SUI-STSUI') {
           depositedAmount = depositedAmount.mul(stsuiExchangeRate);
         }
         return [
           depositedAmount.div(
-            Math.pow(
-              10,
-              coinsListByType[this.pool.poolDetails.assetTypes[0]].expo,
-            ),
+            Math.pow(10, coinsListByType[this.pool.poolDetails.assetTypes[0]].expo),
           ),
         ];
       } else {
         let depositedAmount = totalXTokens.mul(
           this.pool.poolExchangeRate(priceMap, naviLoopingPoolDebt),
         );
-        if (this.pool.poolDetails.parentProtocolName === "NAVI") {
+        if (this.pool.poolDetails.parentProtocolName === 'NAVI') {
           depositedAmount = depositedAmount.div(
-            Math.pow(
-              10,
-              9 - coinsListByType[this.pool.poolDetails.assetTypes[0]].expo,
-            ),
+            Math.pow(10, 9 - coinsListByType[this.pool.poolDetails.assetTypes[0]].expo),
           );
         }
         return [
           depositedAmount.div(
-            Math.pow(
-              10,
-              coinsListByType[this.pool.poolDetails.assetTypes[0]].expo,
-            ),
+            Math.pow(10, coinsListByType[this.pool.poolDetails.assetTypes[0]].expo),
           ),
         ];
       }
@@ -133,34 +108,19 @@ export class Receipt {
     walletCoins: Map<string, string>,
   ): [Decimal, Decimal] {
     let totalXTokens = new Decimal(0);
-    if (this.pool.poolDetails.strategyType === "FUNGIBLE-DOUBLE-ASSET-POOL") {
-      totalXTokens = new Decimal(
-        walletCoins.get(this.pool.poolDetails.assetTypes[0]) || "0",
-      );
+    if (this.pool.poolDetails.strategyType === 'FUNGIBLE-DOUBLE-ASSET-POOL') {
+      totalXTokens = new Decimal(walletCoins.get(this.pool.poolDetails.assetTypes[0]) || '0');
     } else {
       totalXTokens = new Decimal(this.receipt.xTokenBalance);
     }
 
     if (totalXTokens.gt(0)) {
-      const poolExchangeRate = this.pool.poolExchangeRate(
-        priceMap,
-        naviLoopingPoolDebt,
-      );
+      const poolExchangeRate = this.pool.poolExchangeRate(priceMap, naviLoopingPoolDebt);
       const liquidity = totalXTokens.mul(poolExchangeRate);
       const res = this.pool.coinAmountsFromLiquidity(liquidity.toString());
       return [
-        res[0].div(
-          Math.pow(
-            10,
-            coinsListByType[this.pool.poolDetails.assetTypes[0]].expo,
-          ),
-        ),
-        res[1].div(
-          Math.pow(
-            10,
-            coinsListByType[this.pool.poolDetails.assetTypes[1]].expo,
-          ),
-        ),
+        res[0].div(Math.pow(10, coinsListByType[this.pool.poolDetails.assetTypes[0]].expo)),
+        res[1].div(Math.pow(10, coinsListByType[this.pool.poolDetails.assetTypes[1]].expo)),
       ];
     }
     return [new Decimal(0), new Decimal(0)];

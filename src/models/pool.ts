@@ -1,10 +1,6 @@
-import { PoolDetails, poolDetailsMap } from "../common/maps.js";
-import {
-  ClmmPoolUtil,
-  LiquidityInput,
-  TickMath,
-} from "@cetusprotocol/cetus-sui-clmm-sdk";
-import BN from "bn.js";
+import { PoolDetails, poolDetailsMap } from '../common/maps.js';
+import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
+import BN from 'bn.js';
 import {
   AlphaPoolType,
   BluefinInvestorType,
@@ -15,11 +11,13 @@ import {
   NaviLoopInvestorType,
   ParentPoolType,
   PoolType,
-} from "src/utils/parsedTypes.ts";
-import { Decimal } from "decimal.js";
-import { coinsList, coinsListByType } from "src/common/coinsList.ts";
-import { Blockchain } from "./blockchain.ts";
-import { SuiClient } from "@mysten/sui/client/client.js";
+} from 'src/utils/parsedTypes.ts';
+import { Decimal } from 'decimal.js';
+import { coinsList, coinsListByType } from 'src/common/coinsList.ts';
+import { Blockchain } from './blockchain.ts';
+import { SuiClient } from '@mysten/sui/client/client.js';
+import { Transaction } from '@mysten/sui/transactions/index.js';
+import { CoinStruct } from '@mysten/sui/client/index.js';
 
 /**
  * Pool utility types and interfaces
@@ -50,11 +48,7 @@ export class Pool {
   investor: InvestorType | undefined;
   poolDetails: PoolDetails;
 
-  constructor(
-    pool: PoolType,
-    investor?: InvestorType,
-    parentPool?: ParentPoolType,
-  ) {
+  constructor(pool: PoolType, investor?: InvestorType, parentPool?: ParentPoolType) {
     this.pool = pool;
     this.investor = investor;
     this.parentPool = parentPool;
@@ -73,19 +67,12 @@ export class Pool {
       tvl: this.tvl(priceMap),
       parentTvl: this.parentTvl(priceMap, naviTvlMap, bucketTvl),
       currentLPPoolPrice:
-        this.poolDetails.assetTypes.length === 2
-          ? this.currentLPPoolPrice()
-          : undefined,
-      positionRange:
-        this.poolDetails.assetTypes.length === 2
-          ? this.positionRange()
-          : undefined,
+        this.poolDetails.assetTypes.length === 2 ? this.currentLPPoolPrice() : undefined,
+      positionRange: this.poolDetails.assetTypes.length === 2 ? this.positionRange() : undefined,
     };
   }
 
-  apy(
-    aprMap: Map<string, { parentApr: Decimal; alphaMiningApr: Decimal }>,
-  ): Decimal {
+  apy(aprMap: Map<string, { parentApr: Decimal; alphaMiningApr: Decimal }>): Decimal {
     const apr = this.apr(aprMap);
     return this.convertAprToApy(apr.parentApr.add(apr.alphaMiningApr));
   }
@@ -109,16 +96,14 @@ export class Pool {
     }
 
     if (
-      this.poolDetails.parentProtocolName === "NAVI" ||
-      this.poolDetails.parentProtocolName === "ALPHALEND"
+      this.poolDetails.parentProtocolName === 'NAVI' ||
+      this.poolDetails.parentProtocolName === 'ALPHALEND'
     ) {
       if (!this.investor) {
         throw new Error(`Investor not found for pool ${this.pool.id}`);
       }
-      if (this.poolDetails.strategyType === "SINGLE-ASSET-LOOPING") {
-        const liquidity = new Decimal(
-          (this.investor as NaviLoopInvestorType).tokensDeposited,
-        );
+      if (this.poolDetails.strategyType === 'SINGLE-ASSET-LOOPING') {
+        const liquidity = new Decimal((this.investor as NaviLoopInvestorType).tokensDeposited);
         const debtToSupplyRatio = new Decimal(
           (this.investor as NaviLoopInvestorType).current_debt_to_supply_ratio,
         );
@@ -126,11 +111,11 @@ export class Pool {
           new Decimal(1).minus(debtToSupplyRatio.div(new Decimal(1e20))),
         );
 
-        if (this.poolDetails.poolName == "NAVI-LOOP-SUI-VSUI") {
-          const vsuiPrice = priceMap.get(coinsList["VSUI"].type);
+        if (this.poolDetails.poolName == 'NAVI-LOOP-SUI-VSUI') {
+          const vsuiPrice = priceMap.get(coinsList['VSUI'].type);
           if (vsuiPrice) return tokensInvested.div(1e9).mul(vsuiPrice);
-        } else if (this.poolDetails.poolName == "ALPHALEND-LOOP-SUI-STSUI") {
-          const stsuiPrice = priceMap.get(coinsList["STSUI"].type);
+        } else if (this.poolDetails.poolName == 'ALPHALEND-LOOP-SUI-STSUI') {
+          const stsuiPrice = priceMap.get(coinsList['STSUI'].type);
           if (stsuiPrice) return tokensInvested.div(1e9).mul(stsuiPrice);
         }
 
@@ -141,19 +126,19 @@ export class Pool {
         );
         return tokensInvested.mul(price);
       }
-    } else if (this.poolDetails.parentProtocolName === "BUCKET") {
+    } else if (this.poolDetails.parentProtocolName === 'BUCKET') {
       const tokensInvested = new Decimal(this.pool.tokensInvested).div(
         new Decimal(Math.pow(10, coinsListByType[coin].expo)),
       );
       return tokensInvested.mul(price);
-    } else if (this.poolDetails.parentProtocolName === "ALPHAFI") {
+    } else if (this.poolDetails.parentProtocolName === 'ALPHAFI') {
       const tokensInvested = new Decimal(this.pool.tokensInvested).div(
         new Decimal(Math.pow(10, 9)),
       );
       return tokensInvested.mul(price);
     } else if (
-      this.poolDetails.parentProtocolName === "CETUS" ||
-      this.poolDetails.parentProtocolName === "BLUEFIN"
+      this.poolDetails.parentProtocolName === 'CETUS' ||
+      this.poolDetails.parentProtocolName === 'BLUEFIN'
     ) {
       return this.getV3PoolTVL(priceMap);
     }
@@ -166,8 +151,8 @@ export class Pool {
     bucketTvl: Decimal,
   ): Decimal {
     if (
-      this.poolDetails.parentProtocolName === "BLUEFIN" ||
-      this.poolDetails.parentProtocolName === "CETUS"
+      this.poolDetails.parentProtocolName === 'BLUEFIN' ||
+      this.poolDetails.parentProtocolName === 'CETUS'
     ) {
       if (this.parentPool) {
         const amounts = [
@@ -176,10 +161,7 @@ export class Pool {
         ];
         const [coin1, coin2] = this.poolDetails.assetTypes;
 
-        const [priceOfCoin1, priceOfCoin2] = [
-          priceMap.get(coin1),
-          priceMap.get(coin2),
-        ];
+        const [priceOfCoin1, priceOfCoin2] = [priceMap.get(coin1), priceMap.get(coin2)];
         if (!priceOfCoin1 || !priceOfCoin2) {
           throw new Error(`Price not found for coin ${coin1} or ${coin2}`);
         }
@@ -193,13 +175,13 @@ export class Pool {
         return coin1InUsd.add(coin2InUsd);
       }
       return new Decimal(0);
-    } else if (this.poolDetails.parentProtocolName === "ALPHAFI") {
+    } else if (this.poolDetails.parentProtocolName === 'ALPHAFI') {
       return this.tvl(priceMap);
-    } else if (this.poolDetails.parentProtocolName === "NAVI") {
+    } else if (this.poolDetails.parentProtocolName === 'NAVI') {
       return naviTvlMap.get(this.pool.id) || new Decimal(0);
-    } else if (this.poolDetails.parentProtocolName === "BUCKET") {
+    } else if (this.poolDetails.parentProtocolName === 'BUCKET') {
       return bucketTvl;
-    } else if (this.poolDetails.parentProtocolName === "ALPHALEND") {
+    } else if (this.poolDetails.parentProtocolName === 'ALPHALEND') {
       return this.tvl(priceMap);
     }
     return new Decimal(0);
@@ -210,14 +192,9 @@ export class Pool {
     const coinB = coinsListByType[this.poolDetails.assetTypes[1]];
 
     if (this.parentPool) {
-      const currentSqrtPrice = (this.parentPool as BluefinParentPoolType)
-        .current_sqrt_price;
+      const currentSqrtPrice = (this.parentPool as BluefinParentPoolType).current_sqrt_price;
 
-      return TickMath.sqrtPriceX64ToPrice(
-        new BN(currentSqrtPrice),
-        coinA.expo,
-        coinB.expo,
-      );
+      return TickMath.sqrtPriceX64ToPrice(new BN(currentSqrtPrice), coinA.expo, coinB.expo);
     }
     return new Decimal(0);
   }
@@ -249,47 +226,37 @@ export class Pool {
     naviLoopingPoolDebt: Map<string, string>,
   ): Decimal {
     let xTokenSupply = new Decimal(0);
-    if (this.poolDetails.strategyType === "FUNGIBLE-DOUBLE-ASSET-POOL") {
-      xTokenSupply = new Decimal(
-        (this.pool as FungiblePoolType).treasury_cap.total_supply,
-      );
+    if (this.poolDetails.strategyType === 'FUNGIBLE-DOUBLE-ASSET-POOL') {
+      xTokenSupply = new Decimal((this.pool as FungiblePoolType).treasury_cap.total_supply);
     } else {
       xTokenSupply = new Decimal((this.pool as DefaultPoolType).xTokenSupply);
     }
 
     let tokensInvested = new Decimal(this.pool.tokensInvested);
-    if (this.poolDetails.poolName == "ALPHA") {
+    if (this.poolDetails.poolName == 'ALPHA') {
       tokensInvested = new Decimal((this.pool as AlphaPoolType).alpha_bal);
-    } else if (this.poolDetails.strategyType === "SINGLE-ASSET-LOOPING") {
+    } else if (this.poolDetails.strategyType === 'SINGLE-ASSET-LOOPING') {
       if (!this.investor) {
         throw new Error(`Investor not found for pool ${this.pool.id}`);
       }
       if (
-        this.poolDetails.poolName == "NAVI-LOOP-USDC-USDT" ||
-        this.poolDetails.poolName == "NAVI-LOOP-USDT-USDC"
+        this.poolDetails.poolName == 'NAVI-LOOP-USDC-USDT' ||
+        this.poolDetails.poolName == 'NAVI-LOOP-USDT-USDC'
       ) {
         const supplyCoinPrice =
-          priceMap.get(this.poolDetails.loopingPoolCoinMap?.supplyCoin || "") ||
-          new Decimal(0);
+          priceMap.get(this.poolDetails.loopingPoolCoinMap?.supplyCoin || '') || new Decimal(0);
         const borrowCoinPrice =
-          priceMap.get(this.poolDetails.loopingPoolCoinMap?.borrowCoin || "") ||
-          new Decimal(0);
+          priceMap.get(this.poolDetails.loopingPoolCoinMap?.borrowCoin || '') || new Decimal(0);
 
-        const currentDebt = naviLoopingPoolDebt.get(this.pool.id) || "0";
-        const currentSupply = new Decimal(
-          (this.investor as NaviLoopInvestorType).tokensDeposited,
-        );
+        const currentDebt = naviLoopingPoolDebt.get(this.pool.id) || '0';
+        const currentSupply = new Decimal((this.investor as NaviLoopInvestorType).tokensDeposited);
         const currentDebtInSupplyCoin = new Decimal(currentDebt)
           .mul(borrowCoinPrice)
           .div(supplyCoinPrice);
 
-        tokensInvested = new Decimal(currentSupply).minus(
-          currentDebtInSupplyCoin,
-        );
+        tokensInvested = new Decimal(currentSupply).minus(currentDebtInSupplyCoin);
       } else {
-        const liquidity = new Decimal(
-          (this.investor as NaviLoopInvestorType).tokensDeposited,
-        );
+        const liquidity = new Decimal((this.investor as NaviLoopInvestorType).tokensDeposited);
         const debtToSupplyRatio = new Decimal(
           (this.investor as NaviLoopInvestorType).current_debt_to_supply_ratio,
         );
@@ -301,7 +268,7 @@ export class Pool {
 
     // Check for division by zero
     if (xTokenSupply.eq(0)) {
-      console.error("Division by zero error: tokensInvested is zero.");
+      console.error('Division by zero error: tokensInvested is zero.');
       return new Decimal(0);
     }
     const poolExchangeRate = tokensInvested.div(xTokenSupply);
@@ -344,10 +311,7 @@ export class Pool {
     const coin1 = this.poolDetails.assetTypes[0];
     const coin2 = this.poolDetails.assetTypes[1];
 
-    const [priceOfCoin1, priceOfCoin2] = [
-      priceMap.get(coin1),
-      priceMap.get(coin2),
-    ];
+    const [priceOfCoin1, priceOfCoin2] = [priceMap.get(coin1), priceMap.get(coin2)];
 
     if (priceOfCoin1 && priceOfCoin2 && this.parentPool && this.investor) {
       let upper_tick = (this.investor as BluefinInvestorType).upper_tick;
@@ -398,15 +362,44 @@ export class PoolUtils {
     this.suiClient = suiClient;
   }
 
+  async getCoinFromWallet(tx: Transaction, address: string, coinType: string) {
+    if (coinsListByType[coinType].name === 'SUI') {
+      return tx.gas;
+    }
+    let coins: CoinStruct[] = [];
+    let currentCursor: string | null | undefined = null;
+    do {
+      const response = await this.blockchain.client.getCoins({
+        owner: address,
+        coinType: coinType,
+        cursor: currentCursor,
+      });
+      coins = coins.concat(response.data);
+
+      // Check if there's a next page
+      if (response.hasNextPage && response.nextCursor) {
+        currentCursor = response.nextCursor;
+      } else {
+        // No more pages available
+        break;
+      }
+    } while (true);
+
+    let coin;
+    [coin] = tx.splitCoins(tx.object(coins[0].coinObjectId), [0]);
+    tx.mergeCoins(
+      coin,
+      coins.map((c) => c.coinObjectId),
+    );
+
+    return coin;
+  }
+
   /**
    * Calculate optimal amounts for deposit
    */
-  async getAmounts(
-    poolId: string,
-    a2b: boolean,
-    amount: string,
-  ): Promise<[string, string]> {
-    const liquidity = await this.getLiquidity(poolId, a2b, amount);
+  async getAmounts(poolId: string, isAmountA: boolean, amount: string): Promise<[string, string]> {
+    const liquidity = await this.getLiquidity(poolId, isAmountA, amount);
     const numA = liquidity.coinAmountA.toString();
     const numB = liquidity.coinAmountB.toString();
     return [numA, numB];
@@ -547,11 +540,7 @@ export class PoolUtils {
   //   return [coinA.toString(), coinB.toString()];
   // }
 
-  async getLiquidity(
-    poolId: string,
-    a2b: boolean,
-    amount: string,
-  ): Promise<LiquidityInput> {
+  async getLiquidity(poolId: string, a2b: boolean, amount: string): Promise<LiquidityInput> {
     const investor = await this.blockchain.getInvestor(poolId);
     const parentPool = await this.blockchain.getParentPool(poolId);
 
@@ -567,9 +556,7 @@ export class PoolUtils {
       upper_tick = -~(upper_tick - 1);
     }
 
-    const current_sqrt_price = new BN(
-      (parentPool as BluefinParentPoolType).current_sqrt_price,
-    );
+    const current_sqrt_price = new BN((parentPool as BluefinParentPoolType).current_sqrt_price);
 
     const liquidity = ClmmPoolUtil.estLiquidityAndcoinAmountFromOneAmounts(
       lower_tick,

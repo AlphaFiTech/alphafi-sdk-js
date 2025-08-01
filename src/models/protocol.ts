@@ -1,11 +1,11 @@
-import { Decimal } from "decimal.js";
-import { poolDetailsMap, poolDetailsMapByPoolName } from "src/common/maps.ts";
-import { Blockchain } from "./blockchain.ts";
-import { SuiNetwork } from "./types.ts";
-import { SuiClient } from "@mysten/sui/client/client.js";
-import { getConf } from "src/common/constants.ts";
-import { Pool, PoolData } from "./pool.ts";
-import { stSuiExchangeRate, getConf as getStSuiConf } from "@alphafi/stsui-sdk";
+import { Decimal } from 'decimal.js';
+import { poolDetailsMap, poolDetailsMapByPoolName } from 'src/common/maps.ts';
+import { Blockchain } from './blockchain.ts';
+import { SuiNetwork } from './types.ts';
+import { SuiClient } from '@mysten/sui/client/client.js';
+import { getConf } from 'src/common/constants.ts';
+import { Pool, PoolData } from './pool.ts';
+import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
 
 type LoopingDebt = {
   dataType: string;
@@ -34,12 +34,7 @@ export class Protocol {
     const bucketTvl = await this.getBucketTVL();
     const poolDataMap = new Map<string, PoolData>();
     for (const pool of pools.values()) {
-      const poolData = pool.getPoolData(
-        aprMap,
-        priceMap,
-        naviTvlMap,
-        bucketTvl,
-      );
+      const poolData = pool.getPoolData(aprMap, priceMap, naviTvlMap, bucketTvl);
       poolDataMap.set(pool.pool.id, poolData);
     }
     return poolDataMap;
@@ -67,10 +62,8 @@ export class Protocol {
     return pools;
   }
 
-  async getAprMap(): Promise<
-    Map<string, { parentApr: Decimal; alphaMiningApr: Decimal }>
-  > {
-    const apiUrl = "https://api.alphafi.xyz/apr";
+  async getAprMap(): Promise<Map<string, { parentApr: Decimal; alphaMiningApr: Decimal }>> {
+    const apiUrl = 'https://api.alphafi.xyz/apr';
     const response = await fetch(`${apiUrl}`);
     const dataArr = (await response.json()) as {
       name: string;
@@ -91,7 +84,7 @@ export class Protocol {
         continue;
       }
       const entries = Object.entries(data.apr) as [string, number][];
-      const parentApr = entries.find(([key]) => key !== "alphaApr")?.[1];
+      const parentApr = entries.find(([key]) => key !== 'alphaApr')?.[1];
       aprMap.set(poolId, {
         parentApr: new Decimal(parentApr ?? 0),
         alphaMiningApr: new Decimal(data.apr.alphaApr),
@@ -102,7 +95,7 @@ export class Protocol {
   }
 
   async getPriceMap(): Promise<Map<string, Decimal>> {
-    const apiUrl = "https://api.alphalend.xyz/public/graphql";
+    const apiUrl = 'https://api.alphalend.xyz/public/graphql';
     const query = `
       query {
         coinInfo {
@@ -112,9 +105,9 @@ export class Protocol {
       }
     `;
     const response = await fetch(apiUrl, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({ query }),
     });
@@ -125,14 +118,14 @@ export class Protocol {
       priceMap.set(data.coinType, new Decimal(data.coingeckoPrice));
     }
     priceMap.set(
-      "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI",
-      priceMap.get("0x2::sui::SUI") || new Decimal(0),
+      '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
+      priceMap.get('0x2::sui::SUI') || new Decimal(0),
     );
     return priceMap;
   }
 
   async getNaviTvlMap(): Promise<Map<string, Decimal>> {
-    const naviUrl = "https://api.alphafi.xyz/navi-params";
+    const naviUrl = 'https://api.alphafi.xyz/navi-params';
     const response = await fetch(naviUrl);
     const dataArr = await response.json();
     const naviTvlMap = new Map<string, Decimal>();
@@ -153,7 +146,7 @@ export class Protocol {
     const debtMap = new Map<string, string>();
     const poolKeys = Object.keys(poolDetailsMap);
     for (const poolKey of poolKeys) {
-      if (poolDetailsMap[poolKey].strategyType === "SINGLE-ASSET-LOOPING") {
+      if (poolDetailsMap[poolKey].strategyType === 'SINGLE-ASSET-LOOPING') {
         const debt = await this.getSingularNaviLoopingPoolDebt(poolKey);
         debtMap.set(poolKey, debt);
       }
@@ -162,35 +155,30 @@ export class Protocol {
   }
 
   async getVoloExchangeRate(): Promise<Decimal> {
-    const apiUrl = "https://open-api.naviprotocol.io/api/volo/stats";
+    const apiUrl = 'https://open-api.naviprotocol.io/api/volo/stats';
     try {
       const response = await fetch(apiUrl);
       const data = (await response.json()) as any;
       return new Decimal(data.data.exchangeRate);
     } catch (error) {
-      console.log("error in api", error);
+      console.log('error in api', error);
       return new Decimal(0);
     }
   }
 
   async getStsuiExchangeRate(): Promise<Decimal> {
-    const suiTostSuiExchangeRate = await stSuiExchangeRate(
-      getStSuiConf().LST_INFO,
-      true,
-    );
+    const suiTostSuiExchangeRate = await stSuiExchangeRate(getStSuiConf().LST_INFO, true);
     return new Decimal(suiTostSuiExchangeRate);
   }
 
-  private async getSingularNaviLoopingPoolDebt(
-    poolId: string,
-  ): Promise<string> {
+  private async getSingularNaviLoopingPoolDebt(poolId: string): Promise<string> {
     const debt = (
       (
         await this.suiClient.getDynamicFieldObject({
           parentId: poolDetailsMap[poolId].investorId,
           name: {
-            type: "vector<u8>",
-            value: "debt".split("").map((char) => char.charCodeAt(0)),
+            type: 'vector<u8>',
+            value: 'debt'.split('').map((char) => char.charCodeAt(0)),
           },
         })
       ).data?.content as LoopingDebt
@@ -217,13 +205,11 @@ export class Protocol {
       const buckPerSbuck = new Decimal(flask.content.fields.reserves).div(
         flask.content.fields.sbuck_supply.fields.value,
       );
-      const totalBuckInFountain = new Decimal(totalSbuckInFountain).mul(
-        buckPerSbuck,
-      );
+      const totalBuckInFountain = new Decimal(totalSbuckInFountain).mul(buckPerSbuck);
 
       return totalBuckInFountain.div(new Decimal(1e9));
     } catch {
-      throw new Error("error in bucket protocol tvl");
+      throw new Error('error in bucket protocol tvl');
     }
   }
 }

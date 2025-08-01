@@ -2,14 +2,14 @@
  * Core functionality for the AlphaFi SDK
  */
 
-import { SuiClient } from "@mysten/sui/client";
-import { SuiNetwork } from "../models/types.js";
-import { TransactionManager } from "../models/transaction.js";
-import { Blockchain } from "../models/blockchain.js";
-import { Transaction } from "@mysten/sui/transactions";
-import { Protocol } from "../models/protocol.js";
-import { Portfolio } from "../models/portfolio.js";
-import { PoolUtils } from "src/models/pool.ts";
+import { SuiClient } from '@mysten/sui/client';
+import { SuiNetwork } from '../models/types.js';
+import { TransactionManager } from '../models/transaction.js';
+import { Blockchain } from '../models/blockchain.js';
+import { Transaction } from '@mysten/sui/transactions';
+import { Protocol } from '../models/protocol.js';
+import { Portfolio } from '../models/portfolio.js';
+import { PoolUtils } from 'src/models/pool.ts';
 
 /**
  * Configuration options for the AlphaFi SDK
@@ -90,24 +90,14 @@ export class AlphaFiSDK {
   constructor(config: AlphaFiSDKConfig) {
     this.config = config;
 
-
     // Initialize core components
     this.blockchain = new Blockchain(config.client, config.network);
     this.protocol = new Protocol(config.client, config.network);
-    this.portfolio = new Portfolio(
-      this.protocol,
-      this.blockchain,
-      config.client,
-      config.address,
-    );
+    this.portfolio = new Portfolio(this.protocol, this.blockchain, config.client, config.address);
 
     // Initialize the transaction facade
     const poolUtils = new PoolUtils(this.blockchain, this.config.client);
-    this.transactionManager = new TransactionManager(
-      config.address,
-      this.blockchain,
-      poolUtils,
-    );
+    this.transactionManager = new TransactionManager(config.address, this.blockchain, poolUtils);
     //this.transactionManager = new TransactionManager(config.address, new Blockchain(config.client, config.network), new PoolUtils(new Blockchain(config.client, config.network), config.client));
     //this.poolUtils = new PoolUtils(new Blockchain(config.client, config.network), config.client);
   }

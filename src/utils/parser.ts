@@ -13,7 +13,7 @@ import {
   BluefinParentPoolQueryType,
   DefaultReceiptQueryType,
   NaviParentPoolQueryType,
-} from "./queryTypes.js";
+} from './queryTypes.js';
 
 import {
   DefaultPoolType,
@@ -30,7 +30,7 @@ import {
   CetusParentPoolType,
   BluefinParentPoolType,
   NaviParentPoolType,
-} from "./parsedTypes.js";
+} from './parsedTypes.js';
 
 // Helper function to parse flat contents array with key-value structure
 function parseContentsArray(
@@ -208,16 +208,12 @@ export function parseBluefinParentPool(query: BluefinParentPoolQueryType): Bluef
     liquidity: query.content.fields.liquidity,
     name: query.content.fields.name,
     observations_manager: {
-      observation_index:
-        query.content.fields.observations_manager.fields.observation_index,
-      observations:
-        query.content.fields.observations_manager.fields.observations,
+      observation_index: query.content.fields.observations_manager.fields.observation_index,
+      observations: query.content.fields.observations_manager.fields.observations,
       observation_cardinality:
-        query.content.fields.observations_manager.fields
-          .observation_cardinality,
+        query.content.fields.observations_manager.fields.observation_cardinality,
       observation_cardinality_next:
-        query.content.fields.observations_manager.fields
-          .observation_cardinality_next,
+        query.content.fields.observations_manager.fields.observation_cardinality_next,
     },
     position_index: query.content.fields.position_index,
     protocol_fee_coin_a: query.content.fields.protocol_fee_coin_a,
@@ -239,9 +235,7 @@ export function parseBluefinParentPool(query: BluefinParentPoolQueryType): Bluef
   };
 }
 
-export function parseNaviParentPool(
-  query: NaviParentPoolQueryType,
-): NaviParentPoolType {
+export function parseNaviParentPool(query: NaviParentPoolQueryType): NaviParentPoolType {
   return {
     balance: query.content.fields.balance,
     decimal: query.content.fields.decimal,

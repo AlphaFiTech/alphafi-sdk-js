@@ -1,10 +1,10 @@
-import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
-import { Blockchain } from "../src/models/blockchain";
-import { fromB64 } from "@mysten/sui/utils";
-import { DynamicFieldInfo, SuiClient } from "@mysten/sui/client";
-import { Protocol } from "../src/models/protocol.js";
-import { Portfolio } from "../src/models/portfolio.js";
-import dotenv from "dotenv";
+import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { Blockchain } from '../src/models/blockchain';
+import { fromB64 } from '@mysten/sui/utils';
+import { DynamicFieldInfo, SuiClient } from '@mysten/sui/client';
+import { Protocol } from '../src/models/protocol.js';
+import { Portfolio } from '../src/models/portfolio.js';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
@@ -45,10 +45,9 @@ export function getExecStuff() {
 
 async function test() {
   const { address, keypair, suiClient } = getExecStuff();
-  const lockedTableID =
-    "0xe8474026c16bcb0581bc77169e1ee8d656d64c07ddfa02929ea536fe260e1a09";
-  const blockchain = new Blockchain(suiClient, "mainnet");
-  const protocol = new Protocol(suiClient, "mainnet");
+  const lockedTableID = '0xe8474026c16bcb0581bc77169e1ee8d656d64c07ddfa02929ea536fe260e1a09';
+  const blockchain = new Blockchain(suiClient, 'mainnet');
+  const protocol = new Protocol(suiClient, 'mainnet');
   const portfolio = new Portfolio(protocol, blockchain, suiClient, address);
   const res = await portfolio.getPortfolioData();
   console.log(res);
@@ -56,9 +55,9 @@ async function test() {
 
 async function main() {
   const { address, keypair, suiClient } = getExecStuff();
-  const client = getSuiClient("mainnet");
-  const blockchain = new Blockchain(client, "mainnet");
-  const protocol = new Protocol(client, "mainnet");
+  const client = getSuiClient('mainnet');
+  const blockchain = new Blockchain(client, 'mainnet');
+  const protocol = new Protocol(client, 'mainnet');
   const portfolio = new Portfolio(protocol, blockchain, client, address);
   // const res = await protocol.getAllPoolsData();
   // for (const pool of res) {

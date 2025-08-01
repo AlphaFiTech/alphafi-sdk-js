@@ -1,16 +1,16 @@
-import { SuiClient } from "@mysten/sui/client/client.js";
-import { Blockchain } from "./blockchain.ts";
-import { Protocol } from "./protocol.ts";
-import { Receipt } from "./receipt.ts";
-import { Decimal } from "decimal.js";
-import { poolDetailsMap, poolDetailsMapByPoolName } from "src/common/maps.ts";
-import { AlphaReceiptType } from "src/utils/parsedTypes.ts";
-import { coinsList, coinsListByType } from "src/common/coinsList.ts";
-import { Pool } from "./pool.ts";
-import { DynamicFieldInfo } from "@mysten/sui/client/index.js";
+import { SuiClient } from '@mysten/sui/client/client.js';
+import { Blockchain } from './blockchain.ts';
+import { Protocol } from './protocol.ts';
+import { Receipt } from './receipt.ts';
+import { Decimal } from 'decimal.js';
+import { poolDetailsMap, poolDetailsMapByPoolName } from 'src/common/maps.ts';
+import { AlphaReceiptType } from 'src/utils/parsedTypes.ts';
+import { coinsList, coinsListByType } from 'src/common/coinsList.ts';
+import { Pool } from './pool.ts';
+import { DynamicFieldInfo } from '@mysten/sui/client/index.js';
 
 type LockedAlphaDynamicField = {
-  dataType: "moveObject";
+  dataType: 'moveObject';
   hasPublicTransfer: boolean;
   type: string;
   fields: {
@@ -64,11 +64,9 @@ export class Portfolio {
     let receiptsMap = await this.getAllReceipts(pools);
     const walletCoins = await this.getWalletCoins();
 
-    const alphaReceipt = receiptsMap.get(
-      poolDetailsMapByPoolName["ALPHA"].poolId,
-    );
+    const alphaReceipt = receiptsMap.get(poolDetailsMapByPoolName['ALPHA'].poolId);
 
-    receiptsMap.delete(poolDetailsMapByPoolName["ALPHA"].poolId);
+    receiptsMap.delete(poolDetailsMapByPoolName['ALPHA'].poolId);
     const lockedBalances = alphaReceipt
       ? await this.fetchUserLockedBalances(
           (alphaReceipt.receipt as AlphaReceiptType).locked_balance.id,
@@ -100,19 +98,13 @@ export class Portfolio {
     });
 
     const alphaDeposit = alphaReceipt
-      ? alphaReceipt.getAlphaDepositAmount(
-          priceMap,
-          naviLoopingPoolDebt,
-          lockedBalances,
-        )
+      ? alphaReceipt.getAlphaDepositAmount(priceMap, naviLoopingPoolDebt, lockedBalances)
       : { lockedAmount: new Decimal(0), totalAmount: new Decimal(0) };
 
     let userDeposit = alphaDeposit.totalAmount.mul(
-      priceMap.get(coinsList["ALPHA"].type) ?? new Decimal(0),
+      priceMap.get(coinsList['ALPHA'].type) ?? new Decimal(0),
     );
-    let weightedAPYNumerator = userDeposit.mul(
-      alphaReceipt?.pool.apy(aprMap) ?? new Decimal(0),
-    );
+    let weightedAPYNumerator = userDeposit.mul(alphaReceipt?.pool.apy(aprMap) ?? new Decimal(0));
     let weightedAPYDenominator = userDeposit;
 
     poolDeposits.forEach((deposits, poolId) => {
@@ -121,10 +113,7 @@ export class Portfolio {
       );
       const amount2 =
         poolDetailsMap[poolId].assetTypes.length === 2
-          ? deposits[1].mul(
-              priceMap.get(poolDetailsMap[poolId].assetTypes[1]) ??
-                new Decimal(0),
-            )
+          ? deposits[1].mul(priceMap.get(poolDetailsMap[poolId].assetTypes[1]) ?? new Decimal(0))
           : new Decimal(0);
       const pool = pools.get(poolId);
       if (!pool) return;
@@ -135,7 +124,7 @@ export class Portfolio {
       );
       console.log(
         pool.poolDetails.poolName,
-        "----",
+        '----',
         // pool.apy(aprMap),
         // "----",
         amount1.add(amount2).toString(),
@@ -154,9 +143,7 @@ export class Portfolio {
     return portfolioData;
   }
 
-  async getAllReceipts(
-    pools: Map<string, Pool>,
-  ): Promise<Map<string, Receipt>> {
+  async getAllReceipts(pools: Map<string, Pool>): Promise<Map<string, Receipt>> {
     const receipts = await this.blockchain.getMultiReceipt(this.userAddress);
     const portfolio: Map<string, Receipt> = new Map();
 
@@ -227,25 +214,18 @@ export class Portfolio {
     const result = new Map<string, Decimal[]>();
 
     for (const poolDetails of Object.values(poolDetailsMap)) {
-      if (poolDetails.strategyType === "FUNGIBLE-DOUBLE-ASSET-POOL") {
+      if (poolDetails.strategyType === 'FUNGIBLE-DOUBLE-ASSET-POOL') {
         const totalXTokens = new Decimal(
-          walletCoins.get(poolDetails.fungibleCoinType || "") || "0",
+          walletCoins.get(poolDetails.fungibleCoinType || '') || '0',
         );
         const pool = pools.get(poolDetails.poolId);
         if (totalXTokens.gt(0) && pool) {
-          const poolExchangeRate = pool.poolExchangeRate(
-            priceMap,
-            naviLoopingPoolDebt,
-          );
+          const poolExchangeRate = pool.poolExchangeRate(priceMap, naviLoopingPoolDebt);
           const liquidity = totalXTokens.mul(poolExchangeRate);
           const res = pool.coinAmountsFromLiquidity(liquidity.toString());
           const amounts = [
-            res[0].div(
-              Math.pow(10, coinsListByType[poolDetails.assetTypes[0]].expo),
-            ),
-            res[1].div(
-              Math.pow(10, coinsListByType[poolDetails.assetTypes[1]].expo),
-            ),
+            res[0].div(Math.pow(10, coinsListByType[poolDetails.assetTypes[0]].expo)),
+            res[1].div(Math.pow(10, coinsListByType[poolDetails.assetTypes[1]].expo)),
           ];
           result.set(poolDetails.poolId, amounts);
         }

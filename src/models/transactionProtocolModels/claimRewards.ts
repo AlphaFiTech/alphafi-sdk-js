@@ -1,9 +1,9 @@
-import { Transaction } from "@mysten/sui/transactions";
-import { getConf } from "../../common/constants.js";
-import { poolDetailsMap } from "../../common/maps.js";
-import { Blockchain } from "../blockchain.js";
-import { coinsList } from "../../common/coinsList.ts";
-import { PoolUtils } from "../pool.js";
+import { Transaction } from '@mysten/sui/transactions';
+import { getConf } from '../../common/constants.js';
+import { poolDetailsMap, poolDetailsMapByPoolName } from '../../common/maps.js';
+import { Blockchain } from '../blockchain.js';
+import { coinsList } from '../../common/coinsList.ts';
+import { PoolUtils } from '../pool.js';
 
 export class ClaimRewardsTransactions {
   constructor(
@@ -13,6 +13,7 @@ export class ClaimRewardsTransactions {
   ) {
     this.blockchain = blockchain;
     this.poolUtils = poolUtils;
+    this.address = address;
   }
 
   /**
@@ -20,17 +21,19 @@ export class ClaimRewardsTransactions {
    * This function iterates through all pools and claims rewards for each one
    */
   async claimAllRewardsTx(): Promise<Transaction> {
-    console.log('Creating claim all rewards transaction for address:', this.address);
     const tx = new Transaction();
 
     // Get multi receipts to warm up the cache
     await this.blockchain.getMultiReceipt(this.address);
 
     // Get ALPHA receipt for the alpha_receipt parameter
-    const alphaReceipt = await this.blockchain.getReceipts(1, this.address); // Pool ID 1 is typically ALPHA
+    const alphaReceipt = await this.blockchain.getReceipt(
+      poolDetailsMapByPoolName['ALPHA'].poolId,
+      this.address,
+    ); // Pool ID 1 is typically ALPHA
     let alpha_receipt: any;
 
-    if (alphaReceipt.length === 0) {
+    if (!alphaReceipt) {
       [alpha_receipt] = tx.moveCall({
         target: `0x1::option::none`,
         typeArguments: [getConf().ALPHA_POOL_RECEIPT],
@@ -39,15 +42,13 @@ export class ClaimRewardsTransactions {
     } else {
       [alpha_receipt] = tx.moveCall({
         target: `0x1::option::some`,
-        typeArguments: [alphaReceipt[0].type],
-        arguments: [tx.object(alphaReceipt[0].id)],
+        typeArguments: [alphaReceipt.type],
+        arguments: [tx.object(alphaReceipt.id)],
       });
     }
 
     // Get all pool IDs from poolDetailsMap
-    const poolIds = Object.keys(poolDetailsMap)
-      .map(Number)
-      .filter((id) => !isNaN(id));
+    const poolIds = Object.keys(poolDetailsMap);
 
     for (const poolId of poolIds) {
       const poolinfo = poolDetailsMap[poolId];

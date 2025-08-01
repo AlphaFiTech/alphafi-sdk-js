@@ -65,10 +65,7 @@ export type AlphaPoolType = {
 };
 
 // <--------- Parent Pool Types --------->
-export type ParentPoolType =
-  | CetusParentPoolType
-  | BluefinParentPoolType
-  | NaviParentPoolType;
+export type ParentPoolType = CetusParentPoolType | BluefinParentPoolType | NaviParentPoolType;
 
 export type CetusParentPoolType = {
   coin_a: string;

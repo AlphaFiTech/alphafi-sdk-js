@@ -55,9 +55,9 @@ export const coinsList: {
     expo: 9,
   },
   CETUS: {
-    name: "CETUS",
-    type: "0x06864a6f921804860930db6ddbe2e16acdf8504495ea7481637a1c8b9a8fe54b::cetus::CETUS",
-    icon: "https://coinmeta.polymedia.app/img/coins/0x06864a6f921804860930db6ddbe2e16acdf8504495ea7481637a1c8b9a8fe54b-cetus-CETUS.webp",
+    name: 'CETUS',
+    type: '0x06864a6f921804860930db6ddbe2e16acdf8504495ea7481637a1c8b9a8fe54b::cetus::CETUS',
+    icon: 'https://coinmeta.polymedia.app/img/coins/0x06864a6f921804860930db6ddbe2e16acdf8504495ea7481637a1c8b9a8fe54b-cetus-CETUS.webp',
     expo: 9,
   },
   TURBOS: {
@@ -97,9 +97,9 @@ export const coinsList: {
     expo: 6,
   },
   WBTC: {
-    name: "WBTC",
-    type: "0x027792d9fed7f9844eb4839566001bb6f6cb4804f66aa2da6fe1ee242d896881::coin::COIN",
-    icon: "https://coinmeta.polymedia.app/img/coins/0x027792d9fed7f9844eb4839566001bb6f6cb4804f66aa2da6fe1ee242d896881-coin-COIN.webp",
+    name: 'WBTC',
+    type: '0x027792d9fed7f9844eb4839566001bb6f6cb4804f66aa2da6fe1ee242d896881::coin::COIN',
+    icon: 'https://coinmeta.polymedia.app/img/coins/0x027792d9fed7f9844eb4839566001bb6f6cb4804f66aa2da6fe1ee242d896881-coin-COIN.webp',
     expo: 8,
   },
   CELO: {
@@ -192,10 +192,10 @@ export const coinsList: {
     icon: '',
     expo: 9,
   },
-  "AlphaFi stSUI-SUI LP": {
-    name: "AlphaFi stSUI-SUI LP",
-    type: "0x96eb2012a75798ce4410392baeab9dd888bc704799b7daa468c36856c83174f3::ALPHAFI_STSUI_SUI_LP::ALPHAFI_STSUI_SUI_LP",
-    icon: "",
+  'AlphaFi stSUI-SUI LP': {
+    name: 'AlphaFi stSUI-SUI LP',
+    type: '0x96eb2012a75798ce4410392baeab9dd888bc704799b7daa468c36856c83174f3::ALPHAFI_STSUI_SUI_LP::ALPHAFI_STSUI_SUI_LP',
+    icon: '',
     expo: 9,
   },
   SUIBTC: {
@@ -211,21 +211,21 @@ export const coinsList: {
     expo: 8,
   },
   WAL: {
-    name: "WAL",
-    type: "0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL",
-    icon: "",
+    name: 'WAL',
+    type: '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL',
+    icon: '',
     expo: 9,
   },
   DMC: {
-    name: "DMC",
-    type: "0x4c981f3ff786cdb9e514da897ab8a953647dae2ace9679e8358eec1e3e8871ac::dmc::DMC",
-    icon: "",
+    name: 'DMC',
+    type: '0x4c981f3ff786cdb9e514da897ab8a953647dae2ace9679e8358eec1e3e8871ac::dmc::DMC',
+    icon: '',
     expo: 9,
   },
   TBTC: {
-    name: "TBTC",
-    type: "0x77045f1b9f811a7a8fb9ebd085b5b0c55c5cb0d1520ff55f7037f89b5da9f5f1::TBTC::TBTC",
-    icon: "",
+    name: 'TBTC',
+    type: '0x77045f1b9f811a7a8fb9ebd085b5b0c55c5cb0d1520ff55f7037f89b5da9f5f1::TBTC::TBTC',
+    icon: '',
     expo: 8,
   },
 };
