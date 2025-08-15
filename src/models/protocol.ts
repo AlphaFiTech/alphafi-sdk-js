@@ -1,10 +1,10 @@
 import { Decimal } from 'decimal.js';
-import { poolDetailsMap, poolDetailsMapByPoolName } from 'src/common/maps.ts';
-import { Blockchain } from './blockchain.ts';
-import { SuiNetwork } from './types.ts';
+import { poolDetailsMap, poolDetailsMapByPoolName } from '../common/maps.js';
+import { Blockchain } from './blockchain.js';
+import { SuiNetwork } from './types.js';
 import { SuiClient } from '@mysten/sui/client/client.js';
-import { getConf } from 'src/common/constants.ts';
-import { Pool, PoolData } from './pool.ts';
+import { getConf } from '../common/constants.js';
+import { Pool, PoolData } from './pool.js';
 import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
 
 type LoopingDebt = {

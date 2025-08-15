@@ -9,7 +9,7 @@ import { Blockchain } from '../models/blockchain.js';
 import { Transaction } from '@mysten/sui/transactions';
 import { Protocol } from '../models/protocol.js';
 import { Portfolio } from '../models/portfolio.js';
-import { PoolUtils } from 'src/models/pool.ts';
+import { PoolUtils } from '../models/pool.js';
 
 /**
  * Configuration options for the AlphaFi SDK
@@ -24,7 +24,7 @@ export interface AlphaFiSDKConfig {
  * Options for deposit operations
  */
 export interface DepositOptions {
-  poolId: number;
+  poolId: string;
   amount: string;
   isAmountA?: boolean; // For Cetus pools that support dual assets
   dryRun?: boolean;
@@ -34,7 +34,7 @@ export interface DepositOptions {
  * Options for withdraw operations
  */
 export interface WithdrawOptions {
-  poolId: number;
+  poolId: string;
   xTokens: string;
   percentage?: number; // Alternative to xTokens - withdraw percentage of balance
   dryRun?: boolean;

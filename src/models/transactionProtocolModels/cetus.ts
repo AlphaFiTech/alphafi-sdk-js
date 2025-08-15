@@ -2,8 +2,8 @@ import { Transaction } from '@mysten/sui/transactions';
 import { getConf } from '../../common/constants.js';
 import { poolDetailsMap, poolDetailsMapByPoolName } from '../../common/maps.js';
 import { Blockchain } from '../blockchain.js';
-import { PoolUtils } from '../pool.ts';
-import { coinsListByType } from 'src/common/coinsList.ts';
+import { PoolUtils } from '../pool.js';
+import { coinsListByType } from '../../common/coinsList.js';
 
 export class CetusTransactions {
   constructor(

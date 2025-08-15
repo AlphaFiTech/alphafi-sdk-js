@@ -2,7 +2,7 @@ import { Transaction } from '@mysten/sui/transactions';
 import { getConf } from '../../common/constants.js';
 import { poolDetailsMap } from '../../common/maps.js';
 import { Blockchain } from '../blockchain.js';
-import { coinsList } from '../../common/coinsList.ts';
+import { coinsList } from '../../common/coinsList.js';
 import { CoinStruct } from '@mysten/sui/client';
 import { PoolUtils } from '../pool.js';
 
@@ -40,7 +40,7 @@ export class BucketTransactions {
     // Get the coin type for BUCK
     let bucketCoinType: string;
     if ('token' in poolinfo.assetTypes) {
-      bucketCoinType = poolinfo.assetTypes.token;
+      bucketCoinType = poolinfo.assetTypes.token as string;
     } else {
       throw new Error('Bucket pool does not have single asset type configuration');
     }
@@ -48,8 +48,8 @@ export class BucketTransactions {
     const coinName = bucketCoinType.split('::').pop()?.toUpperCase() || 'BUCK';
     console.log('Coin name', coinName);
 
-    // Get receipts for this pool
-    const receipt: any[] = await this.blockchain.getReceipts(poolId, this.address);
+    // Get receipts for this pool  
+    const receipt = await this.blockchain.getReceipt(poolId.toString(), this.address);
     console.log('Receipt', receipt);
     console.log('Pool ID', poolId);
     console.log('Address', this.address);
@@ -103,7 +103,7 @@ export class BucketTransactions {
 
     // Handle receipt creation for deposit
     let someReceipt: any;
-    if (receipt.length === 0) {
+    if (!receipt) {
       [someReceipt] = tx.moveCall({
         target: `0x1::option::none`,
         typeArguments: [poolinfo.receipt.type],
@@ -112,8 +112,8 @@ export class BucketTransactions {
     } else {
       [someReceipt] = tx.moveCall({
         target: `0x1::option::some`,
-        typeArguments: [receipt[0].type],
-        arguments: [tx.object(receipt[0].id)],
+        typeArguments: [receipt.type],
+        arguments: [tx.object(receipt.id)],
       });
     }
 
@@ -180,17 +180,17 @@ export class BucketTransactions {
     console.log('Pool info', poolinfo);
 
     // Get receipts for this pool
-    const receipt: any[] = await this.blockchain.getReceipts(poolId, this.address);
+    const receipt = await this.blockchain.getReceipt(poolId.toString(), this.address);
 
-    if (receipt.length === 0) {
+    if (!receipt) {
       throw new Error(`No ${poolinfo.poolName} Receipt found for withdrawal`);
     }
 
     // Get ALPHA receipt for the alpha_receipt parameter
-    const alphaReceipt: any[] = await this.blockchain.getReceipts(1, this.address); // Pool ID 1 is typically ALPHA
+    const alphaReceipt = await this.blockchain.getReceipt("1", this.address); // Pool ID 1 is ALPHA
 
     let alpha_receipt: any;
-    if (alphaReceipt.length === 0) {
+    if (!alphaReceipt) {
       [alpha_receipt] = tx.moveCall({
         target: `0x1::option::none`,
         typeArguments: [getConf().ALPHA_POOL_RECEIPT],
@@ -199,8 +199,8 @@ export class BucketTransactions {
     } else {
       [alpha_receipt] = tx.moveCall({
         target: `0x1::option::some`,
-        typeArguments: [alphaReceipt[0].type],
-        arguments: [tx.object(alphaReceipt[0].id)],
+        typeArguments: [alphaReceipt.type],
+        arguments: [tx.object(alphaReceipt.id)],
       });
     }
 
@@ -224,7 +224,7 @@ export class BucketTransactions {
       arguments: [
         tx.object(getConf().ALPHA_3_VERSION),
         tx.object(getConf().VERSION),
-        tx.object(receipt[0].id),
+        tx.object(receipt.id),
         alpha_receipt,
         tx.object(poolDetailsMap[1].poolId), // ALPHA pool
         tx.object(poolinfo.poolId),
@@ -257,14 +257,14 @@ export class BucketTransactions {
    * @returns Promise<string> - xToken balance as string
    */
   async getUserBucketBalance(poolId: number): Promise<string> {
-    const receipt = await this.blockchain.getReceipts(poolId, this.address);
+    const receipt = await this.blockchain.getReceipt(poolId.toString(), this.address);
 
-    if (receipt.length === 0) {
+    if (!receipt) {
       return '0';
     }
 
     // Extract balance from receipt if available
-    return receipt[0].xTokenBalance?.toString() || '0';
+    return receipt.xTokenBalance?.toString() || '0';
   }
 
   /**
@@ -273,8 +273,8 @@ export class BucketTransactions {
    * @returns Promise<boolean> - True if user has deposits
    */
   async hasDeposits(poolId: number): Promise<boolean> {
-    const receipt = await this.blockchain.getReceipts(poolId, this.address);
-    return receipt.length > 0;
+    const receipt = await this.blockchain.getReceipt(poolId.toString(), this.address);
+    return receipt != null;
   }
 
   /**

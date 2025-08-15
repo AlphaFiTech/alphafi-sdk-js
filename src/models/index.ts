@@ -19,6 +19,7 @@ export {
   type ClmmPool,
 } from './transaction.js';
 export { BluefinTransactions } from './transactionProtocolModels/bluefin.js';
+export { AlphalendTransactions } from './transactionProtocolModels/alphalend.js';
 export { NaviTransactions } from './transactionProtocolModels/navi.js';
 export { CetusTransactions } from './transactionProtocolModels/cetus.js';
 export { BucketTransactions } from './transactionProtocolModels/bucket.js';
@@ -33,7 +34,7 @@ export { Protocol } from './protocol.js';
 export { Pool } from './pool.js';
 
 // Export management models
-export { APRManager } from './apr.js';
-export { AdminManager } from './admin.js';
+export { APRManager } from './apr.ts';
+export { AdminManager } from './admin.ts';
 
 // Export additional models

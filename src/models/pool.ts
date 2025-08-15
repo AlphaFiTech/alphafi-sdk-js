@@ -11,10 +11,10 @@ import {
   NaviLoopInvestorType,
   ParentPoolType,
   PoolType,
-} from 'src/utils/parsedTypes.ts';
+} from '../utils/parsedTypes.js';
 import { Decimal } from 'decimal.js';
-import { coinsList, coinsListByType } from 'src/common/coinsList.ts';
-import { Blockchain } from './blockchain.ts';
+import { coinsList, coinsListByType } from '../common/coinsList.js';
+import { Blockchain } from './blockchain.js';
 import { SuiClient } from '@mysten/sui/client/client.js';
 import { Transaction } from '@mysten/sui/transactions/index.js';
 import { CoinStruct } from '@mysten/sui/client/index.js';

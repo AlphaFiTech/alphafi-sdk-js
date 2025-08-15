@@ -8,6 +8,8 @@ import { ClaimOptions, DepositOptions, WithdrawOptions } from '../core/index.js'
 import { ClaimRewardsTransactions } from './transactionProtocolModels/claimRewards.js';
 import { BucketTransactions } from './transactionProtocolModels/bucket.js';
 import { NaviLoopingTransactions } from './transactionProtocolModels/naviLooping.js';
+import { AlphalendTransactions } from './transactionProtocolModels/alphalend.js';
+import { PoolUtils } from './pool.js';
 
 /**
  * Types for liquidity calculations
@@ -44,6 +46,7 @@ export class TransactionManager {
   private claimRewardsTransactions: ClaimRewardsTransactions;
   private bucketTransactions: BucketTransactions;
   private naviLoopingTransactions: NaviLoopingTransactions;
+  private alphalendTransactions: AlphalendTransactions;
 
   constructor(
     private address: string,
@@ -52,11 +55,12 @@ export class TransactionManager {
   ) {
     this.bluefin = new BluefinTransactions(address, blockchain, poolUtils);
     this.navi = new NaviTransactions(address, blockchain);
-    this.cetus = new CetusTransactions(address, blockchain);
+    this.cetus = new CetusTransactions(address, blockchain, poolUtils);
     this.bucketTransactions = new BucketTransactions(address, blockchain, poolUtils);
     this.blockchain = blockchain;
     this.claimRewardsTransactions = new ClaimRewardsTransactions(address, blockchain, poolUtils);
     this.naviLoopingTransactions = new NaviLoopingTransactions(address, blockchain, poolUtils);
+    this.alphalendTransactions = new AlphalendTransactions(address, blockchain, poolUtils);
   }
 
   /**
@@ -81,28 +85,24 @@ export class TransactionManager {
   async deposit(options: DepositOptions): Promise<Transaction> {
     try {
       let protocol = poolDetailsMap[options.poolId].parentProtocolName.toLowerCase();
-      if (
-        protocol === 'navi' &&
-        this.poolUtils.categorizeNaviPool(poolDetailsMap[options.poolId]) === 'looping'
-      ) {
+      
+      // Simple check for navi looping pools based on pool name
+      if (protocol === 'navi' && poolDetailsMap[options.poolId].poolName?.includes('LOOP')) {
         protocol = 'navi-looping';
-      } else if (
-        protocol === 'navi' &&
-        this.poolUtils.categorizeNaviPool(poolDetailsMap[options.poolId]) === 'single-asset'
-      ) {
-        protocol = 'navi';
       }
       switch (protocol) {
         case 'bluefin':
-          return this.bluefin.depositBluefinSuiFirstTx(options.amount, options.poolId);
+          return this.bluefin.depositBluefinSuiFirstTx(options.amount, options.poolId, options?.isAmountA || false);
         case 'navi':
-          return this.navi.depositNaviTx(options.amount, options.poolId);
+          return this.navi.depositNaviTx(options.amount, parseInt(options.poolId));
         case 'cetus':
-          return this.cetus.depositCetusTx(options.amount, options.poolId, options?.isAmountA);
+          return this.cetus.depositCetusTx(options.amount, options.poolId, options?.isAmountA || false);
         case 'bucket':
-          return this.bucketTransactions.depositBucketTx(options.amount, options.poolId);
+          return this.bucketTransactions.depositBucketTx(options.amount, parseInt(options.poolId));
         case 'navi-looping':
-          return this.naviLoopingTransactions.depositNaviLoopingTx(options.amount, options.poolId);
+          return this.naviLoopingTransactions.depositNaviLoopingTx(options.amount, parseInt(options.poolId));
+        case 'alphalend':
+          return this.alphalendTransactions.depositAlphalendTx(options.amount, options.poolId);
         default:
           throw new Error(`Unknown protocol: ${protocol}`);
       }
@@ -170,31 +170,27 @@ async withdraw(options: WithdrawOptions): Promise<TransactionResult> {
   async withdraw(options: WithdrawOptions): Promise<Transaction> {
     try {
       let protocol = poolDetailsMap[options.poolId].parentProtocolName.toLowerCase();
-      if (
-        protocol === 'navi' &&
-        this.poolUtils.categorizeNaviPool(poolDetailsMap[options.poolId]) === 'looping'
-      ) {
+      
+      // Simple check for navi looping pools based on pool name
+      if (protocol === 'navi' && poolDetailsMap[options.poolId].poolName?.includes('LOOP')) {
         protocol = 'navi-looping';
-      } else if (
-        protocol === 'navi' &&
-        this.poolUtils.categorizeNaviPool(poolDetailsMap[options.poolId]) === 'single-asset'
-      ) {
-        protocol = 'navi';
       }
       switch (protocol.toLowerCase()) {
         case 'bluefin':
           return this.bluefin.withdrawBluefinSuiFirstTx(options.xTokens, options.poolId);
         case 'navi':
-          return this.navi.withdrawNaviTx(options.xTokens, options.poolId);
+          return this.navi.withdrawNaviTx(options.xTokens, parseInt(options.poolId));
         case 'cetus':
           return this.cetus.withdrawCetusTx(options.xTokens, options.poolId);
         case 'bucket':
-          return this.bucketTransactions.withdrawBucketTx(options.xTokens, options.poolId);
+          return this.bucketTransactions.withdrawBucketTx(options.xTokens, parseInt(options.poolId));
         case 'navi-looping':
           return this.naviLoopingTransactions.withdrawNaviLoopingTx(
             options.xTokens,
-            options.poolId,
+            parseInt(options.poolId),
           );
+        case 'alphalend':
+          return this.alphalendTransactions.withdrawAlphalendTx(options.xTokens, options.poolId);
         default:
           throw new Error(`Unknown protocol: ${protocol}`);
       }

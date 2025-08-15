@@ -2,7 +2,7 @@ import { Transaction } from '@mysten/sui/transactions';
 import { getConf } from '../../common/constants.js';
 import { poolDetailsMap } from '../../common/maps.js';
 import { Blockchain } from '../blockchain.js';
-import { coinsList } from '../../common/coinsList.ts';
+import { coinsList } from '../../common/coinsList.js';
 import { CoinStruct } from '@mysten/sui/client';
 import { PoolUtils } from '../pool.js';
 
@@ -128,7 +128,7 @@ export class NaviLoopingTransactions {
     // Get coin type for HASUI
     let hasuiCoinType: string;
     if ('token' in poolinfo.assetTypes) {
-      hasuiCoinType = poolinfo.assetTypes.token;
+      hasuiCoinType = poolinfo.assetTypes.token as string;
     } else {
       throw new Error('HASUI-SUI loop pool does not have single asset type configuration');
     }
@@ -136,7 +136,7 @@ export class NaviLoopingTransactions {
     const coinName = hasuiCoinType.split('::').pop()?.toUpperCase() || 'HASUI';
 
     // Get receipts for this pool
-    const receipt: any[] = await this.blockchain.getReceipts(poolId, this.address);
+    const receipt = await this.blockchain.getReceipt(poolId.toString(), this.address);
 
     // Fetch HASUI coins from the user's wallet
     let coins: CoinStruct[] = [];
@@ -180,7 +180,7 @@ export class NaviLoopingTransactions {
 
     // Handle receipt creation
     let someReceipt: any;
-    if (receipt.length === 0) {
+    if (!receipt) {
       [someReceipt] = tx.moveCall({
         target: `0x1::option::none`,
         typeArguments: [poolinfo.receipt.type],
@@ -189,8 +189,8 @@ export class NaviLoopingTransactions {
     } else {
       [someReceipt] = tx.moveCall({
         target: `0x1::option::some`,
-        typeArguments: [receipt[0].type],
-        arguments: [tx.object(receipt[0].id)],
+        typeArguments: [receipt.type],
+        arguments: [tx.object(receipt.id)],
       });
     }
 
@@ -243,17 +243,17 @@ export class NaviLoopingTransactions {
     this.updatePriceFeeds(tx, 'HASUI', 'SUI');
 
     // Get receipts for this pool
-    const receipt: any[] = await this.blockchain.getReceipts(poolId, this.address);
+    const receipt = await this.blockchain.getReceipt(poolId.toString(), this.address);
 
-    if (receipt.length === 0) {
+    if (!receipt) {
       throw new Error(`No ${poolinfo.poolName} Receipt found for withdrawal`);
     }
 
     // Get ALPHA receipt
-    const alphaReceipt: any[] = await this.blockchain.getReceipts(1, this.address);
+    const alphaReceipt = await this.blockchain.getReceipt("1", this.address);
 
     let alpha_receipt: any;
-    if (alphaReceipt.length === 0) {
+    if (!alphaReceipt) {
       [alpha_receipt] = tx.moveCall({
         target: `0x1::option::none`,
         typeArguments: [getConf().ALPHA_POOL_RECEIPT],
@@ -262,8 +262,8 @@ export class NaviLoopingTransactions {
     } else {
       [alpha_receipt] = tx.moveCall({
         target: `0x1::option::some`,
-        typeArguments: [alphaReceipt[0].type],
-        arguments: [tx.object(alphaReceipt[0].id)],
+        typeArguments: [alphaReceipt.type],
+        arguments: [tx.object(alphaReceipt.id)],
       });
     }
 
@@ -275,7 +275,7 @@ export class NaviLoopingTransactions {
       arguments: [
         tx.object(getConf().ALPHA_2_VERSION),
         tx.object(getConf().VERSION),
-        tx.object(receipt[0].id),
+        tx.object(receipt.id),
         alpha_receipt,
         tx.object(poolDetailsMap[1].poolId), // ALPHA pool
         tx.object(poolinfo.poolId),
@@ -346,13 +346,13 @@ export class NaviLoopingTransactions {
    * @returns Promise<string> - xToken balance as string
    */
   async getUserNaviLoopingBalance(poolId: number): Promise<string> {
-    const receipt = await this.blockchain.getReceipts(poolId, this.address);
+    const receipt = await this.blockchain.getReceipt(poolId.toString(), this.address);
 
-    if (receipt.length === 0) {
+    if (!receipt) {
       return '0';
     }
 
-    return receipt[0].xTokenBalance?.toString() || '0';
+    return receipt.xTokenBalance?.toString() || '0';
   }
 
   /**
@@ -361,8 +361,8 @@ export class NaviLoopingTransactions {
    * @returns Promise<boolean> - True if user has deposits
    */
   async hasDeposits(poolId: number): Promise<boolean> {
-    const receipt = await this.blockchain.getReceipts(poolId, this.address);
-    return receipt.length > 0;
+    const receipt = await this.blockchain.getReceipt(poolId.toString(), this.address);
+    return !!receipt;
   }
 
   /**

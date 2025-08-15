@@ -2,7 +2,7 @@ import { Transaction } from '@mysten/sui/transactions';
 import { getConf } from '../../common/constants.js';
 import { poolDetailsMap, poolDetailsMapByPoolName } from '../../common/maps.js';
 import { Blockchain } from '../blockchain.js';
-import { coinsList, coinsListByType } from '../../common/coinsList.ts';
+import { coinsList, coinsListByType } from '../../common/coinsList.js';
 import { PoolUtils } from '../pool.js';
 
 export class BluefinTransactions {
@@ -471,6 +471,692 @@ export class BluefinTransactions {
   //   }
   //   return tx;
   // }
+
+  // Bluefin Deposit SUI Second
+  async depositBluefinSuiSecondTx(
+    amount: string,
+    poolId: string,
+    isAmountA: boolean,
+  ): Promise<Transaction> {
+    const tx = new Transaction();
+    const poolinfo = poolDetailsMap[poolId];
+
+    if (!poolinfo) {
+      throw new Error(`Pool with ID ${poolId} not found in poolDetailsMap`);
+    }
+
+    // Get the coin types
+    let pool_token1: string = poolinfo.assetTypes[0];
+    let pool_token2: string = poolinfo.assetTypes[1];
+    const coin1Name = coinsListByType[pool_token1].name;
+    const coin2Name = coinsListByType[pool_token2].name;
+
+    const receipt = await this.blockchain.getReceipt(poolId, this.address);
+
+    // Handle receipt creation for deposit
+    let someReceipt: any;
+    if (!receipt) {
+      [someReceipt] = tx.moveCall({
+        target: `0x1::option::none`,
+        typeArguments: [poolinfo.receipt.type],
+        arguments: [],
+      });
+    } else {
+      [someReceipt] = tx.moveCall({
+        target: `0x1::option::some`,
+        typeArguments: [receipt.type],
+        arguments: [tx.object(receipt.id)],
+      });
+    }
+
+    const amounts = await this.poolUtils.getAmounts(poolId, isAmountA, amount);
+    if (amounts) {
+      const amount1 = amounts[0];
+      const amount2 = amounts[1];
+
+      // Get coins for pool_token1
+      const coin1 = await this.poolUtils.getCoinFromWallet(tx, this.address, pool_token1);
+      const [depositCoinA] = tx.splitCoins(coin1, [amount1]);
+      const [depositCoinB] = tx.splitCoins(tx.gas, [amount2]);
+
+      const poolName = poolinfo.poolName;
+      if (poolName === 'BLUEFIN-BLUE-SUI') {
+        tx.moveCall({
+          target: `${poolinfo.packageId}::alphafi_bluefin_sui_second_pool::user_deposit_v2`,
+          typeArguments: [
+            pool_token1,
+            pool_token2,
+            coinsList['BLUE']?.type,
+            coinsList['SUI'].type,
+          ],
+          arguments: [
+            tx.object(getConf().ALPHA_4_VERSION),
+            tx.object(getConf().VERSION),
+            someReceipt,
+            tx.object(poolinfo.poolId),
+            depositCoinA,
+            depositCoinB,
+            tx.object(getConf().ALPHA_DISTRIBUTOR),
+            tx.object(poolinfo.investorId),
+            tx.object(getConf().BLUEFIN_GLOBAL_CONFIG),
+            tx.object(getConf().CETUS_GLOBAL_CONFIG_ID),
+            tx.object(getConf().BLUEFIN_BLUE_SUI_POOL),
+            tx.object(getConf().USDC_SUI_CETUS_POOL_ID),
+            tx.object(getConf().LST_INFO),
+            tx.object(getConf().SUI_SYSTEM_STATE),
+            tx.object(getConf().CLOCK_PACKAGE_ID),
+          ],
+        });
+      }
+    }
+
+    return tx;
+  }
+
+  // Bluefin Deposit Type 1
+  async depositBluefinType1Tx(
+    amount: string,
+    poolId: string,
+    isAmountA: boolean,
+  ): Promise<Transaction> {
+    const tx = new Transaction();
+    const poolinfo = poolDetailsMap[poolId];
+
+    if (!poolinfo) {
+      throw new Error(`Pool with ID ${poolId} not found in poolDetailsMap`);
+    }
+
+    // Get the coin types
+    let pool_token1: string = poolinfo.assetTypes[0];
+    let pool_token2: string = poolinfo.assetTypes[1];
+
+    const receipt = await this.blockchain.getReceipt(poolId, this.address);
+
+    // Handle receipt creation for deposit
+    let someReceipt: any;
+    if (!receipt) {
+      [someReceipt] = tx.moveCall({
+        target: `0x1::option::none`,
+        typeArguments: [poolinfo.receipt.type],
+        arguments: [],
+      });
+    } else {
+      [someReceipt] = tx.moveCall({
+        target: `0x1::option::some`,
+        typeArguments: [receipt.type],
+        arguments: [tx.object(receipt.id)],
+      });
+    }
+
+    const amounts = await this.poolUtils.getAmounts(poolId, isAmountA, amount);
+    if (amounts) {
+      const amount1 = amounts[0];
+      const amount2 = amounts[1];
+
+      // Get coins for both tokens
+      const coin1 = await this.poolUtils.getCoinFromWallet(tx, this.address, pool_token1);
+      const coin2 = await this.poolUtils.getCoinFromWallet(tx, this.address, pool_token2);
+      const [depositCoinA] = tx.splitCoins(coin1, [amount1]);
+      const [depositCoinB] = tx.splitCoins(coin2, [amount2]);
+
+      tx.moveCall({
+        target: `${poolinfo.packageId}::alphafi_bluefin_type1_pool::user_deposit`,
+        typeArguments: [pool_token1, pool_token2],
+        arguments: [
+          tx.object(getConf().ALPHA_4_VERSION),
+          tx.object(getConf().VERSION),
+          someReceipt,
+          tx.object(poolinfo.poolId),
+          depositCoinA,
+          depositCoinB,
+          tx.object(getConf().ALPHA_DISTRIBUTOR),
+          tx.object(poolinfo.investorId),
+          tx.object(getConf().BLUEFIN_GLOBAL_CONFIG),
+          tx.object(getConf().CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+
+    return tx;
+  }
+
+  // Bluefin Deposit Type 2
+  async depositBluefinType2Tx(
+    amount: string,
+    poolId: string,
+    isAmountA: boolean,
+  ): Promise<Transaction> {
+    const tx = new Transaction();
+    const poolinfo = poolDetailsMap[poolId];
+
+    if (!poolinfo) {
+      throw new Error(`Pool with ID ${poolId} not found in poolDetailsMap`);
+    }
+
+    // Get the coin types
+    let pool_token1: string = poolinfo.assetTypes[0];
+    let pool_token2: string = poolinfo.assetTypes[1];
+
+    const receipt = await this.blockchain.getReceipt(poolId, this.address);
+
+    // Handle receipt creation for deposit
+    let someReceipt: any;
+    if (!receipt) {
+      [someReceipt] = tx.moveCall({
+        target: `0x1::option::none`,
+        typeArguments: [poolinfo.receipt.type],
+        arguments: [],
+      });
+    } else {
+      [someReceipt] = tx.moveCall({
+        target: `0x1::option::some`,
+        typeArguments: [receipt.type],
+        arguments: [tx.object(receipt.id)],
+      });
+    }
+
+    const amounts = await this.poolUtils.getAmounts(poolId, isAmountA, amount);
+    if (amounts) {
+      const amount1 = amounts[0];
+      const amount2 = amounts[1];
+
+      // Get coins for both tokens
+      const coin1 = await this.poolUtils.getCoinFromWallet(tx, this.address, pool_token1);
+      const coin2 = await this.poolUtils.getCoinFromWallet(tx, this.address, pool_token2);
+      const [depositCoinA] = tx.splitCoins(coin1, [amount1]);
+      const [depositCoinB] = tx.splitCoins(coin2, [amount2]);
+
+      tx.moveCall({
+        target: `${poolinfo.packageId}::alphafi_bluefin_type2_pool::user_deposit`,
+        typeArguments: [pool_token1, pool_token2],
+        arguments: [
+          tx.object(getConf().ALPHA_4_VERSION),
+          tx.object(getConf().VERSION),
+          someReceipt,
+          tx.object(poolinfo.poolId),
+          depositCoinA,
+          depositCoinB,
+          tx.object(getConf().ALPHA_DISTRIBUTOR),
+          tx.object(poolinfo.investorId),
+          tx.object(getConf().BLUEFIN_GLOBAL_CONFIG),
+          tx.object(getConf().CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+
+    return tx;
+  }
+
+  // Bluefin Deposit STSUI
+  async depositBluefinStsuiTx(
+    amount: string,
+    poolId: string,
+    isAmountA: boolean,
+  ): Promise<Transaction> {
+    const tx = new Transaction();
+    const poolinfo = poolDetailsMap[poolId];
+
+    if (!poolinfo) {
+      throw new Error(`Pool with ID ${poolId} not found in poolDetailsMap`);
+    }
+
+    // Get the coin types
+    let pool_token1: string = poolinfo.assetTypes[0];
+    let pool_token2: string = poolinfo.assetTypes[1];
+
+    const receipt = await this.blockchain.getReceipt(poolId, this.address);
+
+    // Handle receipt creation for deposit
+    let someReceipt: any;
+    if (!receipt) {
+      [someReceipt] = tx.moveCall({
+        target: `0x1::option::none`,
+        typeArguments: [poolinfo.receipt.type],
+        arguments: [],
+      });
+    } else {
+      [someReceipt] = tx.moveCall({
+        target: `0x1::option::some`,
+        typeArguments: [receipt.type],
+        arguments: [tx.object(receipt.id)],
+      });
+    }
+
+    const amounts = await this.poolUtils.getAmounts(poolId, isAmountA, amount);
+    if (amounts) {
+      const amount1 = amounts[0];
+      const amount2 = amounts[1];
+
+      // Determine which coin to get based on isAmountA
+      let depositCoinA: any;
+      let depositCoinB: any;
+
+      if (isAmountA) {
+        const coin1 = await this.poolUtils.getCoinFromWallet(tx, this.address, pool_token1);
+        [depositCoinA] = tx.splitCoins(coin1, [amount1]);
+        [depositCoinB] = tx.splitCoins(tx.gas, [amount2]);
+      } else {
+        const coin2 = await this.poolUtils.getCoinFromWallet(tx, this.address, pool_token2);
+        [depositCoinA] = tx.splitCoins(tx.gas, [amount1]);
+        [depositCoinB] = tx.splitCoins(coin2, [amount2]);
+      }
+
+      tx.moveCall({
+        target: `${poolinfo.packageId}::alphafi_bluefin_stsui_pool::user_deposit`,
+        typeArguments: [pool_token1, pool_token2],
+        arguments: [
+          tx.object(getConf().ALPHA_4_VERSION),
+          tx.object(getConf().VERSION),
+          someReceipt,
+          tx.object(poolinfo.poolId),
+          depositCoinA,
+          depositCoinB,
+          tx.object(getConf().ALPHA_DISTRIBUTOR),
+          tx.object(poolinfo.investorId),
+          tx.object(getConf().BLUEFIN_GLOBAL_CONFIG),
+          tx.object(getConf().LST_INFO),
+          tx.object(getConf().SUI_SYSTEM_STATE),
+          tx.object(getConf().CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+
+    return tx;
+  }
+
+  // Bluefin Deposit Fungible
+  async depositBluefinFungibleTx(
+    amount: string,
+    poolId: string,
+    isAmountA: boolean,
+  ): Promise<Transaction> {
+    const tx = new Transaction();
+    const poolinfo = poolDetailsMap[poolId];
+
+    if (!poolinfo) {
+      throw new Error(`Pool with ID ${poolId} not found in poolDetailsMap`);
+    }
+
+    // Get the coin types
+    let pool_token1: string = poolinfo.assetTypes[0];
+    let pool_token2: string = poolinfo.assetTypes[1];
+
+    const receipt = await this.blockchain.getReceipt(poolId, this.address);
+
+    // Handle receipt creation for deposit
+    let someReceipt: any;
+    if (!receipt) {
+      [someReceipt] = tx.moveCall({
+        target: `0x1::option::none`,
+        typeArguments: [poolinfo.receipt.type],
+        arguments: [],
+      });
+    } else {
+      [someReceipt] = tx.moveCall({
+        target: `0x1::option::some`,
+        typeArguments: [receipt.type],
+        arguments: [tx.object(receipt.id)],
+      });
+    }
+
+    const amounts = await this.poolUtils.getAmounts(poolId, isAmountA, amount);
+    if (amounts) {
+      const amount1 = amounts[0];
+      const amount2 = amounts[1];
+
+      // Get coins for both tokens
+      const coin1 = await this.poolUtils.getCoinFromWallet(tx, this.address, pool_token1);
+      const coin2 = await this.poolUtils.getCoinFromWallet(tx, this.address, pool_token2);
+      const [depositCoinA] = tx.splitCoins(coin1, [amount1]);
+      const [depositCoinB] = tx.splitCoins(coin2, [amount2]);
+
+      tx.moveCall({
+        target: `${poolinfo.packageId}::alphafi_bluefin_fungible_pool::user_deposit`,
+        typeArguments: [pool_token1, pool_token2],
+        arguments: [
+          tx.object(getConf().ALPHA_4_VERSION),
+          tx.object(getConf().VERSION),
+          someReceipt,
+          tx.object(poolinfo.poolId),
+          depositCoinA,
+          depositCoinB,
+          tx.object(getConf().ALPHA_DISTRIBUTOR),
+          tx.object(poolinfo.investorId),
+          tx.object(getConf().BLUEFIN_GLOBAL_CONFIG),
+          tx.object(getConf().CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+
+    return tx;
+  }
+
+  // Bluefin Withdraw SUI Second
+  async withdrawBluefinSuiSecondTx(xTokens: string, poolId: string): Promise<Transaction> {
+    const tx = new Transaction();
+    const poolinfo = poolDetailsMap[poolId];
+
+    if (!poolinfo) {
+      throw new Error(`Pool with ID ${poolId} not found in poolDetailsMap`);
+    }
+
+    const receipt = await this.blockchain.getReceipt(poolId, this.address);
+    const alphaReceipt = await this.blockchain.getReceipt(
+      poolDetailsMapByPoolName['ALPHA'].poolId,
+      this.address,
+    );
+
+    if (receipt) {
+      let alpha_receipt: any;
+      if (!alphaReceipt) {
+        [alpha_receipt] = tx.moveCall({
+          target: `0x1::option::none`,
+          typeArguments: [getConf().ALPHA_POOL_RECEIPT],
+          arguments: [],
+        });
+      } else {
+        [alpha_receipt] = tx.moveCall({
+          target: `0x1::option::some`,
+          typeArguments: [alphaReceipt.type],
+          arguments: [tx.object(alphaReceipt.id)],
+        });
+      }
+
+      // Get the coin types
+      let pool_token1: string = poolinfo.assetTypes[0];
+      let pool_token2: string = poolinfo.assetTypes[1];
+
+      const poolName = poolinfo.poolName;
+      if (poolName === 'BLUEFIN-BLUE-SUI') {
+        tx.moveCall({
+          target: `${poolinfo.packageId}::alphafi_bluefin_sui_second_pool::user_withdraw_v2`,
+          typeArguments: [
+            pool_token1,
+            pool_token2,
+            coinsList['BLUE']?.type,
+            coinsList['SUI'].type,
+          ],
+          arguments: [
+            tx.object(getConf().ALPHA_4_VERSION),
+            tx.object(getConf().VERSION),
+            tx.object(receipt.id),
+            alpha_receipt,
+            tx.object(getConf().ALPHA_POOL),
+            tx.object(poolinfo.poolId),
+            tx.object(getConf().ALPHA_DISTRIBUTOR),
+            tx.object(poolinfo.investorId),
+            tx.pure.u128(xTokens),
+            tx.object(getConf().BLUEFIN_GLOBAL_CONFIG),
+            tx.object(getConf().CETUS_GLOBAL_CONFIG_ID),
+            tx.object(getConf().BLUEFIN_BLUE_SUI_POOL),
+            tx.object(getConf().USDC_SUI_CETUS_POOL_ID),
+            tx.object(getConf().LST_INFO),
+            tx.object(getConf().SUI_SYSTEM_STATE),
+            tx.object(getConf().CLOCK_PACKAGE_ID),
+          ],
+        });
+      }
+    } else {
+      throw new Error('No receipt found!');
+    }
+    return tx;
+  }
+
+  // Bluefin Withdraw Type 1
+  async withdrawBluefinType1Tx(xTokens: string, poolId: string): Promise<Transaction> {
+    const tx = new Transaction();
+    const poolinfo = poolDetailsMap[poolId];
+
+    if (!poolinfo) {
+      throw new Error(`Pool with ID ${poolId} not found in poolDetailsMap`);
+    }
+
+    const receipt = await this.blockchain.getReceipt(poolId, this.address);
+    const alphaReceipt = await this.blockchain.getReceipt(
+      poolDetailsMapByPoolName['ALPHA'].poolId,
+      this.address,
+    );
+
+    if (receipt) {
+      let alpha_receipt: any;
+      if (!alphaReceipt) {
+        [alpha_receipt] = tx.moveCall({
+          target: `0x1::option::none`,
+          typeArguments: [getConf().ALPHA_POOL_RECEIPT],
+          arguments: [],
+        });
+      } else {
+        [alpha_receipt] = tx.moveCall({
+          target: `0x1::option::some`,
+          typeArguments: [alphaReceipt.type],
+          arguments: [tx.object(alphaReceipt.id)],
+        });
+      }
+
+      // Get the coin types
+      let pool_token1: string = poolinfo.assetTypes[0];
+      let pool_token2: string = poolinfo.assetTypes[1];
+
+      tx.moveCall({
+        target: `${poolinfo.packageId}::alphafi_bluefin_type1_pool::user_withdraw`,
+        typeArguments: [pool_token1, pool_token2],
+        arguments: [
+          tx.object(getConf().ALPHA_4_VERSION),
+          tx.object(getConf().VERSION),
+          tx.object(receipt.id),
+          alpha_receipt,
+          tx.object(getConf().ALPHA_POOL),
+          tx.object(poolinfo.poolId),
+          tx.object(getConf().ALPHA_DISTRIBUTOR),
+          tx.object(poolinfo.investorId),
+          tx.pure.u128(xTokens),
+          tx.object(getConf().BLUEFIN_GLOBAL_CONFIG),
+          tx.object(getConf().CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      throw new Error('No receipt found!');
+    }
+    return tx;
+  }
+
+  // Bluefin Withdraw Type 2
+  async withdrawBluefinType2Tx(xTokens: string, poolId: string): Promise<Transaction> {
+    const tx = new Transaction();
+    const poolinfo = poolDetailsMap[poolId];
+
+    if (!poolinfo) {
+      throw new Error(`Pool with ID ${poolId} not found in poolDetailsMap`);
+    }
+
+    const receipt = await this.blockchain.getReceipt(poolId, this.address);
+    const alphaReceipt = await this.blockchain.getReceipt(
+      poolDetailsMapByPoolName['ALPHA'].poolId,
+      this.address,
+    );
+
+    if (receipt) {
+      let alpha_receipt: any;
+      if (!alphaReceipt) {
+        [alpha_receipt] = tx.moveCall({
+          target: `0x1::option::none`,
+          typeArguments: [getConf().ALPHA_POOL_RECEIPT],
+          arguments: [],
+        });
+      } else {
+        [alpha_receipt] = tx.moveCall({
+          target: `0x1::option::some`,
+          typeArguments: [alphaReceipt.type],
+          arguments: [tx.object(alphaReceipt.id)],
+        });
+      }
+
+      // Get the coin types
+      let pool_token1: string = poolinfo.assetTypes[0];
+      let pool_token2: string = poolinfo.assetTypes[1];
+
+      tx.moveCall({
+        target: `${poolinfo.packageId}::alphafi_bluefin_type2_pool::user_withdraw`,
+        typeArguments: [pool_token1, pool_token2],
+        arguments: [
+          tx.object(getConf().ALPHA_4_VERSION),
+          tx.object(getConf().VERSION),
+          tx.object(receipt.id),
+          alpha_receipt,
+          tx.object(getConf().ALPHA_POOL),
+          tx.object(poolinfo.poolId),
+          tx.object(getConf().ALPHA_DISTRIBUTOR),
+          tx.object(poolinfo.investorId),
+          tx.pure.u128(xTokens),
+          tx.object(getConf().BLUEFIN_GLOBAL_CONFIG),
+          tx.object(getConf().CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      throw new Error('No receipt found!');
+    }
+    return tx;
+  }
+
+  // Bluefin Withdraw STSUI
+  async withdrawBluefinStsuiTx(xTokens: string, poolId: string): Promise<Transaction> {
+    const tx = new Transaction();
+    const poolinfo = poolDetailsMap[poolId];
+
+    if (!poolinfo) {
+      throw new Error(`Pool with ID ${poolId} not found in poolDetailsMap`);
+    }
+
+    const receipt = await this.blockchain.getReceipt(poolId, this.address);
+    const alphaReceipt = await this.blockchain.getReceipt(
+      poolDetailsMapByPoolName['ALPHA'].poolId,
+      this.address,
+    );
+
+    if (receipt) {
+      let alpha_receipt: any;
+      if (!alphaReceipt) {
+        [alpha_receipt] = tx.moveCall({
+          target: `0x1::option::none`,
+          typeArguments: [getConf().ALPHA_POOL_RECEIPT],
+          arguments: [],
+        });
+      } else {
+        [alpha_receipt] = tx.moveCall({
+          target: `0x1::option::some`,
+          typeArguments: [alphaReceipt.type],
+          arguments: [tx.object(alphaReceipt.id)],
+        });
+      }
+
+      // Get the coin types
+      let pool_token1: string = poolinfo.assetTypes[0];
+      let pool_token2: string = poolinfo.assetTypes[1];
+
+      tx.moveCall({
+        target: `${poolinfo.packageId}::alphafi_bluefin_stsui_pool::user_withdraw`,
+        typeArguments: [pool_token1, pool_token2],
+        arguments: [
+          tx.object(getConf().ALPHA_4_VERSION),
+          tx.object(getConf().VERSION),
+          tx.object(receipt.id),
+          alpha_receipt,
+          tx.object(getConf().ALPHA_POOL),
+          tx.object(poolinfo.poolId),
+          tx.object(getConf().ALPHA_DISTRIBUTOR),
+          tx.object(poolinfo.investorId),
+          tx.pure.u128(xTokens),
+          tx.object(getConf().BLUEFIN_GLOBAL_CONFIG),
+          tx.object(getConf().LST_INFO),
+          tx.object(getConf().SUI_SYSTEM_STATE),
+          tx.object(getConf().CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      throw new Error('No receipt found!');
+    }
+    return tx;
+  }
+
+  // Bluefin Withdraw Fungible
+  async withdrawBluefinFungibleTx(xTokens: string, poolId: string): Promise<Transaction> {
+    const tx = new Transaction();
+    const poolinfo = poolDetailsMap[poolId];
+
+    if (!poolinfo) {
+      throw new Error(`Pool with ID ${poolId} not found in poolDetailsMap`);
+    }
+
+    const receipt = await this.blockchain.getReceipt(poolId, this.address);
+    const alphaReceipt = await this.blockchain.getReceipt(
+      poolDetailsMapByPoolName['ALPHA'].poolId,
+      this.address,
+    );
+
+    if (receipt) {
+      let alpha_receipt: any;
+      if (!alphaReceipt) {
+        [alpha_receipt] = tx.moveCall({
+          target: `0x1::option::none`,
+          typeArguments: [getConf().ALPHA_POOL_RECEIPT],
+          arguments: [],
+        });
+      } else {
+        [alpha_receipt] = tx.moveCall({
+          target: `0x1::option::some`,
+          typeArguments: [alphaReceipt.type],
+          arguments: [tx.object(alphaReceipt.id)],
+        });
+      }
+
+      // Get the coin types
+      let pool_token1: string = poolinfo.assetTypes[0];
+      let pool_token2: string = poolinfo.assetTypes[1];
+
+      tx.moveCall({
+        target: `${poolinfo.packageId}::alphafi_bluefin_fungible_pool::user_withdraw`,
+        typeArguments: [pool_token1, pool_token2],
+        arguments: [
+          tx.object(getConf().ALPHA_4_VERSION),
+          tx.object(getConf().VERSION),
+          tx.object(receipt.id),
+          alpha_receipt,
+          tx.object(getConf().ALPHA_POOL),
+          tx.object(poolinfo.poolId),
+          tx.object(getConf().ALPHA_DISTRIBUTOR),
+          tx.object(poolinfo.investorId),
+          tx.pure.u128(xTokens),
+          tx.object(getConf().BLUEFIN_GLOBAL_CONFIG),
+          tx.object(getConf().CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      throw new Error('No receipt found!');
+    }
+    return tx;
+  }
+
+  // Utility function to get coin object
+  async getCoinObject(
+    coinType: string,
+    address: string,
+  ): Promise<string | undefined> {
+    try {
+      // Use the blockchain client directly to get coins
+      const response = await this.blockchain.client.getCoins({
+        owner: address,
+        coinType: coinType,
+      });
+      
+      if (response.data && response.data.length > 0) {
+        return response.data[0].coinObjectId;
+      }
+      return undefined;
+    } catch (error) {
+      console.error('Error getting coin object:', error);
+      return undefined;
+    }
+  }
 
   // Add more methods for other Bluefin pool actions as needed...
 }

@@ -114,20 +114,20 @@ export class NaviTransactions {
     // Get the coin type - handle both single and double asset types
     let coin: string;
     if ('token' in poolinfo.assetTypes) {
-      coin = poolinfo.assetTypes.token;
+      coin = poolinfo.assetTypes.token as string;
     } else if ('token1' in poolinfo.assetTypes) {
-      coin = poolinfo.assetTypes.token1;
+      coin = poolinfo.assetTypes.token1 as string;
     } else {
       throw new Error('No coin type found for this pool');
     }
 
     // Extract coin name from type (assuming it's the last part after ::)
     const coinName = coin.split('::').pop()?.toUpperCase() || 'SUI';
-    const receipt: any[] = await this.blockchain.getReceipts(poolId, this.address);
+    const receipt = await this.blockchain.getReceipt(poolId.toString(), this.address);
 
     // Handle receipt creation
     let someReceipt: any;
-    if (receipt.length === 0) {
+    if (!receipt) {
       [someReceipt] = tx.moveCall({
         target: `0x1::option::none`,
         typeArguments: [poolinfo.receipt.type],
@@ -136,8 +136,8 @@ export class NaviTransactions {
     } else {
       [someReceipt] = tx.moveCall({
         target: `0x1::option::some`,
-        typeArguments: [receipt[0].content.type],
-        arguments: [tx.object(receipt[0].objectId)],
+        typeArguments: [receipt.type],
+        arguments: [tx.object(receipt.id)],
       });
     }
 
@@ -183,20 +183,20 @@ export class NaviTransactions {
     // Get the coin type - handle both single and double asset types
     let coin: string;
     if ('token' in poolinfo.assetTypes) {
-      coin = poolinfo.assetTypes.token;
+      coin = poolinfo.assetTypes.token as string;
     } else if ('token1' in poolinfo.assetTypes) {
-      coin = poolinfo.assetTypes.token1;
+      coin = poolinfo.assetTypes.token1 as string;
     } else {
       throw new Error('No coin type found for this pool');
     }
 
     const coinName = coin.split('::').pop()?.toUpperCase() || 'SUI';
-    const receipt: any[] = await this.blockchain.getReceipts(poolId, this.address);
-    const alphaReceipt: any[] = await this.blockchain.getReceipts(1, this.address); // Pool ID 1 is ALPHA
+    const receipt = await this.blockchain.getReceipt(poolId.toString(), this.address);
+    const alphaReceipt = await this.blockchain.getReceipt('1', this.address); // Pool ID 1 is ALPHA
 
-    if (receipt.length > 0) {
+    if (receipt) {
       let alpha_receipt: any;
-      if (alphaReceipt.length === 0) {
+      if (!alphaReceipt) {
         [alpha_receipt] = tx.moveCall({
           target: `0x1::option::none`,
           typeArguments: [getConf().ALPHA_POOL_RECEIPT],
@@ -205,8 +205,8 @@ export class NaviTransactions {
       } else {
         [alpha_receipt] = tx.moveCall({
           target: `0x1::option::some`,
-          typeArguments: [alphaReceipt[0].content.type],
-          arguments: [tx.object(alphaReceipt[0].objectId)],
+          typeArguments: [alphaReceipt.type],
+          arguments: [tx.object(alphaReceipt.id)],
         });
       }
 
@@ -218,7 +218,7 @@ export class NaviTransactions {
           arguments: [
             tx.object(getConf().ALPHA_3_VERSION),
             tx.object(getConf().VERSION),
-            tx.object(receipt[0].objectId),
+            tx.object(receipt.id),
             alpha_receipt,
             tx.object(getConf().ALPHA_POOL),
             tx.object(poolinfo.poolId),
@@ -243,7 +243,7 @@ export class NaviTransactions {
           arguments: [
             tx.object(getConf().ALPHA_NAVI_V2_VERSION),
             tx.object(getConf().VERSION),
-            tx.object(receipt[0].objectId),
+            tx.object(receipt.id),
             alpha_receipt,
             tx.object(getConf().ALPHA_POOL),
             tx.object(poolinfo.poolId),
@@ -265,7 +265,7 @@ export class NaviTransactions {
           typeArguments: [coin],
           arguments: [
             tx.object(getConf().VERSION),
-            tx.object(receipt[0].objectId),
+            tx.object(receipt.id),
             alpha_receipt,
             tx.object(getConf().ALPHA_POOL),
             tx.object(poolinfo.poolId),

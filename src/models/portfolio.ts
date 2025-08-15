@@ -1,12 +1,12 @@
 import { SuiClient } from '@mysten/sui/client/client.js';
-import { Blockchain } from './blockchain.ts';
-import { Protocol } from './protocol.ts';
-import { Receipt } from './receipt.ts';
+import { Blockchain } from './blockchain.js';
+import { Protocol } from './protocol.js';
+import { Receipt } from './receipt.js';
 import { Decimal } from 'decimal.js';
-import { poolDetailsMap, poolDetailsMapByPoolName } from 'src/common/maps.ts';
-import { AlphaReceiptType } from 'src/utils/parsedTypes.ts';
-import { coinsList, coinsListByType } from 'src/common/coinsList.ts';
-import { Pool } from './pool.ts';
+import { poolDetailsMap, poolDetailsMapByPoolName } from '../common/maps.js';
+import { AlphaReceiptType } from '../utils/parsedTypes.js';
+import { coinsList, coinsListByType } from '../common/coinsList.js';
+import { Pool } from './pool.js';
 import { DynamicFieldInfo } from '@mysten/sui/client/index.js';
 
 type LockedAlphaDynamicField = {
