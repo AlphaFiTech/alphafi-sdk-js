@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "outDir": "./dist/esm",
+    "rootDir": "./src",
+    "types": ["node", "jest"],
+    "esModuleInterop": true,
+    "preserveConstEnums": true,
+    "skipLibCheck": true,
+    "importHelpers": true,
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "checkJs": true,
+    "strict": true,
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    "inlineSources": true,
+    "baseUrl": "./",
+    "paths": {
+      "@mysten/sui/*": ["node_modules/@mysten/sui/dist/esm/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/__tests__"]
+}
