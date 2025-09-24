@@ -1,8 +1,8 @@
 import { Decimal } from 'decimal.js';
-import { poolDetailsMap, poolDetailsMapByPoolName } from 'src/common/maps.js';
+import { poolDetailsMap, poolDetailsMapByPoolName } from '../common/maps.js';
 import { Blockchain } from './blockchain.js';
 import { SuiClient } from '@mysten/sui/client/client.js';
-import { getConf } from 'src/common/constants.js';
+import { getConf } from '../common/constants.js';
 import { Pool, PoolData } from './pool.js';
 import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
 

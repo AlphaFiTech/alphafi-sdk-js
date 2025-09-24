@@ -3,7 +3,7 @@ import { getConf } from '../../common/constants.js';
 import { poolDetailsMapByPoolName } from '../../common/maps.js';
 import { Blockchain } from '../blockchain.js';
 import { TransactionUtils } from './utils.js';
-import { coinsList, coinsListByType } from 'src/common/coinsList.js';
+import { coinsList, coinsListByType } from '../../common/coinsList.js';
 import { AlphalendClient } from '@alphafi/alphalend-sdk';
 
 export class AlphaLendTransactions {

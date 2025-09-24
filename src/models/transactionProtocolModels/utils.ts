@@ -1,9 +1,9 @@
 import { Transaction } from '@mysten/sui/transactions/index.js';
 import { Blockchain } from '../blockchain.js';
-import { coinsListByType } from 'src/common/coinsList.js';
+import { coinsListByType } from '../../common/coinsList.js';
 import { CoinStruct } from '@mysten/sui/client/index.js';
 import { ClmmPoolUtil, LiquidityInput } from '@cetusprotocol/cetus-sui-clmm-sdk';
-import { BluefinInvestorType, BluefinParentPoolType } from 'src/utils/parsedTypes.js';
+import { BluefinInvestorType, BluefinParentPoolType } from '../../utils/parsedTypes.js';
 import { getConf } from '../../common/constants.js';
 import BN from 'bn.js';
 

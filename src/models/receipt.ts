@@ -1,7 +1,7 @@
-import { AlphaReceiptType, NaviLoopInvestorType, ReceiptType } from 'src/utils/parsedTypes.js';
+import { ReceiptType } from '../utils/parsedTypes.js';
 import { Pool } from './pool.js';
 import { Decimal } from 'decimal.js';
-import { coinsListByType } from 'src/common/coinsList.js';
+import { coinsListByType } from '../common/coinsList.js';
 
 export class Receipt {
   receipt: ReceiptType;
