@@ -1,19 +1,18 @@
 import { Transaction } from '@mysten/sui/transactions';
 import { getConf } from '../../common/constants.js';
-import { poolDetailsMap, poolDetailsMapByPoolName } from '../../common/maps.js';
+import { poolDetailsMapByPoolName } from '../../common/maps.js';
 import { Blockchain } from '../blockchain.js';
-import { CoinStruct } from '@mysten/sui/client';
-import { PoolUtils } from '../pool.js';
+import { TransactionUtils } from './utils.js';
 
 export class AlphaTransactions {
   constructor(
     private address: string,
     private blockchain: Blockchain,
-    private poolUtils: PoolUtils,
+    private transactionUtils: TransactionUtils,
   ) {
     this.address = address;
     this.blockchain = blockchain;
-    this.poolUtils = poolUtils;
+    this.transactionUtils = transactionUtils;
   }
 
   /**
@@ -29,27 +28,22 @@ export class AlphaTransactions {
     const receipt = await this.blockchain.getReceipt(poolinfo.poolId, this.address);
 
     // Fetch ALPHA coins from the user's wallet
-    const coin = await this.poolUtils.getCoinFromWallet(tx, this.address, poolinfo.assetTypes[0]);
+    const coin = await this.transactionUtils.getCoinFromWallet(
+      tx,
+      this.address,
+      poolinfo.assetTypes[0],
+    );
     const [depositCoin] = tx.splitCoins(coin, [amount]);
 
     // Transfer remaining coins back to user
     tx.transferObjects([coin], this.address);
 
     // Handle receipt creation
-    let someReceipt: any;
-    if (!receipt) {
-      [someReceipt] = tx.moveCall({
-        target: `0x1::option::none`,
-        typeArguments: [poolinfo.receipt.type],
-        arguments: [],
-      });
-    } else {
-      [someReceipt] = tx.moveCall({
-        target: `0x1::option::some`,
-        typeArguments: [receipt.type],
-        arguments: [tx.object(receipt.id)],
-      });
-    }
+    let someReceipt = await this.transactionUtils.getReceiptObject(
+      tx,
+      poolinfo.receipt.type,
+      receipt?.id,
+    );
 
     tx.moveCall({
       target: `${getConf().ALPHA_LATEST_PACKAGE_ID}::alphapool::user_deposit`,

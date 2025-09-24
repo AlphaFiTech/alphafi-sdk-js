@@ -1,10 +1,9 @@
 import { Decimal } from 'decimal.js';
-import { poolDetailsMap, poolDetailsMapByPoolName } from 'src/common/maps.ts';
-import { Blockchain } from './blockchain.ts';
-import { SuiNetwork } from './types.ts';
+import { poolDetailsMap, poolDetailsMapByPoolName } from 'src/common/maps.js';
+import { Blockchain } from './blockchain.js';
 import { SuiClient } from '@mysten/sui/client/client.js';
-import { getConf } from 'src/common/constants.ts';
-import { Pool, PoolData } from './pool.ts';
+import { getConf } from 'src/common/constants.js';
+import { Pool, PoolData } from './pool.js';
 import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
 
 type LoopingDebt = {
@@ -21,7 +20,7 @@ export class Protocol {
   suiClient: SuiClient;
   blockchain: Blockchain;
 
-  constructor(suiClient: SuiClient, network: SuiNetwork) {
+  constructor(suiClient: SuiClient, network: 'mainnet' | 'testnet' | 'devnet' | 'localnet') {
     this.suiClient = suiClient;
     this.blockchain = new Blockchain(suiClient, network);
   }

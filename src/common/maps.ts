@@ -394,7 +394,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     packageId: conf[CONF_ENV].ALPHA_5_LATEST_PACKAGE_ID,
     poolName: 'ALPHALEND-LOOP-SUI-STSUI',
     packageNumber: 5,
-    strategyType: 'SINGLE-ASSET-LOOPING',
+    strategyType: 'DOUBLE-ASSET-LOOPING',
     parentProtocolName: 'ALPHALEND',
     parentPoolId: conf[CONF_ENV].NAVI_STSUI_POOL,
     poolId: conf[CONF_ENV].ALPHALEND_LOOP_SUI_STSUI_POOL,
@@ -1129,7 +1129,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     packageId: conf[CONF_ENV].ALPHA_5_LATEST_PACKAGE_ID,
     poolName: 'NAVI-LOOP-USDT-USDC',
     packageNumber: 5,
-    strategyType: 'SINGLE-ASSET-LOOPING',
+    strategyType: 'DOUBLE-ASSET-LOOPING',
     parentProtocolName: 'NAVI',
     parentPoolId: conf[CONF_ENV].NAVI_USDT_POOL,
     poolId: conf[CONF_ENV].ALPHAFI_NAVI_LOOP_USDT_USDC_POOL,
@@ -1211,7 +1211,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     packageId: conf[CONF_ENV].ALPHA_2_LATEST_PACKAGE_ID,
     poolName: 'NAVI-LOOP-HASUI-SUI',
     packageNumber: 2,
-    strategyType: 'SINGLE-ASSET-LOOPING',
+    strategyType: 'DOUBLE-ASSET-LOOPING',
     parentProtocolName: 'NAVI',
     parentPoolId: conf[CONF_ENV].NAVI_HASUI_POOL,
     poolId: conf[CONF_ENV].ALPHAFI_NAVI_LOOP_HASUI_SUI_POOL,
@@ -1541,7 +1541,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     packageId: conf[CONF_ENV].ALPHA_2_LATEST_PACKAGE_ID,
     poolName: 'NAVI-LOOP-USDC-USDT',
     packageNumber: 2,
-    strategyType: 'SINGLE-ASSET-LOOPING',
+    strategyType: 'DOUBLE-ASSET-LOOPING',
     parentProtocolName: 'NAVI',
     parentPoolId: conf[CONF_ENV].NAVI_USDT_POOL,
     poolId: conf[CONF_ENV].ALPHAFI_NAVI_LOOP_USDC_USDT_POOL,
@@ -1571,7 +1571,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     packageId: conf[CONF_ENV].ALPHA_2_LATEST_PACKAGE_ID,
     poolName: 'NAVI-LOOP-SUI-VSUI',
     packageNumber: 2,
-    strategyType: 'SINGLE-ASSET-LOOPING',
+    strategyType: 'DOUBLE-ASSET-LOOPING',
     parentProtocolName: 'NAVI',
     parentPoolId: conf[CONF_ENV].NAVI_VSUI_POOL,
     poolId: conf[CONF_ENV].ALPHAFI_NAVI_LOOP_SUI_VSUI_POOL,
@@ -2077,10 +2077,124 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
   //   receiptType: conf[CONF_ENV].SCA_SUI_POOL_RECEIPT,
   //   autoCompoundingEventType:
   //     conf[CONF_ENV].SCA_SUI_POOL_AUTO_COMPOUNDING_EVENT,
-  //   rebalanceEventType: conf[CONF_ENV].SCA_SUI_POOL_REBALANCE_EVENT,
-  //   liquidityChangeEventType:
-  //     conf[CONF_ENV].SCA_SUI_POOL_LIQUIDITY_CHANGE_EVENT,
   // },
+  [conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_XAUM_POOL]: {
+    packageId: conf[CONF_ENV].ALPHA_ALPHALEND_LATEST_PACKAGE_ID,
+    poolName: 'ALPHALEND-SINGLE-LOOP-XAUM',
+    packageNumber: 10,
+    strategyType: 'SINGLE-ASSET-LOOPING',
+    parentProtocolName: 'ALPHALEND',
+    parentPoolId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_XAUM_POOL,
+    poolId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_XAUM_POOL,
+    investorId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_XAUM_INVESTOR,
+    receipt: {
+      name: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_XAUM_RECEIPT_NAME,
+      type: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_XAUM_RECEIPT,
+    },
+    assetTypes: [coinsList['XAUM'].type],
+    events: {
+      autoCompoundingEventType:
+        conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_XAUM_POOL_AUTO_COMPOUNDING_EVENT,
+      rebalanceEventType: undefined,
+      liquidityChangeEventType:
+        conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_XAUM_POOL_LIQUIDITY_CHANGE_EVENT,
+    },
+    retired: false,
+  },
+  [conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_SUIBTC_POOL]: {
+    packageId: conf[CONF_ENV].ALPHA_ALPHALEND_LATEST_PACKAGE_ID,
+    poolName: 'ALPHALEND-SINGLE-LOOP-SUIBTC',
+    packageNumber: 10,
+    strategyType: 'SINGLE-ASSET-LOOPING',
+    parentProtocolName: 'ALPHALEND',
+    parentPoolId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_SUIBTC_POOL,
+    poolId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_SUIBTC_POOL,
+    investorId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_SUIBTC_INVESTOR,
+    receipt: {
+      name: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_SUIBTC_RECEIPT_NAME,
+      type: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_SUIBTC_RECEIPT,
+    },
+    assetTypes: [coinsList['SUIBTC'].type],
+    events: {
+      autoCompoundingEventType:
+        conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_SUIBTC_POOL_AUTO_COMPOUNDING_EVENT,
+      rebalanceEventType: undefined,
+      liquidityChangeEventType:
+        conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_SUIBTC_POOL_LIQUIDITY_CHANGE_EVENT,
+    },
+    retired: false,
+  },
+  [conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_TBTC_POOL]: {
+    packageId: conf[CONF_ENV].ALPHA_ALPHALEND_LATEST_PACKAGE_ID,
+    poolName: 'ALPHALEND-SINGLE-LOOP-TBTC',
+    packageNumber: 10,
+    strategyType: 'SINGLE-ASSET-LOOPING',
+    parentProtocolName: 'ALPHALEND',
+    parentPoolId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_TBTC_POOL,
+    poolId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_TBTC_POOL,
+    investorId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_TBTC_INVESTOR,
+    receipt: {
+      name: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_TBTC_RECEIPT_NAME,
+      type: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_TBTC_RECEIPT,
+    },
+    assetTypes: [coinsList['TBTC'].type],
+    events: {
+      autoCompoundingEventType:
+        conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_TBTC_POOL_AUTO_COMPOUNDING_EVENT,
+      rebalanceEventType: undefined,
+      liquidityChangeEventType:
+        conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_TBTC_POOL_LIQUIDITY_CHANGE_EVENT,
+    },
+    retired: false,
+  },
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_USDC_175_POOL]: {
+    packageId: conf[CONF_ENV].ALPHA_BLUEFIN_AUTOBALANCE_LATEST_PACKAGE_ID,
+    poolName: 'BLUEFIN-AUTOBALANCE-SUI-USDC-175',
+    packageNumber: 7,
+    strategyType: 'BLUEFIN-AUTOBALANCE-DOUBLE-ASSET-POOL',
+    parentProtocolName: 'BLUEFIN',
+    parentPoolId: conf[CONF_ENV].BLUEFIN_SUI_USDC_175_POOL,
+    poolId: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_USDC_175_POOL,
+    investorId: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_USDC_175_INVESTOR,
+    receipt: {
+      name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_USDC_175_RECEIPT_NAME,
+      type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_USDC_175_RECEIPT,
+    },
+    assetTypes: [coinsList['SUI'].type, coinsList['USDC'].type],
+    events: {
+      autoCompoundingEventType:
+        conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_USDC_175_POOL_AUTO_COMPOUNDING_EVENT,
+      rebalanceEventType:
+        conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_USDC_175_POOL_REBALANCE_EVENT,
+      liquidityChangeEventType:
+        conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUI_USDC_175_POOL_LIQUIDITY_CHANGE_EVENT,
+    },
+    retired: false,
+  },
+  [conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_SUI_175_POOL]: {
+    packageId: conf[CONF_ENV].ALPHA_BLUEFIN_AUTOBALANCE_LATEST_PACKAGE_ID,
+    poolName: 'BLUEFIN-AUTOBALANCE-DEEP-SUI-175',
+    packageNumber: 7,
+    strategyType: 'BLUEFIN-AUTOBALANCE-DOUBLE-ASSET-POOL',
+    parentProtocolName: 'BLUEFIN',
+    parentPoolId: conf[CONF_ENV].BLUEFIN_DEEP_SUI_175_POOL,
+    poolId: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_SUI_175_POOL,
+    investorId: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_SUI_175_INVESTOR,
+    receipt: {
+      name: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_SUI_175_RECEIPT_NAME,
+      type: conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_SUI_175_RECEIPT,
+    },
+    assetTypes: [coinsList['DEEP'].type, coinsList['SUI'].type],
+    events: {
+      autoCompoundingEventType:
+        conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_SUI_175_POOL_AUTO_COMPOUNDING_EVENT,
+      rebalanceEventType:
+        conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_SUI_175_POOL_REBALANCE_EVENT,
+      liquidityChangeEventType:
+        conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_DEEP_SUI_175_POOL_LIQUIDITY_CHANGE_EVENT,
+    },
+    retired: false,
+  },
 };
 
 export const poolDetailsMapByPoolName = Object.values(poolDetailsMap).reduce(
@@ -2090,108 +2204,3 @@ export const poolDetailsMapByPoolName = Object.values(poolDetailsMap).reduce(
   },
   {} as Record<string, PoolDetails>,
 );
-
-// Helper functions to differentiate between NAVI-LOOP and single asset NAVI pools
-
-/**
- * Checks if a pool is a NAVI-LOOP pool using strategy type
- * @param poolDetails - The pool details to check
- * @returns true if the pool is a NAVI-LOOP pool
- */
-export function isNaviLoopPool(poolDetails: PoolDetails): boolean {
-  return (
-    poolDetails.parentProtocolName === 'NAVI' && poolDetails.strategyType === 'SINGLE-ASSET-LOOPING'
-  );
-}
-
-/**
- * Checks if a pool is a single asset NAVI pool (non-looping)
- * @param poolDetails - The pool details to check
- * @returns true if the pool is a single asset NAVI pool
- */
-export function isSingleAssetNaviPool(poolDetails: PoolDetails): boolean {
-  return (
-    poolDetails.parentProtocolName === 'NAVI' && poolDetails.strategyType === 'SINGLE-ASSET-POOL'
-  );
-}
-
-/**
- * Checks if a pool is a NAVI-LOOP pool using pool name
- * @param poolName - The pool name to check
- * @returns true if the pool name indicates a NAVI-LOOP pool
- */
-export function isNaviLoopPoolByName(poolName: string): boolean {
-  return poolName.includes('NAVI-LOOP');
-}
-
-/**
- * Checks if a pool is a single asset NAVI pool (non-looping) using pool name
- * @param poolName - The pool name to check
- * @returns true if the pool name indicates a single asset NAVI pool
- */
-export function isSingleAssetNaviPoolByName(poolName: string): boolean {
-  return poolName.startsWith('NAVI-') && !poolName.includes('NAVI-LOOP');
-}
-
-/**
- * Gets all NAVI-LOOP pools from the pool details map
- * @returns Array of pool details for NAVI-LOOP pools
- */
-export function getNaviLoopPools(): PoolDetails[] {
-  return Object.values(poolDetailsMap).filter(isNaviLoopPool);
-}
-
-/**
- * Gets all single asset NAVI pools (non-looping) from the pool details map
- * @returns Array of pool details for single asset NAVI pools
- */
-export function getSingleAssetNaviPools(): PoolDetails[] {
-  return Object.values(poolDetailsMap).filter(isSingleAssetNaviPool);
-}
-
-/**
- * Gets all NAVI pools (both looping and single asset) from the pool details map
- * @returns Array of pool details for all NAVI pools
- */
-export function getAllNaviPools(): PoolDetails[] {
-  return Object.values(poolDetailsMap).filter((pool) => pool.parentProtocolName === 'NAVI');
-}
-
-/**
- * Gets NAVI-LOOP pool names
- * @returns Array of NAVI-LOOP pool names
- */
-export function getNaviLoopPoolNames(): string[] {
-  return getNaviLoopPools().map((pool) => pool.poolName);
-}
-
-/**
- * Gets single asset NAVI pool names
- * @returns Array of single asset NAVI pool names
- */
-export function getSingleAssetNaviPoolNames(): string[] {
-  return getSingleAssetNaviPools().map((pool) => pool.poolName);
-}
-
-/**
- * Categorizes a NAVI pool as either looping or single asset
- * @param poolDetails - The pool details to categorize
- * @returns "looping" | "single-asset" | "not-navi"
- */
-export function categorizeNaviPool(
-  poolDetails: PoolDetails,
-): 'looping' | 'single-asset' | 'not-navi' {
-  if (poolDetails.parentProtocolName !== 'NAVI') {
-    return 'not-navi';
-  }
-
-  if (isNaviLoopPool(poolDetails)) {
-    return 'looping';
-  }
-
-  if (isSingleAssetNaviPool(poolDetails)) {
-    return 'single-asset';
-  }
-
-  return 'not-navi';
-}

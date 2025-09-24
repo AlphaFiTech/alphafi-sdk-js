@@ -1,6 +1,5 @@
 import { SuiClient, SuiObjectData } from '@mysten/sui/client';
 import { conf, CONF_ENV } from '../common/constants.js';
-import { SuiNetwork } from './types.js';
 import { poolDetailsMap } from '../common/maps.js';
 import {
   PoolType,
@@ -35,9 +34,9 @@ import { parsers } from '../utils/parser.js';
 export class Blockchain {
   client: SuiClient;
   constants: any;
-  network: SuiNetwork;
+  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
 
-  constructor(client: SuiClient, network: SuiNetwork) {
+  constructor(client: SuiClient, network: 'mainnet' | 'testnet' | 'devnet' | 'localnet') {
     this.client = client;
     this.network = network;
     this.constants = conf[CONF_ENV];

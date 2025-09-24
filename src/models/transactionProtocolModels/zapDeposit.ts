@@ -2,9 +2,8 @@ import { Transaction, TransactionObjectArgument } from '@mysten/sui/transactions
 import { getConf } from '../../common/constants.js';
 import { poolDetailsMap } from '../../common/maps.js';
 import { Blockchain } from '../blockchain.js';
-import { coinsList } from '../../common/coinsList.ts';
+import { coinsList } from '../../common/coinsList.js';
 import { CoinStruct } from '@mysten/sui/client';
-import { PoolUtils } from '../pool.js';
 
 export interface ZapDepositOptions {
   inputCoinName: string;
@@ -24,10 +23,8 @@ export class ZapDepositTransactions {
   constructor(
     private address: string,
     private blockchain: Blockchain,
-    private poolUtils: PoolUtils,
   ) {
     this.blockchain = blockchain;
-    this.poolUtils = poolUtils;
   }
 
   /**
@@ -55,7 +52,7 @@ export class ZapDepositTransactions {
     const tx = new Transaction();
 
     // Get receipts for this pool
-    const receipt: any[] = await this.blockchain.getReceipts(poolId, this.address);
+    const receipt: any = await this.blockchain.getReceipt(poolId.toString(), this.address);
 
     // Get input coins from wallet
     const inputCoins = await this.getInputCoins(inputCoinName, inputCoinAmount);

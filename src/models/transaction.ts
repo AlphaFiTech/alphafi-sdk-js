@@ -3,36 +3,14 @@ import { Blockchain } from './blockchain.js';
 import { BluefinTransactions } from './transactionProtocolModels/bluefin.js';
 import { NaviTransactions } from './transactionProtocolModels/navi.js';
 import { CetusTransactions } from './transactionProtocolModels/cetus.js';
-import { poolDetailsMap } from '../common/maps.js';
-import { ClaimOptions, DepositOptions, WithdrawOptions } from '../core/index.js';
-import { ClaimRewardsTransactions } from './transactionProtocolModels/claimRewards.js';
 import { BucketTransactions } from './transactionProtocolModels/bucket.js';
 import { NaviLoopingTransactions } from './transactionProtocolModels/naviLooping.js';
-
-/**
- * Types for liquidity calculations
- */
-export interface LiquidityResult {
-  coinAmountA: bigint;
-  coinAmountB: bigint;
-}
-
-export interface CommonInvestorFields {
-  content: {
-    fields: {
-      lower_tick: string;
-      upper_tick: string;
-    };
-  };
-}
-
-export interface ClmmPool {
-  content: {
-    fields: {
-      current_sqrt_price: string;
-    };
-  };
-}
+import { AlphaLendTransactions } from './transactionProtocolModels/alphalend.js';
+import { ClaimRewardsTransactions } from './transactionProtocolModels/claimRewards.js';
+import { TransactionUtils } from './transactionProtocolModels/utils.js';
+import { PoolDetails, poolDetailsMap } from '../common/maps.js';
+import { ClaimOptions, DepositOptions, WithdrawOptions } from '../core/index.js';
+import { coinsList } from '../common/coinsList.js';
 
 /**
  * Main transaction manager that orchestrates all protocol-specific transaction builders
@@ -41,165 +19,310 @@ export class TransactionManager {
   private bluefin: BluefinTransactions;
   private navi: NaviTransactions;
   private cetus: CetusTransactions;
-  private claimRewardsTransactions: ClaimRewardsTransactions;
   private bucketTransactions: BucketTransactions;
   private naviLoopingTransactions: NaviLoopingTransactions;
+  private alphaLendTransactions: AlphaLendTransactions;
+  private claimRewardsTransactions: ClaimRewardsTransactions;
+  private transactionUtils: TransactionUtils;
 
   constructor(
     private address: string,
     private blockchain: Blockchain,
-    private poolUtils: PoolUtils,
   ) {
-    this.bluefin = new BluefinTransactions(address, blockchain, poolUtils);
-    this.navi = new NaviTransactions(address, blockchain);
-    this.cetus = new CetusTransactions(address, blockchain);
-    this.bucketTransactions = new BucketTransactions(address, blockchain, poolUtils);
-    this.blockchain = blockchain;
-    this.claimRewardsTransactions = new ClaimRewardsTransactions(address, blockchain, poolUtils);
-    this.naviLoopingTransactions = new NaviLoopingTransactions(address, blockchain, poolUtils);
+    this.transactionUtils = new TransactionUtils(blockchain);
+    this.bluefin = new BluefinTransactions(address, blockchain, this.transactionUtils);
+    this.navi = new NaviTransactions(address, blockchain, this.transactionUtils);
+    this.cetus = new CetusTransactions(address, blockchain, this.transactionUtils);
+    this.bucketTransactions = new BucketTransactions(address, blockchain, this.transactionUtils);
+    this.naviLoopingTransactions = new NaviLoopingTransactions(
+      address,
+      blockchain,
+      this.transactionUtils,
+    );
+    this.alphaLendTransactions = new AlphaLendTransactions(
+      address,
+      blockchain,
+      this.transactionUtils,
+    );
+    this.claimRewardsTransactions = new ClaimRewardsTransactions(
+      address,
+      blockchain,
+      this.transactionUtils,
+    );
   }
 
   /**
-   * Get the appropriate protocol transaction handler
+   * Generic deposit method that routes to the appropriate protocol
+   * Based on depositSingleAssetTxb and depositDoubleAssetTxb from alphafi-sdk
    */
-  getProtocolHandler(protocol: string) {
-    switch (protocol.toLowerCase()) {
-      case 'bluefin':
-        return this.bluefin;
-      case 'navi':
-        return this.navi;
-      case 'cetus':
-        return this.cetus;
+  async deposit(options: {
+    poolId: string;
+    amount: string;
+    isAmountA?: boolean;
+  }): Promise<Transaction> {
+    const poolInfo = poolDetailsMap[options.poolId];
+    if (!poolInfo) {
+      throw new Error(`Pool with ID ${options.poolId} not found`);
+    }
+
+    if (poolInfo.assetTypes.length === 1) {
+      return this.depositSingleAsset(options, poolInfo);
+    } else if (poolInfo.assetTypes.length === 2) {
+      if (!options.isAmountA) {
+        throw new Error('isAmountA is required for double asset pools');
+      }
+      return this.depositDoubleAsset(options, poolInfo);
+    } else {
+      throw new Error(`Unsupported pool type for pool ${options.poolId}`);
+    }
+  }
+
+  /**
+   * Handle single asset deposits
+   */
+  private async depositSingleAsset(
+    options: {
+      poolId: string;
+      amount: string;
+    },
+    poolInfo: PoolDetails,
+  ): Promise<Transaction> {
+    const protocol = poolInfo.parentProtocolName;
+
+    switch (protocol) {
+      case 'ALPHAFI':
+        return this.alphaLendTransactions.depositAlphaLendSingleLoopTx(
+          options.amount,
+          options.poolId.toString(),
+        );
+      case 'BUCKET':
+        return this.bucketTransactions.depositBucketTx(options.amount, options.poolId.toString());
+      case 'NAVI':
+        if (poolInfo.strategyType === 'DOUBLE-ASSET-LOOPING') {
+          return this.naviLoopingTransactions.depositNaviLoopingTx(
+            options.amount,
+            options.poolId.toString(),
+          );
+        } else {
+          return this.navi.depositNaviTx(options.amount, options.poolId.toString());
+        }
+      case 'ALPHALEND':
+        if (poolInfo.strategyType === 'DOUBLE-ASSET-LOOPING') {
+          return this.alphaLendTransactions.depositAlphaLendLoopingTx(
+            options.amount,
+            options.poolId.toString(),
+          );
+        } else if (poolInfo.strategyType === 'SINGLE-ASSET-LOOPING') {
+          return this.alphaLendTransactions.depositAlphaLendSingleLoopTx(
+            options.amount,
+            options.poolId.toString(),
+          );
+        }
+        break;
+      default:
+        throw new Error(`Unknown protocol: ${protocol}`);
+    }
+
+    throw new Error(`Unsupported single asset deposit for protocol: ${protocol}`);
+  }
+
+  /**
+   * Handle double asset deposits
+   */
+  private async depositDoubleAsset(
+    options: {
+      poolId: string;
+      amount: string;
+      isAmountA?: boolean;
+    },
+    poolInfo: PoolDetails,
+  ): Promise<Transaction> {
+    const protocol = poolInfo.parentProtocolName;
+    const [coinAType, coinBType] = poolInfo.assetTypes;
+
+    switch (protocol) {
+      case 'CETUS':
+        if (coinAType === coinsList['CETUS'].type && coinBType === coinsList['SUI'].type) {
+          return this.cetus.depositCetusSuiTx(
+            options.amount,
+            options.poolId.toString(),
+            options.isAmountA ?? false,
+          );
+        } else if (coinBType === coinsList['SUI'].type) {
+          return this.cetus.depositCetusAlphaSuiTx(
+            options.amount,
+            options.poolId.toString(),
+            options.isAmountA ?? false,
+          );
+        } else {
+          return this.cetus.depositCetusTx(
+            options.amount,
+            options.poolId.toString(),
+            options.isAmountA ?? false,
+          );
+        }
+      case 'BLUEFIN':
+        if (poolInfo.poolName === 'BLUEFIN-FUNGIBLE-STSUI-SUI') {
+          return this.bluefin.depositBluefinFungibleTx(
+            options.amount,
+            options.poolId.toString(),
+            options.isAmountA ?? false,
+          );
+        } else if (
+          poolInfo.poolName === 'BLUEFIN-NAVX-VSUI' ||
+          poolInfo.poolName === 'BLUEFIN-ALPHA-USDC' ||
+          poolInfo.poolName === 'BLUEFIN-BLUE-USDC'
+        ) {
+          return this.bluefin.depositBluefinType2Tx(
+            options.amount,
+            options.poolId.toString(),
+            options.isAmountA ?? false,
+          );
+        } else if (coinAType === coinsList['SUI'].type) {
+          return this.bluefin.depositBluefinSuiFirstTx(
+            options.amount,
+            options.poolId.toString(),
+            options.isAmountA ?? false,
+          );
+        } else if (coinBType === coinsList['SUI'].type) {
+          return this.bluefin.depositBluefinSuiSecondTx(
+            options.amount,
+            options.poolId.toString(),
+            options.isAmountA ?? false,
+          );
+        } else if (coinAType === coinsList['STSUI'].type || coinBType === coinsList['STSUI'].type) {
+          return this.bluefin.depositBluefinStsuiTx(
+            options.amount,
+            options.poolId.toString(),
+            options.isAmountA ?? false,
+          );
+        } else {
+          return this.bluefin.depositBluefinType1Tx(
+            options.amount,
+            options.poolId.toString(),
+            options.isAmountA ?? false,
+          );
+        }
       default:
         throw new Error(`Unknown protocol: ${protocol}`);
     }
   }
 
   /**
-   * Generic deposit method that routes to the appropriate protocol
+   * Get pool name by ID
    */
-  async deposit(options: DepositOptions): Promise<Transaction> {
-    try {
-      let protocol = poolDetailsMap[options.poolId].parentProtocolName.toLowerCase();
-      if (
-        protocol === 'navi' &&
-        this.poolUtils.categorizeNaviPool(poolDetailsMap[options.poolId]) === 'looping'
-      ) {
-        protocol = 'navi-looping';
-      } else if (
-        protocol === 'navi' &&
-        this.poolUtils.categorizeNaviPool(poolDetailsMap[options.poolId]) === 'single-asset'
-      ) {
-        protocol = 'navi';
-      }
-      switch (protocol) {
-        case 'bluefin':
-          return this.bluefin.depositBluefinSuiFirstTx(options.amount, options.poolId);
-        case 'navi':
-          return this.navi.depositNaviTx(options.amount, options.poolId);
-        case 'cetus':
-          return this.cetus.depositCetusTx(options.amount, options.poolId, options?.isAmountA);
-        case 'bucket':
-          return this.bucketTransactions.depositBucketTx(options.amount, options.poolId);
-        case 'navi-looping':
-          return this.naviLoopingTransactions.depositNaviLoopingTx(options.amount, options.poolId);
-        default:
-          throw new Error(`Unknown protocol: ${protocol}`);
-      }
-    } catch (error) {
-      throw new Error(`Deposit failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  /**
-   * Withdraw assets from a pool
-   * @param options - Withdraw configuration options
-   * @returns Transaction result with gas estimate and pool information
-   */
-
-  /*
-async withdraw(options: WithdrawOptions): Promise<TransactionResult> {
-  try {
-    // Validate pool exists
-    const poolInfo = this.getPoolInfo(options.poolId);
+  private getPoolNameById(poolId: number): string {
+    const poolInfo = poolDetailsMap[poolId];
     if (!poolInfo) {
-      throw new Error(`Pool with ID ${options.poolId} not found`);
+      throw new Error(`Pool with ID ${poolId} not found`);
     }
-
-    // Calculate xTokens if percentage is provided
-    let xTokens = options.xTokens;
-    if (options.percentage !== undefined) {
-      xTokens = await this.calculateXTokensFromPercentage(options.poolId, options.percentage);
-    }
-
-    // Determine protocol from pool information
-    const protocol = this.getProtocolFromPool(options.poolId);
-
-    // Create the withdraw transaction
-    const transaction = await this.transactionManager.withdraw(
-      protocol,
-      xTokens,
-      options.poolId
-    );
-
-    // Estimate gas if not dry run
-    let gasEstimate: number | undefined;
-    if (!options.dryRun) {
-      gasEstimate = await this.transactionManager.getEstimatedGasBudget(transaction);
-    }
-
-    return {
-      transaction,
-      gasEstimate,
-      poolInfo: {
-        poolId: poolInfo.poolId,
-        poolName: poolInfo.poolName,
-        protocol,
-        strategyType: poolInfo.strategyType,
-      },
-    };
-  } catch (error) {
-    throw new Error(`Withdraw failed: ${error instanceof Error ? error.message : String(error)}`);
+    return poolInfo.poolName;
   }
-}
-  */
 
   /**
    * Generic withdraw method that routes to the appropriate protocol
+   * Based on withdrawTxb from alphafi-sdk
    */
-  async withdraw(options: WithdrawOptions): Promise<Transaction> {
+  async withdraw(options: { poolId: string; xTokens: string }): Promise<Transaction> {
     try {
-      let protocol = poolDetailsMap[options.poolId].parentProtocolName.toLowerCase();
-      if (
-        protocol === 'navi' &&
-        this.poolUtils.categorizeNaviPool(poolDetailsMap[options.poolId]) === 'looping'
-      ) {
-        protocol = 'navi-looping';
-      } else if (
-        protocol === 'navi' &&
-        this.poolUtils.categorizeNaviPool(poolDetailsMap[options.poolId]) === 'single-asset'
-      ) {
-        protocol = 'navi';
+      const poolInfo = poolDetailsMap[options.poolId];
+      if (!poolInfo) {
+        throw new Error(`Pool with ID ${options.poolId} not found`);
       }
-      switch (protocol.toLowerCase()) {
-        case 'bluefin':
-          return this.bluefin.withdrawBluefinSuiFirstTx(options.xTokens, options.poolId);
-        case 'navi':
-          return this.navi.withdrawNaviTx(options.xTokens, options.poolId);
-        case 'cetus':
-          return this.cetus.withdrawCetusTx(options.xTokens, options.poolId);
-        case 'bucket':
-          return this.bucketTransactions.withdrawBucketTx(options.xTokens, options.poolId);
-        case 'navi-looping':
-          return this.naviLoopingTransactions.withdrawNaviLoopingTx(
+
+      const protocol = poolInfo.parentProtocolName;
+
+      switch (protocol) {
+        case 'CETUS':
+          return this.withdrawCetus(options, poolInfo);
+        case 'BLUEFIN':
+          return this.withdrawBluefin(options, poolInfo);
+        case 'NAVI':
+          if (poolInfo.strategyType === 'DOUBLE-ASSET-LOOPING') {
+            return this.naviLoopingTransactions.withdrawNaviLoopingTx(
+              options.xTokens,
+              options.poolId.toString(),
+            );
+          } else {
+            return this.navi.withdrawNaviTx(options.xTokens, options.poolId.toString());
+          }
+        case 'BUCKET':
+          return this.bucketTransactions.withdrawBucketTx(
             options.xTokens,
-            options.poolId,
+            options.poolId.toString(),
           );
+        case 'ALPHALEND':
+          if (poolInfo.strategyType === 'DOUBLE-ASSET-LOOPING') {
+            return this.alphaLendTransactions.withdrawAlphaLendLoopingTx(
+              options.xTokens,
+              options.poolId.toString(),
+            );
+          } else if (poolInfo.strategyType === 'SINGLE-ASSET-LOOPING') {
+            return this.alphaLendTransactions.withdrawAlphaLendSingleLoopTx(
+              options.xTokens,
+              options.poolId.toString(),
+            );
+          }
+          break;
         default:
           throw new Error(`Unknown protocol: ${protocol}`);
       }
+
+      throw new Error(`Unsupported withdraw for protocol: ${protocol}`);
     } catch (error) {
       throw new Error(`Withdraw failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Handle Cetus withdrawals
+   */
+  private async withdrawCetus(
+    options: {
+      poolId: string;
+      xTokens: string;
+    },
+    poolInfo: PoolDetails,
+  ): Promise<Transaction> {
+    const [coinAType, coinBType] = poolInfo.assetTypes;
+
+    if (coinAType === coinsList['CETUS'].type && coinBType === coinsList['SUI'].type) {
+      return this.cetus.withdrawCetusSuiTx(options.xTokens, options.poolId);
+    } else if (coinBType === coinsList['SUI'].type) {
+      return this.cetus.withdrawCetusAlphaSuiTx(options.xTokens, options.poolId);
+    } else {
+      return this.cetus.withdrawCetusTx(options.xTokens, options.poolId);
+    }
+  }
+
+  /**
+   * Handle Bluefin withdrawals
+   */
+  private async withdrawBluefin(
+    options: {
+      poolId: string;
+      xTokens: string;
+    },
+    poolInfo: PoolDetails,
+  ): Promise<Transaction> {
+    const [coinAType, coinBType] = poolInfo.assetTypes;
+
+    if (poolInfo.poolName === 'BLUEFIN-FUNGIBLE-STSUI-SUI') {
+      return this.bluefin.withdrawBluefinFungibleTx(options.xTokens, options.poolId);
+    } else if (
+      poolInfo.poolName === 'BLUEFIN-NAVX-VSUI' ||
+      poolInfo.poolName === 'BLUEFIN-ALPHA-USDC' ||
+      poolInfo.poolName === 'BLUEFIN-BLUE-USDC'
+    ) {
+      return this.bluefin.withdrawBluefinType2Tx(options.xTokens, options.poolId);
+    } else if (coinAType === coinsList['SUI'].type) {
+      return this.bluefin.withdrawBluefinSuiFirstTx(options.xTokens, options.poolId);
+    } else if (coinBType === coinsList['SUI'].type) {
+      return this.bluefin.withdrawBluefinSuiSecondTx(options.xTokens, options.poolId);
+    } else if (coinAType === coinsList['STSUI'].type || coinBType === coinsList['STSUI'].type) {
+      return this.bluefin.withdrawBluefinStsuiTx(options.xTokens, options.poolId);
+    } else {
+      return this.bluefin.withdrawBluefinType1Tx(options.xTokens, options.poolId);
     }
   }
 
@@ -208,35 +331,15 @@ async withdraw(options: WithdrawOptions): Promise<TransactionResult> {
    */
   async claim(options: ClaimOptions): Promise<Transaction> {
     try {
-      switch (options.poolId) {
-        case 1: // ALPHA pool
-          return this.claimRewardsTransactions.claimRewardsForSpecificPool(options.poolId);
-        case 2: // BLUEFIN pool
-          return this.claimRewardsTransactions.claimRewardsForSpecificPool(options.poolId);
-        case 3: // NAVI pool
-          return this.claimRewardsTransactions.claimRewardsForSpecificPool(options.poolId);
-        case 4: // CETUS pool
-          return this.claimRewardsTransactions.claimRewardsForSpecificPool(options.poolId);
-        default:
-          return this.claimRewardsTransactions.claimAllRewardsTx();
+      if (options.poolId) {
+        const poolName = this.getPoolNameById(options.poolId);
+        return this.claimRewardsTransactions.claimRewardsForSpecificPool(poolName);
+      } else {
+        return this.claimRewardsTransactions.claimAllRewardsTx();
       }
     } catch (error) {
       throw new Error(`Claim failed: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }
-
-  /**
-   * Get all available protocols
-   */
-  getAvailableProtocols(): string[] {
-    return ['bluefin', 'navi', 'cetus'];
-  }
-
-  /**
-   * Check if a protocol is supported
-   */
-  isProtocolSupported(protocol: string): boolean {
-    return this.getAvailableProtocols().includes(protocol.toLowerCase());
   }
 
   /**

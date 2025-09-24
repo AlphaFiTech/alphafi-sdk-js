@@ -1,18 +1,19 @@
-import { Transaction } from '@mysten/sui/transactions';
+import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import { getConf } from '../../common/constants.js';
-import { poolDetailsMap, poolDetailsMapByPoolName } from '../../common/maps.js';
+import { poolDetailsMapByPoolName } from '../../common/maps.js';
 import { Blockchain } from '../blockchain.js';
-import { coinsList } from '../../common/coinsList.ts';
-import { PoolUtils } from '../pool.js';
+import { TransactionUtils } from './utils.js';
+import { coinsList } from '../../common/coinsList.js';
+import { ReceiptType } from 'src/utils/parsedTypes.js';
 
 export class ClaimRewardsTransactions {
   constructor(
     private address: string,
     private blockchain: Blockchain,
-    private poolUtils: PoolUtils,
+    private transactionUtils: TransactionUtils,
   ) {
     this.blockchain = blockchain;
-    this.poolUtils = poolUtils;
+    this.transactionUtils = transactionUtils;
     this.address = address;
   }
 
@@ -30,46 +31,42 @@ export class ClaimRewardsTransactions {
     const alphaReceipt = await this.blockchain.getReceipt(
       poolDetailsMapByPoolName['ALPHA'].poolId,
       this.address,
-    ); // Pool ID 1 is typically ALPHA
-    let alpha_receipt: any;
+    );
+    let alpha_receipt = await this.transactionUtils.getReceiptObject(
+      tx,
+      getConf().ALPHA_POOL_RECEIPT,
+      alphaReceipt?.id,
+    );
 
-    if (!alphaReceipt) {
-      [alpha_receipt] = tx.moveCall({
-        target: `0x1::option::none`,
-        typeArguments: [getConf().ALPHA_POOL_RECEIPT],
-        arguments: [],
-      });
-    } else {
-      [alpha_receipt] = tx.moveCall({
-        target: `0x1::option::some`,
-        typeArguments: [alphaReceipt.type],
-        arguments: [tx.object(alphaReceipt.id)],
-      });
-    }
+    // Get all pool names from poolDetailsMapByPoolName
+    const poolNames = Object.keys(poolDetailsMapByPoolName);
 
-    // Get all pool IDs from poolDetailsMap
-    const poolIds = Object.keys(poolDetailsMap);
-
-    for (const poolId of poolIds) {
-      const poolinfo = poolDetailsMap[poolId];
+    for (const poolName of poolNames) {
+      const poolinfo = poolDetailsMapByPoolName[poolName];
 
       // Skip pools without valid poolId
       if (!poolinfo || !poolinfo.poolId || poolinfo.poolId === '') {
         continue;
       }
 
-      // Skip ALPHA pool (pool ID 1) as it's handled separately
-      if (poolId === 1) {
+      // Skip ALPHA pool as it's handled separately
+      if (poolName === 'ALPHA') {
         continue;
       }
 
       try {
-        alpha_receipt = await this.claimRewardsForPool(tx, poolId, alpha_receipt);
+        alpha_receipt = await this.claimRewardsForPool(tx, poolName, alpha_receipt);
       } catch (error) {
-        console.warn(`Failed to claim rewards for pool ${poolId}:`, error);
+        console.warn(`Failed to claim rewards for pool ${poolName}:`, error);
         // Continue with other pools even if one fails
       }
     }
+
+    // Final transfer receipt option call
+    tx.moveCall({
+      target: `${getConf().ALPHA_LATEST_PACKAGE_ID}::alphapool::transfer_receipt_option`,
+      arguments: [tx.object(getConf().VERSION), alpha_receipt],
+    });
 
     return tx;
   }
@@ -77,301 +74,124 @@ export class ClaimRewardsTransactions {
   /**
    * Claim rewards for a specific pool
    */
-  async claimRewardsForPool(tx: Transaction, poolId: number, alpha_receipt: any): Promise<any> {
-    const poolinfo = poolDetailsMap[poolId];
+  private async claimRewardsForPool(
+    tx: Transaction,
+    poolName: string,
+    alpha_receipt: TransactionResult,
+  ): Promise<TransactionResult> {
+    const poolinfo = poolDetailsMapByPoolName[poolName];
 
     if (!poolinfo) {
-      throw new Error(`Pool with ID ${poolId} not found`);
+      throw new Error(`Pool ${poolName} not found`);
     }
-
-    console.log(`Claiming rewards for pool ${poolId}: ${poolinfo.poolName}`);
 
     // Get receipts for this pool
-    const receipts = await this.blockchain.getReceipts(poolId, this.address);
+    const allReceipts = await this.blockchain.getMultiReceipt(this.address);
+    const receipts: ReceiptType[] = Array.from(allReceipts.values()).filter(
+      (receipt) => receipt.pool_id === poolinfo.poolId,
+    );
 
     if (receipts.length === 0) {
-      console.log(`No receipts found for pool ${poolId}, skipping`);
       return alpha_receipt;
     }
 
-    // Determine pool strategy and call appropriate claim method
-    const strategyType = poolinfo.strategyType;
-    const poolName = poolinfo.poolName || `Pool-${poolId}`;
-
     // Handle different pool types based on package number and protocol
-    if (poolinfo.packageId.includes('alphafi_navi_pool_v2')) {
-      return this.claimNaviV2Rewards(tx, poolId, receipts, alpha_receipt);
-    } else if (poolinfo.packageId.includes('alphafi_bluefin')) {
-      return this.claimBluefinRewards(tx, poolId, receipts, alpha_receipt, poolName);
-    } else if (poolinfo.packageId.includes('alphafi_navi')) {
-      return this.claimNaviRewards(tx, poolId, receipts, alpha_receipt, poolName);
-    } else if (poolinfo.packageId.includes('alphafi_cetus')) {
-      return this.claimCetusRewards(tx, poolId, receipts, alpha_receipt, poolName);
-    } else if (poolinfo.packageId.includes('alphafi_bucket')) {
-      return this.claimBucketRewards(tx, poolId, receipts, alpha_receipt);
+    if (poolinfo.packageNumber === 9) {
+      return this.claimPackage9Rewards(tx, poolName, receipts, alpha_receipt);
+    } else if (poolinfo.packageNumber === 8) {
+      return this.claimPackage8Rewards(tx, poolName, receipts, alpha_receipt);
+    } else if (poolinfo.packageNumber === 5) {
+      return this.claimPackage5Rewards(tx, poolName, receipts, alpha_receipt);
+    } else if (poolinfo.packageNumber === 4 || poolinfo.packageNumber === 6) {
+      return this.claimPackage4And6Rewards(tx, poolName, receipts, alpha_receipt);
+    } else if (poolinfo.packageNumber === 3) {
+      return this.claimPackage3Rewards(tx, poolName, receipts, alpha_receipt);
+    } else if (poolinfo.packageNumber === 2) {
+      return this.claimPackage2Rewards(tx, poolName, receipts, alpha_receipt);
     } else {
-      console.warn(`Unknown pool type for pool ${poolId}, skipping`);
-      return alpha_receipt;
+      return this.claimDefaultPackageRewards(tx, poolName, receipts, alpha_receipt);
     }
   }
 
   /**
-   * Claim rewards for Navi V2 pools
+   * Package 9 rewards (Navi V2)
    */
-  private claimNaviV2Rewards(
+  private claimPackage9Rewards(
     tx: Transaction,
-    poolId: number,
-    receipts: any[],
-    alpha_receipt: any,
-  ): any {
-    const poolinfo = poolDetailsMap[poolId];
+    poolName: string,
+    receipts: ReceiptType[],
+    alpha_receipt: TransactionResult,
+  ): TransactionResult {
+    const poolinfo = poolDetailsMapByPoolName[poolName];
 
-    // Get single asset type for Navi pools
-    let coinType: string;
-    if ('token' in poolinfo.assetTypes) {
-      coinType = poolinfo.assetTypes.token;
-    } else {
-      throw new Error(`Navi pool ${poolId} does not have single asset type`);
-    }
-
-    const coinName = coinType.split('::').pop()?.toUpperCase() || 'UNKNOWN';
-
-    receipts.forEach((receipt) => {
-      alpha_receipt = tx.moveCall({
-        target: `${poolinfo.packageId}::alphafi_navi_pool_v2::get_user_rewards_all`,
-        typeArguments: [coinsList[coinName]?.type || coinType],
-        arguments: [
-          tx.object(getConf().ALPHA_NAVI_V2_VERSION),
-          tx.object(getConf().VERSION),
-          tx.object(receipt.id),
-          alpha_receipt,
-          tx.object(poolinfo.poolId),
-          tx.object(poolDetailsMap[1].poolId), // ALPHA pool
-          tx.object(getConf().ALPHA_DISTRIBUTOR),
-          tx.object(getConf().CLOCK_PACKAGE_ID),
-        ],
+    if (poolName === 'NAVI-SUIBTC') {
+      receipts.forEach((receipt) => {
+        alpha_receipt = tx.moveCall({
+          target: `${poolinfo.packageId}::alphafi_navi_pool_v2::get_user_rewards_all`,
+          typeArguments: [poolinfo.assetTypes[0]],
+          arguments: [
+            tx.object(getConf().ALPHA_NAVI_V2_VERSION),
+            tx.object(getConf().VERSION),
+            tx.object(receipt.id),
+            alpha_receipt,
+            tx.object(poolinfo.poolId),
+            tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
+            tx.object(getConf().ALPHA_DISTRIBUTOR),
+            tx.object(getConf().CLOCK_PACKAGE_ID),
+          ],
+        });
       });
-    });
+    }
 
     return alpha_receipt;
   }
 
   /**
-   * Claim rewards for Bluefin pools
+   * Package 8 rewards (Bluefin V2)
    */
-  private claimBluefinRewards(
+  private claimPackage8Rewards(
     tx: Transaction,
-    poolId: number,
-    receipts: any[],
-    alpha_receipt: any,
     poolName: string,
-  ): any {
-    const poolinfo = poolDetailsMap[poolId];
+    receipts: ReceiptType[],
+    alpha_receipt: TransactionResult,
+  ): TransactionResult {
+    const poolinfo = poolDetailsMapByPoolName[poolName];
 
-    // Get coin types for Bluefin pools
-    let coinAType: string, coinBType: string;
-    if ('token1' in poolinfo.assetTypes && 'token2' in poolinfo.assetTypes) {
-      coinAType = poolinfo.assetTypes.token1;
-      coinBType = poolinfo.assetTypes.token2;
-    } else {
-      throw new Error(`Bluefin pool ${poolId} does not have double asset types`);
-    }
-
-    const coinAName = coinAType.split('::').pop()?.toUpperCase() || 'UNKNOWN';
-    const coinBName = coinBType.split('::').pop()?.toUpperCase() || 'UNKNOWN';
-
-    receipts.forEach((receipt) => {
-      // Determine the specific Bluefin pool type and call appropriate method
-      if (
-        poolName.includes('SUI-USDC') ||
-        poolName.includes('SUI-BUCK') ||
-        poolName.includes('SUI-AUSD')
-      ) {
-        alpha_receipt = tx.moveCall({
-          target: `${poolinfo.packageId}::alphafi_bluefin_sui_first_pool::get_user_rewards_all`,
-          typeArguments: [
-            coinsList[coinAName]?.type || coinAType,
-            coinsList[coinBName]?.type || coinBType,
-          ],
-          arguments: [
-            tx.object(getConf().ALPHA_4_VERSION),
-            tx.object(getConf().VERSION),
-            tx.object(receipt.id),
-            alpha_receipt,
-            tx.object(poolinfo.poolId),
-            tx.object(poolDetailsMap[1].poolId), // ALPHA pool
-            tx.object(getConf().ALPHA_DISTRIBUTOR),
-            tx.object(getConf().CLOCK_PACKAGE_ID),
-          ],
-        });
-      } else if (
-        poolName.includes('USDT-USDC') ||
-        poolName.includes('AUSD-USDC') ||
-        poolName.includes('WBTC-USDC') ||
-        poolName.includes('SEND-USDC') ||
-        poolName.includes('SUIUSDT-USDC') ||
-        poolName.includes('WAL-USDC')
-      ) {
+    if (poolName === 'BLUEFIN-SUIBTC-USDC' || poolName === 'BLUEFIN-LBTC-SUIBTC') {
+      receipts.forEach((receipt) => {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_bluefin_type_1_pool::get_user_rewards_all`,
-          typeArguments: [
-            coinsList[coinAName]?.type || coinAType,
-            coinsList[coinBName]?.type || coinBType,
-          ],
-          arguments: [
-            tx.object(getConf().ALPHA_4_VERSION),
-            tx.object(getConf().VERSION),
-            tx.object(receipt.id),
-            alpha_receipt,
-            tx.object(poolinfo.poolId),
-            tx.object(poolDetailsMap[1].poolId), // ALPHA pool
-            tx.object(getConf().ALPHA_DISTRIBUTOR),
-            tx.object(getConf().CLOCK_PACKAGE_ID),
-          ],
-        });
-      } else if (
-        poolName.includes('ALPHA-USDC') ||
-        poolName.includes('NAVX-VSUI') ||
-        poolName.includes('BLUE-USDC')
-      ) {
-        alpha_receipt = tx.moveCall({
-          target: `${poolinfo.packageId}::alphafi_bluefin_type_2_pool::get_user_rewards_all`,
-          typeArguments: [
-            coinsList[coinAName]?.type || coinAType,
-            coinsList[coinBName]?.type || coinBType,
-          ],
-          arguments: [
-            tx.object(getConf().ALPHA_4_VERSION),
-            tx.object(getConf().VERSION),
-            tx.object(receipt.id),
-            alpha_receipt,
-            tx.object(poolinfo.poolId),
-            tx.object(poolDetailsMap[1].poolId), // ALPHA pool
-            tx.object(getConf().ALPHA_DISTRIBUTOR),
-            tx.object(getConf().CLOCK_PACKAGE_ID),
-          ],
-        });
-      } else if (
-        poolName.includes('BLUE-SUI') ||
-        poolName.includes('WBTC-SUI') ||
-        poolName.includes('DEEP-SUI')
-      ) {
-        alpha_receipt = tx.moveCall({
-          target: `${poolinfo.packageId}::alphafi_bluefin_sui_second_pool::get_user_rewards_all`,
-          typeArguments: [
-            coinsList[coinAName]?.type || coinAType,
-            coinsList[coinBName]?.type || coinBType,
-          ],
-          arguments: [
-            tx.object(getConf().ALPHA_4_VERSION),
-            tx.object(getConf().VERSION),
-            tx.object(receipt.id),
-            alpha_receipt,
-            tx.object(poolinfo.poolId),
-            tx.object(poolDetailsMap[1].poolId), // ALPHA pool
-            tx.object(getConf().ALPHA_DISTRIBUTOR),
-            tx.object(getConf().CLOCK_PACKAGE_ID),
-          ],
-        });
-      } else if (poolName.includes('STSUI-SUI')) {
-        alpha_receipt = tx.moveCall({
-          target: `${poolinfo.packageId}::alphafi_bluefin_stsui_sui_pool::get_user_rewards_all`,
-          typeArguments: [
-            coinsList[coinAName]?.type || coinAType,
-            coinsList[coinBName]?.type || coinBType,
-          ],
-          arguments: [
-            tx.object(getConf().ALPHA_4_VERSION),
-            tx.object(getConf().VERSION),
-            tx.object(receipt.id),
-            alpha_receipt,
-            tx.object(poolinfo.poolId),
-            tx.object(poolDetailsMap[1].poolId), // ALPHA pool
-            tx.object(getConf().ALPHA_DISTRIBUTOR),
-            tx.object(getConf().CLOCK_PACKAGE_ID),
-          ],
-        });
-      } else if (
-        poolName.includes('STSUI-USDC') ||
-        poolName.includes('STSUI-WSOL') ||
-        poolName.includes('STSUI-ETH') ||
-        poolName.includes('STSUI-BUCK') ||
-        poolName.includes('STSUI-MUSD')
-      ) {
-        alpha_receipt = tx.moveCall({
-          target: `${poolinfo.packageId}::alphafi_bluefin_stsui_first_pool::get_user_rewards_all`,
-          typeArguments: [
-            coinsList[coinAName]?.type || coinAType,
-            coinsList[coinBName]?.type || coinBType,
-          ],
-          arguments: [
-            tx.object(getConf().ALPHA_STSUI_VERSION),
-            tx.object(getConf().VERSION),
-            tx.object(receipt.id),
-            alpha_receipt,
-            tx.object(poolinfo.poolId),
-            tx.object(poolDetailsMap[1].poolId), // ALPHA pool
-            tx.object(getConf().ALPHA_DISTRIBUTOR),
-            tx.object(getConf().CLOCK_PACKAGE_ID),
-          ],
-        });
-      } else if (poolName.includes('ALPHA-STSUI') || poolName.includes('WAL-STSUI')) {
-        alpha_receipt = tx.moveCall({
-          target: `${poolinfo.packageId}::alphafi_bluefin_stsui_second_pool::get_user_rewards_all`,
-          typeArguments: [
-            coinsList[coinAName]?.type || coinAType,
-            coinsList[coinBName]?.type || coinBType,
-          ],
-          arguments: [
-            tx.object(getConf().ALPHA_STSUI_VERSION),
-            tx.object(getConf().VERSION),
-            tx.object(receipt.id),
-            alpha_receipt,
-            tx.object(poolinfo.poolId),
-            tx.object(poolDetailsMap[1].poolId), // ALPHA pool
-            tx.object(getConf().ALPHA_DISTRIBUTOR),
-            tx.object(getConf().CLOCK_PACKAGE_ID),
-          ],
-        });
-      } else {
-        // Default Bluefin V2 type 1 pool
-        alpha_receipt = tx.moveCall({
-          target: `${poolinfo.packageId}::alphafi_bluefin_type_1_pool::get_user_rewards_all`,
-          typeArguments: [
-            coinsList[coinAName]?.type || coinAType,
-            coinsList[coinBName]?.type || coinBType,
-          ],
+          typeArguments: [poolinfo.assetTypes[0], poolinfo.assetTypes[1]],
           arguments: [
             tx.object(getConf().ALPHA_BLUEFIN_V2_VERSION),
             tx.object(getConf().VERSION),
             tx.object(receipt.id),
             alpha_receipt,
             tx.object(poolinfo.poolId),
-            tx.object(poolDetailsMap[1].poolId), // ALPHA pool
+            tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
             tx.object(getConf().ALPHA_DISTRIBUTOR),
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      }
-    });
+      });
+    }
 
     return alpha_receipt;
   }
 
   /**
-   * Claim rewards for Navi loop pools
+   * Package 5 rewards (Navi V5)
    */
-  private claimNaviRewards(
+  private claimPackage5Rewards(
     tx: Transaction,
-    poolId: number,
-    receipts: any[],
-    alpha_receipt: any,
     poolName: string,
-  ): any {
-    const poolinfo = poolDetailsMap[poolId];
+    receipts: ReceiptType[],
+    alpha_receipt: TransactionResult,
+  ): TransactionResult {
+    const poolinfo = poolDetailsMapByPoolName[poolName];
 
-    receipts.forEach((receipt) => {
-      if (poolName.includes('USDT-USDC')) {
+    if (poolName === 'NAVI-LOOP-USDT-USDC') {
+      receipts.forEach((receipt) => {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_navi_usdt_usdc_pool::get_user_rewards_all`,
           arguments: [
@@ -380,12 +200,14 @@ export class ClaimRewardsTransactions {
             tx.object(receipt.id),
             alpha_receipt,
             tx.object(poolinfo.poolId),
-            tx.object(poolDetailsMap[1].poolId), // ALPHA pool
+            tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
             tx.object(getConf().ALPHA_DISTRIBUTOR),
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName.includes('SUI-STSUI')) {
+      });
+    } else if (poolName === 'ALPHALEND-LOOP-SUI-STSUI') {
+      receipts.forEach((receipt) => {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_navi_sui_stsui_pool::get_user_rewards_all`,
           arguments: [
@@ -394,12 +216,262 @@ export class ClaimRewardsTransactions {
             tx.object(receipt.id),
             alpha_receipt,
             tx.object(poolinfo.poolId),
-            tx.object(poolDetailsMap[1].poolId), // ALPHA pool
+            tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
             tx.object(getConf().ALPHA_DISTRIBUTOR),
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName.includes('SUI-VSUI')) {
+      });
+    }
+
+    return alpha_receipt;
+  }
+
+  /**
+   * Package 4 & 6 rewards (Bluefin V4)
+   */
+  private claimPackage4And6Rewards(
+    tx: Transaction,
+    poolName: string,
+    receipts: ReceiptType[],
+    alpha_receipt: TransactionResult,
+  ): TransactionResult {
+    const poolinfo = poolDetailsMapByPoolName[poolName];
+
+    if (poolinfo.parentProtocolName === 'BLUEFIN') {
+      const coinAType = poolinfo.assetTypes[0];
+      const coinBType = poolinfo.assetTypes[1];
+
+      if (
+        poolName === 'BLUEFIN-SUI-USDC' ||
+        poolName === 'BLUEFIN-SUI-BUCK' ||
+        poolName === 'BLUEFIN-SUI-AUSD'
+      ) {
+        receipts.forEach((receipt) => {
+          alpha_receipt = tx.moveCall({
+            target: `${poolinfo.packageId}::alphafi_bluefin_sui_first_pool::get_user_rewards_all`,
+            typeArguments: [coinAType, coinBType],
+            arguments: [
+              tx.object(getConf().ALPHA_4_VERSION),
+              tx.object(getConf().VERSION),
+              tx.object(receipt.id),
+              alpha_receipt,
+              tx.object(poolinfo.poolId),
+              tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
+              tx.object(getConf().ALPHA_DISTRIBUTOR),
+              tx.object(getConf().CLOCK_PACKAGE_ID),
+            ],
+          });
+        });
+      } else if (
+        poolName === 'BLUEFIN-USDT-USDC' ||
+        poolName === 'BLUEFIN-AUSD-USDC' ||
+        poolName === 'BLUEFIN-WBTC-USDC' ||
+        poolName === 'BLUEFIN-SEND-USDC' ||
+        poolName === 'BLUEFIN-SUIUSDT-USDC' ||
+        poolName === 'BLUEFIN-WAL-USDC'
+      ) {
+        receipts.forEach((receipt) => {
+          alpha_receipt = tx.moveCall({
+            target: `${poolinfo.packageId}::alphafi_bluefin_type_1_pool::get_user_rewards_all`,
+            typeArguments: [coinAType, coinBType],
+            arguments: [
+              tx.object(getConf().ALPHA_4_VERSION),
+              tx.object(getConf().VERSION),
+              tx.object(receipt.id),
+              alpha_receipt,
+              tx.object(poolinfo.poolId),
+              tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
+              tx.object(getConf().ALPHA_DISTRIBUTOR),
+              tx.object(getConf().CLOCK_PACKAGE_ID),
+            ],
+          });
+        });
+      } else if (
+        poolName === 'BLUEFIN-ALPHA-USDC' ||
+        poolName === 'BLUEFIN-NAVX-VSUI' ||
+        poolName === 'BLUEFIN-BLUE-USDC'
+      ) {
+        receipts.forEach((receipt) => {
+          alpha_receipt = tx.moveCall({
+            target: `${poolinfo.packageId}::alphafi_bluefin_type_2_pool::get_user_rewards_all`,
+            typeArguments: [coinAType, coinBType],
+            arguments: [
+              tx.object(getConf().ALPHA_4_VERSION),
+              tx.object(getConf().VERSION),
+              tx.object(receipt.id),
+              alpha_receipt,
+              tx.object(poolinfo.poolId),
+              tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
+              tx.object(getConf().ALPHA_DISTRIBUTOR),
+              tx.object(getConf().CLOCK_PACKAGE_ID),
+            ],
+          });
+        });
+      } else if (
+        poolName === 'BLUEFIN-BLUE-SUI' ||
+        poolName === 'BLUEFIN-WBTC-SUI' ||
+        poolName === 'BLUEFIN-DEEP-SUI'
+      ) {
+        receipts.forEach((receipt) => {
+          alpha_receipt = tx.moveCall({
+            target: `${poolinfo.packageId}::alphafi_bluefin_sui_second_pool::get_user_rewards_all`,
+            typeArguments: [coinAType, coinBType],
+            arguments: [
+              tx.object(getConf().ALPHA_4_VERSION),
+              tx.object(getConf().VERSION),
+              tx.object(receipt.id),
+              alpha_receipt,
+              tx.object(poolinfo.poolId),
+              tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
+              tx.object(getConf().ALPHA_DISTRIBUTOR),
+              tx.object(getConf().CLOCK_PACKAGE_ID),
+            ],
+          });
+        });
+      } else if (poolName === 'BLUEFIN-STSUI-SUI') {
+        receipts.forEach((receipt) => {
+          alpha_receipt = tx.moveCall({
+            target: `${poolinfo.packageId}::alphafi_bluefin_stsui_sui_pool::get_user_rewards_all`,
+            typeArguments: [coinAType, coinBType],
+            arguments: [
+              tx.object(getConf().ALPHA_4_VERSION),
+              tx.object(getConf().VERSION),
+              tx.object(receipt.id),
+              alpha_receipt,
+              tx.object(poolinfo.poolId),
+              tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
+              tx.object(getConf().ALPHA_DISTRIBUTOR),
+              tx.object(getConf().CLOCK_PACKAGE_ID),
+            ],
+          });
+        });
+      } else if (
+        poolName === 'BLUEFIN-STSUI-USDC' ||
+        poolName === 'BLUEFIN-STSUI-WSOL' ||
+        poolName === 'BLUEFIN-STSUI-ETH' ||
+        poolName === 'BLUEFIN-STSUI-BUCK' ||
+        poolName === 'BLUEFIN-STSUI-MUSD'
+      ) {
+        receipts.forEach((receipt) => {
+          alpha_receipt = tx.moveCall({
+            target: `${poolinfo.packageId}::alphafi_bluefin_stsui_first_pool::get_user_rewards_all`,
+            typeArguments: [coinAType, coinBType],
+            arguments: [
+              tx.object(getConf().ALPHA_STSUI_VERSION),
+              tx.object(getConf().VERSION),
+              tx.object(receipt.id),
+              alpha_receipt,
+              tx.object(poolinfo.poolId),
+              tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
+              tx.object(getConf().ALPHA_DISTRIBUTOR),
+              tx.object(getConf().CLOCK_PACKAGE_ID),
+            ],
+          });
+        });
+      } else if (poolName === 'BLUEFIN-ALPHA-STSUI' || poolName === 'BLUEFIN-WAL-STSUI') {
+        receipts.forEach((receipt) => {
+          alpha_receipt = tx.moveCall({
+            target: `${poolinfo.packageId}::alphafi_bluefin_stsui_second_pool::get_user_rewards_all`,
+            typeArguments: [coinAType, coinBType],
+            arguments: [
+              tx.object(getConf().ALPHA_STSUI_VERSION),
+              tx.object(getConf().VERSION),
+              tx.object(receipt.id),
+              alpha_receipt,
+              tx.object(poolinfo.poolId),
+              tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
+              tx.object(getConf().ALPHA_DISTRIBUTOR),
+              tx.object(getConf().CLOCK_PACKAGE_ID),
+            ],
+          });
+        });
+      }
+    }
+
+    return alpha_receipt;
+  }
+
+  /**
+   * Package 3 rewards (Navi V3 & Bucket)
+   */
+  private claimPackage3Rewards(
+    tx: Transaction,
+    poolName: string,
+    receipts: ReceiptType[],
+    alpha_receipt: TransactionResult,
+  ): TransactionResult {
+    const poolinfo = poolDetailsMapByPoolName[poolName];
+
+    if (poolinfo.parentProtocolName === 'NAVI') {
+      receipts.forEach((receipt) => {
+        alpha_receipt = tx.moveCall({
+          target: `${poolinfo.packageId}::alphafi_navi_pool_v2::get_user_rewards_all`,
+          typeArguments: [poolinfo.assetTypes[0]],
+          arguments: [
+            tx.object(getConf().ALPHA_3_VERSION),
+            tx.object(getConf().VERSION),
+            tx.object(receipt.id),
+            alpha_receipt,
+            tx.object(poolinfo.poolId),
+            tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
+            tx.object(getConf().ALPHA_DISTRIBUTOR),
+            tx.object(getConf().CLOCK_PACKAGE_ID),
+          ],
+        });
+      });
+    } else if (poolName === 'BUCKET-BUCK') {
+      receipts.forEach((receipt) => {
+        alpha_receipt = tx.moveCall({
+          target: `${poolinfo.packageId}::alphafi_bucket_pool_v1::get_user_rewards_all`,
+          arguments: [
+            tx.object(getConf().ALPHA_3_VERSION),
+            tx.object(getConf().VERSION),
+            tx.object(receipt.id),
+            alpha_receipt,
+            tx.object(poolinfo.poolId),
+            tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
+            tx.object(getConf().ALPHA_DISTRIBUTOR),
+            tx.object(getConf().CLOCK_PACKAGE_ID),
+          ],
+        });
+      });
+    }
+
+    return alpha_receipt;
+  }
+
+  /**
+   * Package 2 rewards (Cetus & Navi V2)
+   */
+  private claimPackage2Rewards(
+    tx: Transaction,
+    poolName: string,
+    receipts: ReceiptType[],
+    alpha_receipt: TransactionResult,
+  ): TransactionResult {
+    const poolinfo = poolDetailsMapByPoolName[poolName];
+
+    if (poolName === 'CETUS-SUI') {
+      const [coinAType, coinBType] = poolinfo.assetTypes;
+      receipts.forEach((receipt) => {
+        alpha_receipt = tx.moveCall({
+          target: `${poolinfo.packageId}::alphafi_cetus_sui_pool::get_user_rewards_all`,
+          typeArguments: [coinAType, coinBType],
+          arguments: [
+            tx.object(getConf().ALPHA_2_VERSION),
+            tx.object(getConf().VERSION),
+            tx.object(receipt.id),
+            alpha_receipt,
+            tx.object(poolinfo.poolId),
+            tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
+            tx.object(getConf().ALPHA_DISTRIBUTOR),
+            tx.object(getConf().CLOCK_PACKAGE_ID),
+          ],
+        });
+      });
+    } else if (poolName === 'NAVI-LOOP-SUI-VSUI') {
+      receipts.forEach((receipt) => {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_navi_sui_vsui_pool::get_user_rewards_all`,
           arguments: [
@@ -408,12 +480,14 @@ export class ClaimRewardsTransactions {
             tx.object(receipt.id),
             alpha_receipt,
             tx.object(poolinfo.poolId),
-            tx.object(poolDetailsMap[1].poolId), // ALPHA pool
+            tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
             tx.object(getConf().ALPHA_DISTRIBUTOR),
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName.includes('USDC-USDT')) {
+      });
+    } else if (poolName === 'NAVI-LOOP-USDC-USDT') {
+      receipts.forEach((receipt) => {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_navi_native_usdc_usdt_pool::get_user_rewards_all`,
           arguments: [
@@ -422,12 +496,14 @@ export class ClaimRewardsTransactions {
             tx.object(receipt.id),
             alpha_receipt,
             tx.object(poolinfo.poolId),
-            tx.object(poolDetailsMap[1].poolId), // ALPHA pool
+            tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
             tx.object(getConf().ALPHA_DISTRIBUTOR),
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else if (poolName.includes('HASUI-SUI')) {
+      });
+    } else if (poolName === 'NAVI-LOOP-HASUI-SUI') {
+      receipts.forEach((receipt) => {
         alpha_receipt = tx.moveCall({
           target: `${poolinfo.packageId}::alphafi_navi_hasui_sui_pool::get_user_rewards_all`,
           arguments: [
@@ -436,181 +512,148 @@ export class ClaimRewardsTransactions {
             tx.object(receipt.id),
             alpha_receipt,
             tx.object(poolinfo.poolId),
-            tx.object(poolDetailsMap[1].poolId), // ALPHA pool
+            tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
             tx.object(getConf().ALPHA_DISTRIBUTOR),
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      } else {
-        // Default Navi V2 single asset
-        const coinType =
-          'token' in poolinfo.assetTypes ? poolinfo.assetTypes.token : coinsList['SUI'].type;
-        const coinName = coinType.split('::').pop()?.toUpperCase() || 'SUI';
-
-        alpha_receipt = tx.moveCall({
-          target: `${poolinfo.packageId}::alphafi_navi_pool_v2::get_user_rewards_all`,
-          typeArguments: [coinsList[coinName]?.type || coinType],
-          arguments: [
-            tx.object(getConf().ALPHA_3_VERSION),
-            tx.object(getConf().VERSION),
-            tx.object(receipt.id),
-            alpha_receipt,
-            tx.object(poolinfo.poolId),
-            tx.object(poolDetailsMap[1].poolId), // ALPHA pool
-            tx.object(getConf().ALPHA_DISTRIBUTOR),
-            tx.object(getConf().CLOCK_PACKAGE_ID),
-          ],
-        });
-      }
-    });
-
-    return alpha_receipt;
-  }
-
-  /**
-   * Claim rewards for Cetus pools
-   */
-  private claimCetusRewards(
-    tx: Transaction,
-    poolId: number,
-    receipts: any[],
-    alpha_receipt: any,
-    poolName: string,
-  ): any {
-    const poolinfo = poolDetailsMap[poolId];
-
-    // Get coin types for Cetus pools
-    let coinAType: string, coinBType: string;
-    if ('token1' in poolinfo.assetTypes && 'token2' in poolinfo.assetTypes) {
-      coinAType = poolinfo.assetTypes.token1;
-      coinBType = poolinfo.assetTypes.token2;
-    } else {
-      throw new Error(`Cetus pool ${poolId} does not have double asset types`);
+      });
     }
 
-    const coinAName = coinAType.split('::').pop()?.toUpperCase() || 'UNKNOWN';
-    const coinBName = coinBType.split('::').pop()?.toUpperCase() || 'UNKNOWN';
+    return alpha_receipt;
+  }
 
-    receipts.forEach((receipt) => {
-      if (poolName.includes('SUI')) {
-        alpha_receipt = tx.moveCall({
-          target: `${poolinfo.packageId}::alphafi_cetus_sui_pool::get_user_rewards_all`,
-          typeArguments: [
-            coinsList[coinAName]?.type || coinAType,
-            coinsList[coinBName]?.type || coinBType,
-          ],
-          arguments: [
-            tx.object(getConf().VERSION),
-            tx.object(receipt.id),
-            alpha_receipt,
-            tx.object(poolinfo.poolId),
-            tx.object(poolDetailsMap[1].poolId), // ALPHA pool
-            tx.object(getConf().ALPHA_DISTRIBUTOR),
-            tx.object(getConf().CLOCK_PACKAGE_ID),
-          ],
+  /**
+   * Default package rewards (Cetus, Navi, AlphaLend)
+   */
+  private claimDefaultPackageRewards(
+    tx: Transaction,
+    poolName: string,
+    receipts: ReceiptType[],
+    alpha_receipt: TransactionResult,
+  ): TransactionResult {
+    const poolinfo = poolDetailsMapByPoolName[poolName];
+
+    if (poolinfo.parentProtocolName === 'CETUS') {
+      const [coinAType, coinBType] = poolinfo.assetTypes;
+
+      if (coinBType === coinsList['SUI'].type) {
+        receipts.forEach((receipt) => {
+          alpha_receipt = tx.moveCall({
+            target: `${poolinfo.packageId}::alphafi_cetus_sui_pool::get_user_rewards_all`,
+            typeArguments: [coinAType, coinBType],
+            arguments: [
+              tx.object(getConf().VERSION),
+              tx.object(receipt.id),
+              alpha_receipt,
+              tx.object(poolinfo.poolId),
+              tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
+              tx.object(getConf().ALPHA_DISTRIBUTOR),
+              tx.object(getConf().CLOCK_PACKAGE_ID),
+            ],
+          });
         });
       } else if (
-        poolName.includes('WUSDC-WBTC') ||
-        poolName.includes('USDC-USDT') ||
-        poolName.includes('USDC-WUSDC') ||
-        poolName.includes('USDC-ETH')
+        poolName === 'WUSDC-WBTC' ||
+        poolName === 'USDC-USDT' ||
+        poolName === 'USDC-WUSDC' ||
+        poolName === 'USDC-ETH'
       ) {
-        alpha_receipt = tx.moveCall({
-          target: `${poolinfo.packageId}::alphafi_cetus_pool_base_a::get_user_rewards_all`,
-          typeArguments: [
-            coinsList[coinAName]?.type || coinAType,
-            coinsList[coinBName]?.type || coinBType,
-          ],
-          arguments: [
-            tx.object(getConf().VERSION),
-            tx.object(receipt.id),
-            alpha_receipt,
-            tx.object(poolinfo.poolId),
-            tx.object(poolDetailsMap[1].poolId), // ALPHA pool
-            tx.object(getConf().ALPHA_DISTRIBUTOR),
-            tx.object(getConf().CLOCK_PACKAGE_ID),
-          ],
+        receipts.forEach((receipt) => {
+          alpha_receipt = tx.moveCall({
+            target: `${poolinfo.packageId}::alphafi_cetus_pool_base_a::get_user_rewards_all`,
+            typeArguments: [coinAType, coinBType],
+            arguments: [
+              tx.object(getConf().VERSION),
+              tx.object(receipt.id),
+              alpha_receipt,
+              tx.object(poolinfo.poolId),
+              tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
+              tx.object(getConf().ALPHA_DISTRIBUTOR),
+              tx.object(getConf().CLOCK_PACKAGE_ID),
+            ],
+          });
         });
       } else {
+        receipts.forEach((receipt) => {
+          alpha_receipt = tx.moveCall({
+            target: `${poolinfo.packageId}::alphafi_cetus_pool::get_user_rewards_all`,
+            typeArguments: [coinAType, coinBType],
+            arguments: [
+              tx.object(getConf().VERSION),
+              tx.object(receipt.id),
+              alpha_receipt,
+              tx.object(poolinfo.poolId),
+              tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
+              tx.object(getConf().ALPHA_DISTRIBUTOR),
+              tx.object(getConf().CLOCK_PACKAGE_ID),
+            ],
+          });
+        });
+      }
+    } else if (poolinfo.parentProtocolName === 'NAVI') {
+      receipts.forEach((receipt) => {
         alpha_receipt = tx.moveCall({
-          target: `${poolinfo.packageId}::alphafi_cetus_pool::get_user_rewards_all`,
-          typeArguments: [
-            coinsList[coinAName]?.type || coinAType,
-            coinsList[coinBName]?.type || coinBType,
-          ],
+          target: `${poolinfo.packageId}::alphafi_navi_pool::get_user_rewards_all`,
+          typeArguments: [poolinfo.assetTypes[0]],
           arguments: [
             tx.object(getConf().VERSION),
             tx.object(receipt.id),
             alpha_receipt,
             tx.object(poolinfo.poolId),
-            tx.object(poolDetailsMap[1].poolId), // ALPHA pool
+            tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
             tx.object(getConf().ALPHA_DISTRIBUTOR),
             tx.object(getConf().CLOCK_PACKAGE_ID),
           ],
         });
-      }
-    });
-
-    return alpha_receipt;
-  }
-
-  /**
-   * Claim rewards for Bucket pools
-   */
-  private claimBucketRewards(
-    tx: Transaction,
-    poolId: number,
-    receipts: any[],
-    alpha_receipt: any,
-  ): any {
-    const poolinfo = poolDetailsMap[poolId];
-
-    receipts.forEach((receipt) => {
-      alpha_receipt = tx.moveCall({
-        target: `${poolinfo.packageId}::alphafi_bucket_pool_v1::get_user_rewards_all`,
-        arguments: [
-          tx.object(getConf().ALPHA_3_VERSION),
-          tx.object(getConf().VERSION),
-          tx.object(receipt.id),
-          alpha_receipt,
-          tx.object(poolinfo.poolId),
-          tx.object(poolDetailsMap[1].poolId), // ALPHA pool
-          tx.object(getConf().ALPHA_DISTRIBUTOR),
-          tx.object(getConf().CLOCK_PACKAGE_ID),
-        ],
       });
-    });
+    } else if (poolinfo.parentProtocolName === 'ALPHALEND') {
+      receipts.forEach((receipt) => {
+        alpha_receipt = tx.moveCall({
+          target: `${poolinfo.packageId}::alphafi_alphalend_single_loop_pool::get_user_rewards_all`,
+          typeArguments: [poolinfo.assetTypes[0]],
+          arguments: [
+            tx.object(getConf().ALPHA_ALPHALEND_VERSION),
+            tx.object(getConf().VERSION),
+            tx.object(receipt.id),
+            alpha_receipt,
+            tx.object(poolinfo.poolId),
+            tx.object(poolDetailsMapByPoolName['ALPHA'].poolId),
+            tx.object(getConf().ALPHA_DISTRIBUTOR),
+            tx.object(getConf().CLOCK_PACKAGE_ID),
+          ],
+        });
+      });
+    }
 
     return alpha_receipt;
   }
 
   /**
-   * Claim rewards for a specific pool by ID
+   * Claim rewards for a specific pool by name
    */
-  async claimRewardsForSpecificPool(poolId: number): Promise<Transaction> {
-    console.log(`Creating claim rewards transaction for pool ${poolId}`);
+  async claimRewardsForSpecificPool(poolName: string): Promise<Transaction> {
     const tx = new Transaction();
 
     // Get ALPHA receipt
-    const alphaReceipt = await this.blockchain.getReceipts(1, this.address);
-    let alpha_receipt: any;
-
-    if (alphaReceipt.length === 0) {
-      [alpha_receipt] = tx.moveCall({
-        target: `0x1::option::none`,
-        typeArguments: [getConf().ALPHA_POOL_RECEIPT],
-        arguments: [],
-      });
-    } else {
-      [alpha_receipt] = tx.moveCall({
-        target: `0x1::option::some`,
-        typeArguments: [alphaReceipt[0].type],
-        arguments: [tx.object(alphaReceipt[0].id)],
-      });
-    }
+    const alphaReceipt = await this.blockchain.getReceipt(
+      poolDetailsMapByPoolName['ALPHA'].poolId,
+      this.address,
+    );
+    let alpha_receipt = await this.transactionUtils.getReceiptObject(
+      tx,
+      getConf().ALPHA_POOL_RECEIPT,
+      alphaReceipt?.id,
+    );
 
     // Claim rewards for the specific pool
-    await this.claimRewardsForPool(tx, poolId, alpha_receipt);
+    alpha_receipt = await this.claimRewardsForPool(tx, poolName, alpha_receipt);
+
+    // Final transfer receipt option call
+    tx.moveCall({
+      target: `${getConf().ALPHA_LATEST_PACKAGE_ID}::alphapool::transfer_receipt_option`,
+      arguments: [tx.object(getConf().VERSION), alpha_receipt],
+    });
 
     return tx;
   }
