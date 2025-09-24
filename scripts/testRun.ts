@@ -1,10 +1,12 @@
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { Blockchain } from '../src/models/blockchain';
 import { fromB64 } from '@mysten/sui/utils';
-import { DynamicFieldInfo, SuiClient } from '@mysten/sui/client';
+import { SuiClient } from '@mysten/sui/client';
 import { Protocol } from '../src/models/protocol.js';
 import { Portfolio } from '../src/models/portfolio.js';
+import { AlphaFiSDK } from '../src/index.js';
 import dotenv from 'dotenv';
+import { Transaction } from '@mysten/sui/transactions';
 
 dotenv.config();
 
@@ -43,6 +45,28 @@ export function getExecStuff() {
   return { address, keypair, suiClient };
 }
 
+export async function dryRunTransactionBlock(txb: Transaction) {
+  const { suiClient, address } = getExecStuff();
+  txb.setSender(address);
+  txb.setGasBudget(1e9);
+  try {
+    let serializedTxb = await txb.build({ client: suiClient });
+    suiClient
+      .dryRunTransactionBlock({
+        transactionBlock: serializedTxb,
+      })
+      .then((res) => {
+        console.log(JSON.stringify(res, null, 2));
+        // console.log(res.effects.status, res.balanceChanges);
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+  } catch (e) {
+    console.log(e);
+  }
+}
+
 async function test() {
   const { address, keypair, suiClient } = getExecStuff();
   const lockedTableID = '0xe8474026c16bcb0581bc77169e1ee8d656d64c07ddfa02929ea536fe260e1a09';
@@ -52,6 +76,7 @@ async function test() {
   const res = await portfolio.getPortfolioData();
   console.log(res);
 }
+// test();
 
 async function main() {
   const { address, keypair, suiClient } = getExecStuff();
@@ -66,6 +91,26 @@ async function main() {
   const res = await portfolio.getPortfolioData();
   console.log(res);
 }
-
 // main();
-test();
+
+async function deposit() {
+  const { address, keypair, suiClient } = getExecStuff();
+  const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
+  const tx = await sdk.deposit({
+    poolId: '0x04378cf67d21b41399dc0b6653a5f73f8d3a03cc7643463e47e8d378f8b0bdfa', // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    amount: 100_000n,
+  });
+  dryRunTransactionBlock(tx);
+}
+deposit();
+
+async function withdraw() {
+  const { address, keypair, suiClient } = getExecStuff();
+  const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
+  const tx = await sdk.withdraw({
+    poolId: '0x04378cf67d21b41399dc0b6653a5f73f8d3a03cc7643463e47e8d378f8b0bdfa', // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    xTokens: 100_000n,
+  });
+  dryRunTransactionBlock(tx);
+}
+// withdraw();

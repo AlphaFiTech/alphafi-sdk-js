@@ -8,6 +8,13 @@ import { Blockchain } from '../models/blockchain.js';
 import { Transaction } from '@mysten/sui/transactions';
 import { Protocol } from '../models/protocol.js';
 import { Portfolio } from '../models/portfolio.js';
+import { poolDetailsMap } from '../common/maps.js';
+import {
+  depositSingleAssetTxb,
+  depositDoubleAssetTxb,
+  PoolName,
+  withdrawTxb,
+} from '@alphafi/alphafi-sdk-upstream';
 
 /**
  * Configuration options for the AlphaFi SDK
@@ -72,7 +79,26 @@ export class AlphaFiSDK {
    * @returns Promise<TransactionResult> - Transaction result with gas estimate
    */
   async deposit(options: DepositOptions): Promise<Transaction> {
-    return this.transactionManager.deposit(options);
+    const poolInfo = poolDetailsMap[options.poolId];
+    if (!poolInfo) {
+      throw new Error(`Pool with ID ${options.poolId} not found`);
+    }
+
+    if (poolInfo.assetTypes.length === 1) {
+      return await depositSingleAssetTxb(
+        poolInfo.poolName as PoolName,
+        this.config.address,
+        options.amount.toString(),
+      );
+    } else if (poolInfo.assetTypes.length === 2) {
+      return await depositDoubleAssetTxb(
+        poolInfo.poolName as PoolName,
+        this.config.address,
+        options.amount.toString(),
+        options.isAmountA ?? false,
+      );
+    }
+    throw new Error(`Unsupported pool type for pool ${options.poolId}`);
   }
 
   /**
@@ -81,7 +107,16 @@ export class AlphaFiSDK {
    * @returns Promise<TransactionResult> - Transaction result with gas estimate
    */
   async withdraw(options: WithdrawOptions): Promise<Transaction> {
-    return this.transactionManager.withdraw(options);
+    const poolInfo = poolDetailsMap[options.poolId];
+    if (!poolInfo) {
+      throw new Error(`Pool with ID ${options.poolId} not found`);
+    }
+
+    return await withdrawTxb(
+      options.xTokens.toString(),
+      poolInfo.poolName as PoolName,
+      this.config.address,
+    );
   }
 
   /**
