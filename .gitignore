@@ -7,9 +7,12 @@ pnpm-debug.log*
 
 # Build output
 dist/
+docs/
 build/
 lib/
 *.tsbuildinfo
+/scripts/build/
+/scripts/*.js
 
 # TypeScript cache
 .cache/
@@ -21,17 +24,26 @@ lib/
 
 # Environment files
 .env*
+/scripts/.env
 !.env.example
+/scripts/.env.local
+/scripts/.env.*
 
 # Logs
 logs/
 *.log
+*.log.*
+npm-cache/
+.npm/
 
 # Coverage reports
 coverage/
 
 # Test output
 test-output/
+scripts/test-output/
+scripts/*.d.ts
+scripts/*.map
 
 # OS-specific files
 .DS_Store
@@ -41,6 +53,31 @@ Thumbs.db
 *~
 \#*\#
 .\#*
+
+# Editor/Tooling
+.history/
+.cursor/
+.idea_modules/
+.project
+.settings/
+.tern-project
+.vscode-test/
+
+# Jest
+/.jest-cache/
+/.jest/
+
+# TypeDoc artifacts
+/.typedoc/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Lockfiles we don't want to commit here
+scripts/package-lock.json
+scripts/node_modules/
 
 # Optional: lock files
 # If your team prefers a single lock manager, uncomment the others

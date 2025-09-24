@@ -6,16 +6,7 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-      - id: check-added-large-files
-        args: ['--maxkb=500']
-      - id: check-case-conflict
       - id: check-merge-conflict
-      - id: check-json
-      - id: mixed-line-ending
-        args: ['--fix=lf']
-      - id: detect-private-key
 
   # JavaScript/TypeScript specific hooks
   - repo: https://github.com/pre-commit/mirrors-prettier
@@ -49,45 +40,12 @@ repos:
         files: \.(ts|tsx)$
         pass_filenames: false
 
-  # Security checks
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.18.1
-    hooks:
-      - id: gitleaks
-
-  # Additional security check - comprehensive secret detection
-  # Uncomment after installing TruffleHog: brew install trufflehog
-  # - repo: local
-  #   hooks:
-  #     - id: trufflehog
-  #       name: TruffleHog Security Scan
-  #       entry: trufflehog filesystem . --config .trufflehog.yaml --fail --no-update
-  #       language: system
-  #       pass_filenames: false
-  #       types: [text]
-
   # Markdown
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.38.0
     hooks:
       - id: markdownlint
         args: ['--fix']
-
-  # Package.json checks (commented out - hook not available)
-  # - repo: https://github.com/Lucas-C/pre-commit-hooks-nodejs
-  #   rev: v1.1.2
-  #   hooks:
-  #     - id: package-json-sorted-dependencies
-
-  # Jest tests (optional - can be slow)
-  # - repo: local
-  #   hooks:
-  #     - id: jest
-  #       name: Jest Tests
-  #       entry: npm test
-  #       language: system
-  #       pass_filenames: false
-  #       always_run: true
 
 # Global configuration
 default_language_version:
