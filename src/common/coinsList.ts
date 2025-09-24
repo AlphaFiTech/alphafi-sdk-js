@@ -192,6 +192,12 @@ export const coinsList: {
     icon: '',
     expo: 9,
   },
+  FT_BLUEFIN_STSUI_SUI: {
+    name: 'FT_BLUEFIN_STSUI_SUI',
+    type: '0xcd8f8a6fcd309e6d00f6f8f2d37eeeedeee7ccb50934d457e5a0a2f3e65bdbd2::ft_bluefin_stsui_sui::FT_BLUEFIN_STSUI_SUI',
+    icon: '',
+    expo: 9,
+  },
   'AlphaFi stSUI-SUI LP': {
     name: 'AlphaFi stSUI-SUI LP',
     type: '0x96eb2012a75798ce4410392baeab9dd888bc704799b7daa468c36856c83174f3::ALPHAFI_STSUI_SUI_LP::ALPHAFI_STSUI_SUI_LP',
@@ -227,6 +233,54 @@ export const coinsList: {
     type: '0x77045f1b9f811a7a8fb9ebd085b5b0c55c5cb0d1520ff55f7037f89b5da9f5f1::TBTC::TBTC',
     icon: '',
     expo: 8,
+  },
+  IKA: {
+    name: 'IKA',
+    type: '0x7262fb2f7a3a14c888c438a3cd9b912469a58cf60f367352c46584262e8299aa::ika::IKA',
+    icon: '',
+    expo: 9,
+  },
+  XBTC: {
+    name: 'XBTC',
+    type: '0x876a4b7bce8aeaef60464c11f4026903e9afacab79b9b142686158aa86560b50::xbtc::XBTC',
+    icon: '',
+    expo: 8,
+  },
+  ALKIMI: {
+    name: 'ALKIMI',
+    type: '0x1a8f4bc33f8ef7fbc851f156857aa65d397a6a6fd27a7ac2ca717b51f2fd9489::alkimi::ALKIMI',
+    icon: '',
+    expo: 9,
+  },
+  XAUM: {
+    name: 'XAUM',
+    type: '0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM',
+    icon: '',
+    expo: 9,
+  },
+  UP: {
+    name: 'UP',
+    type: '0x87dfe1248a1dc4ce473bd9cb2937d66cdc6c30fee63f3fe0dbb55c7a09d35dec::up::UP',
+    icon: '',
+    expo: 6,
+  },
+  ESUI: {
+    name: 'ESUI',
+    type: '0x66629328922d609cf15af779719e248ae0e63fe0b9d9739623f763b33a9c97da::esui::ESUI',
+    icon: '',
+    expo: 9,
+  },
+  EBTC: {
+    name: 'EBTC',
+    type: '0x244b98d29bd0bba401c7cfdd89f017c51759dad615e15a872ddfe45af079bb1d::ebtc::EBTC',
+    icon: '',
+    expo: 8,
+  },
+  EGUSDC: {
+    name: 'EGUSDC',
+    type: '0x68532559a19101b58757012207d82328e75fde7a696d20a59e8307c1a7f42ad7::egusdc::EGUSDC',
+    icon: '',
+    expo: 6,
   },
 };
 

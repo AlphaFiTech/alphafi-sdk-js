@@ -72,11 +72,7 @@ export class AlphaFiSDK {
    * @returns Promise<TransactionResult> - Transaction result with gas estimate
    */
   async deposit(options: DepositOptions): Promise<Transaction> {
-    return this.transactionManager.deposit({
-      poolId: options.poolId,
-      amount: options.amount.toString(),
-      isAmountA: options.isAmountA,
-    });
+    return this.transactionManager.deposit(options);
   }
 
   /**
@@ -85,10 +81,7 @@ export class AlphaFiSDK {
    * @returns Promise<TransactionResult> - Transaction result with gas estimate
    */
   async withdraw(options: WithdrawOptions): Promise<Transaction> {
-    return this.transactionManager.withdraw({
-      poolId: options.poolId,
-      xTokens: options.xTokens.toString(),
-    });
+    return this.transactionManager.withdraw(options);
   }
 
   /**

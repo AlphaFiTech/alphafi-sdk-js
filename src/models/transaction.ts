@@ -55,11 +55,7 @@ export class TransactionManager {
    * Generic deposit method that routes to the appropriate protocol
    * Based on depositSingleAssetTxb and depositDoubleAssetTxb from alphafi-sdk
    */
-  async deposit(options: {
-    poolId: string;
-    amount: string;
-    isAmountA?: boolean;
-  }): Promise<Transaction> {
+  async deposit(options: DepositOptions): Promise<Transaction> {
     const poolInfo = poolDetailsMap[options.poolId];
     if (!poolInfo) {
       throw new Error(`Pool with ID ${options.poolId} not found`);
@@ -68,7 +64,7 @@ export class TransactionManager {
     if (poolInfo.assetTypes.length === 1) {
       return this.depositSingleAsset(options, poolInfo);
     } else if (poolInfo.assetTypes.length === 2) {
-      if (!options.isAmountA) {
+      if (options.isAmountA === undefined) {
         throw new Error('isAmountA is required for double asset pools');
       }
       return this.depositDoubleAsset(options, poolInfo);
@@ -81,41 +77,36 @@ export class TransactionManager {
    * Handle single asset deposits
    */
   private async depositSingleAsset(
-    options: {
-      poolId: string;
-      amount: string;
-    },
+    options: DepositOptions,
     poolInfo: PoolDetails,
   ): Promise<Transaction> {
     const protocol = poolInfo.parentProtocolName;
+    const amountStr = options.amount.toString();
 
     switch (protocol) {
       case 'ALPHAFI':
         return this.alphaLendTransactions.depositAlphaLendSingleLoopTx(
-          options.amount,
-          options.poolId.toString(),
+          poolInfo.poolName,
+          amountStr,
         );
       case 'BUCKET':
-        return this.bucketTransactions.depositBucketTx(options.amount, options.poolId.toString());
+        return this.bucketTransactions.depositBucketTx(options.poolId.toString(), amountStr);
       case 'NAVI':
         if (poolInfo.strategyType === 'DOUBLE-ASSET-LOOPING') {
           return this.naviLoopingTransactions.depositNaviLoopingTx(
-            options.amount,
             options.poolId.toString(),
+            amountStr,
           );
         } else {
-          return this.navi.depositNaviTx(options.amount, options.poolId.toString());
+          return this.navi.depositNaviTx(options.poolId.toString(), amountStr);
         }
       case 'ALPHALEND':
         if (poolInfo.strategyType === 'DOUBLE-ASSET-LOOPING') {
-          return this.alphaLendTransactions.depositAlphaLendLoopingTx(
-            options.amount,
-            options.poolId.toString(),
-          );
+          return this.alphaLendTransactions.depositAlphaLendLoopingTx(poolInfo.poolName, amountStr);
         } else if (poolInfo.strategyType === 'SINGLE-ASSET-LOOPING') {
           return this.alphaLendTransactions.depositAlphaLendSingleLoopTx(
-            options.amount,
-            options.poolId.toString(),
+            poolInfo.poolName,
+            amountStr,
           );
         }
         break;
@@ -130,42 +121,39 @@ export class TransactionManager {
    * Handle double asset deposits
    */
   private async depositDoubleAsset(
-    options: {
-      poolId: string;
-      amount: string;
-      isAmountA?: boolean;
-    },
+    options: DepositOptions,
     poolInfo: PoolDetails,
   ): Promise<Transaction> {
     const protocol = poolInfo.parentProtocolName;
     const [coinAType, coinBType] = poolInfo.assetTypes;
+    const amountStr = options.amount.toString();
 
     switch (protocol) {
       case 'CETUS':
         if (coinAType === coinsList['CETUS'].type && coinBType === coinsList['SUI'].type) {
           return this.cetus.depositCetusSuiTx(
-            options.amount,
             options.poolId.toString(),
+            amountStr,
             options.isAmountA ?? false,
           );
         } else if (coinBType === coinsList['SUI'].type) {
           return this.cetus.depositCetusAlphaSuiTx(
-            options.amount,
             options.poolId.toString(),
+            amountStr,
             options.isAmountA ?? false,
           );
         } else {
           return this.cetus.depositCetusTx(
-            options.amount,
             options.poolId.toString(),
+            amountStr,
             options.isAmountA ?? false,
           );
         }
       case 'BLUEFIN':
         if (poolInfo.poolName === 'BLUEFIN-FUNGIBLE-STSUI-SUI') {
           return this.bluefin.depositBluefinFungibleTx(
-            options.amount,
             options.poolId.toString(),
+            amountStr,
             options.isAmountA ?? false,
           );
         } else if (
@@ -174,32 +162,32 @@ export class TransactionManager {
           poolInfo.poolName === 'BLUEFIN-BLUE-USDC'
         ) {
           return this.bluefin.depositBluefinType2Tx(
-            options.amount,
             options.poolId.toString(),
+            amountStr,
             options.isAmountA ?? false,
           );
         } else if (coinAType === coinsList['SUI'].type) {
           return this.bluefin.depositBluefinSuiFirstTx(
-            options.amount,
             options.poolId.toString(),
+            amountStr,
             options.isAmountA ?? false,
           );
         } else if (coinBType === coinsList['SUI'].type) {
           return this.bluefin.depositBluefinSuiSecondTx(
-            options.amount,
             options.poolId.toString(),
+            amountStr,
             options.isAmountA ?? false,
           );
         } else if (coinAType === coinsList['STSUI'].type || coinBType === coinsList['STSUI'].type) {
           return this.bluefin.depositBluefinStsuiTx(
-            options.amount,
             options.poolId.toString(),
+            amountStr,
             options.isAmountA ?? false,
           );
         } else {
           return this.bluefin.depositBluefinType1Tx(
-            options.amount,
             options.poolId.toString(),
+            amountStr,
             options.isAmountA ?? false,
           );
         }
@@ -223,7 +211,7 @@ export class TransactionManager {
    * Generic withdraw method that routes to the appropriate protocol
    * Based on withdrawTxb from alphafi-sdk
    */
-  async withdraw(options: { poolId: string; xTokens: string }): Promise<Transaction> {
+  async withdraw(options: WithdrawOptions): Promise<Transaction> {
     try {
       const poolInfo = poolDetailsMap[options.poolId];
       if (!poolInfo) {
@@ -231,36 +219,34 @@ export class TransactionManager {
       }
 
       const protocol = poolInfo.parentProtocolName;
+      const xTokensStr = options.xTokens.toString();
 
       switch (protocol) {
         case 'CETUS':
-          return this.withdrawCetus(options, poolInfo);
+          return this.withdrawCetus({ poolId: options.poolId, xTokens: xTokensStr }, poolInfo);
         case 'BLUEFIN':
-          return this.withdrawBluefin(options, poolInfo);
+          return this.withdrawBluefin({ poolId: options.poolId, xTokens: xTokensStr }, poolInfo);
         case 'NAVI':
           if (poolInfo.strategyType === 'DOUBLE-ASSET-LOOPING') {
             return this.naviLoopingTransactions.withdrawNaviLoopingTx(
-              options.xTokens,
               options.poolId.toString(),
+              xTokensStr,
             );
           } else {
-            return this.navi.withdrawNaviTx(options.xTokens, options.poolId.toString());
+            return this.navi.withdrawNaviTx(options.poolId.toString(), xTokensStr);
           }
         case 'BUCKET':
-          return this.bucketTransactions.withdrawBucketTx(
-            options.xTokens,
-            options.poolId.toString(),
-          );
+          return this.bucketTransactions.withdrawBucketTx(options.poolId.toString(), xTokensStr);
         case 'ALPHALEND':
           if (poolInfo.strategyType === 'DOUBLE-ASSET-LOOPING') {
             return this.alphaLendTransactions.withdrawAlphaLendLoopingTx(
-              options.xTokens,
-              options.poolId.toString(),
+              poolInfo.poolName,
+              xTokensStr,
             );
           } else if (poolInfo.strategyType === 'SINGLE-ASSET-LOOPING') {
             return this.alphaLendTransactions.withdrawAlphaLendSingleLoopTx(
-              options.xTokens,
-              options.poolId.toString(),
+              poolInfo.poolName,
+              xTokensStr,
             );
           }
           break;
@@ -287,11 +273,11 @@ export class TransactionManager {
     const [coinAType, coinBType] = poolInfo.assetTypes;
 
     if (coinAType === coinsList['CETUS'].type && coinBType === coinsList['SUI'].type) {
-      return this.cetus.withdrawCetusSuiTx(options.xTokens, options.poolId);
+      return this.cetus.withdrawCetusSuiTx(options.poolId, options.xTokens);
     } else if (coinBType === coinsList['SUI'].type) {
-      return this.cetus.withdrawCetusAlphaSuiTx(options.xTokens, options.poolId);
+      return this.cetus.withdrawCetusAlphaSuiTx(options.poolId, options.xTokens);
     } else {
-      return this.cetus.withdrawCetusTx(options.xTokens, options.poolId);
+      return this.cetus.withdrawCetusTx(options.poolId, options.xTokens);
     }
   }
 
@@ -308,21 +294,21 @@ export class TransactionManager {
     const [coinAType, coinBType] = poolInfo.assetTypes;
 
     if (poolInfo.poolName === 'BLUEFIN-FUNGIBLE-STSUI-SUI') {
-      return this.bluefin.withdrawBluefinFungibleTx(options.xTokens, options.poolId);
+      return this.bluefin.withdrawBluefinFungibleTx(options.poolId, options.xTokens);
     } else if (
       poolInfo.poolName === 'BLUEFIN-NAVX-VSUI' ||
       poolInfo.poolName === 'BLUEFIN-ALPHA-USDC' ||
       poolInfo.poolName === 'BLUEFIN-BLUE-USDC'
     ) {
-      return this.bluefin.withdrawBluefinType2Tx(options.xTokens, options.poolId);
+      return this.bluefin.withdrawBluefinType2Tx(options.poolId, options.xTokens);
     } else if (coinAType === coinsList['SUI'].type) {
-      return this.bluefin.withdrawBluefinSuiFirstTx(options.xTokens, options.poolId);
+      return this.bluefin.withdrawBluefinSuiFirstTx(options.poolId, options.xTokens);
     } else if (coinBType === coinsList['SUI'].type) {
-      return this.bluefin.withdrawBluefinSuiSecondTx(options.xTokens, options.poolId);
+      return this.bluefin.withdrawBluefinSuiSecondTx(options.poolId, options.xTokens);
     } else if (coinAType === coinsList['STSUI'].type || coinBType === coinsList['STSUI'].type) {
-      return this.bluefin.withdrawBluefinStsuiTx(options.xTokens, options.poolId);
+      return this.bluefin.withdrawBluefinStsuiTx(options.poolId, options.xTokens);
     } else {
-      return this.bluefin.withdrawBluefinType1Tx(options.xTokens, options.poolId);
+      return this.bluefin.withdrawBluefinType1Tx(options.poolId, options.xTokens);
     }
   }
 
