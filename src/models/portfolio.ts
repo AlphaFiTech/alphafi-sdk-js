@@ -3,9 +3,9 @@ import { Blockchain } from './blockchain.js';
 import { Protocol } from './protocol.js';
 import { Receipt } from './receipt.js';
 import { Decimal } from 'decimal.js';
-import { poolDetailsMap, poolDetailsMapByPoolName } from 'src/common/maps.js';
-import { AlphaReceiptType } from 'src/utils/parsedTypes.js';
-import { coinsList, coinsListByType } from 'src/common/coinsList.js';
+import { poolDetailsMap, poolDetailsMapByPoolName } from '../common/maps.js';
+import { AlphaReceiptType } from '../utils/parsedTypes.js';
+import { coinsList, coinsListByType } from '../common/coinsList.js';
 import { Pool } from './pool.js';
 import { DynamicFieldInfo } from '@mysten/sui/client/index.js';
 

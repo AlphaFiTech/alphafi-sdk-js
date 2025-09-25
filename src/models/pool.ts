@@ -11,9 +11,9 @@ import {
   NaviLoopInvestorType,
   ParentPoolType,
   PoolType,
-} from 'src/utils/parsedTypes.js';
+} from '../utils/parsedTypes.js';
 import { Decimal } from 'decimal.js';
-import { coinsList, coinsListByType } from 'src/common/coinsList.js';
+import { coinsList, coinsListByType } from '../common/coinsList.js';
 
 /**
  * Pool utility types and interfaces

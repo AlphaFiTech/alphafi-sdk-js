@@ -4,7 +4,7 @@ import { poolDetailsMapByPoolName } from '../../common/maps.js';
 import { Blockchain } from '../blockchain.js';
 import { TransactionUtils } from './utils.js';
 import { coinsList } from '../../common/coinsList.js';
-import { ReceiptType } from 'src/utils/parsedTypes.js';
+import { ReceiptType } from '../../utils/parsedTypes.js';
 
 export class ClaimRewardsTransactions {
   constructor(
