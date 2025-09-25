@@ -211,7 +211,12 @@ export class TransactionManager {
    * Generic withdraw method that routes to the appropriate protocol
    * Based on withdrawTxb from alphafi-sdk
    */
-  async withdraw(options: WithdrawOptions): Promise<Transaction> {
+  async withdraw(options: {
+    poolId: string;
+    xTokens: string;
+    isAmountA?: boolean;
+    withdrawMax: boolean;
+  }): Promise<Transaction> {
     try {
       const poolInfo = poolDetailsMap[options.poolId];
       if (!poolInfo) {

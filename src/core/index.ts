@@ -14,6 +14,9 @@ import {
   depositDoubleAssetTxb,
   PoolName,
   withdrawTxb,
+  coinAmountToXTokensSingleAsset,
+  coinAmountToXTokensDoubleAsset,
+  getAmounts,
 } from '@alphafi/alphafi-sdk-upstream';
 
 /**
@@ -35,11 +38,22 @@ export interface DepositOptions {
 }
 
 /**
+ * Options for estimate lp amounts operations
+ */
+export interface EstimateLpAmountsOptions {
+  poolId: string;
+  amount: string;
+  isAmountA: boolean;
+}
+
+/**
  * Options for withdraw operations
  */
 export interface WithdrawOptions {
   poolId: string;
-  xTokens: bigint;
+  amount: string;
+  isAmountA?: boolean;
+  withdrawMax: boolean;
 }
 
 /**
@@ -76,7 +90,7 @@ export class AlphaFiSDK {
   /**
    * Deposit assets into a DeFi pool
    * @param options - Deposit configuration options
-   * @returns Promise<TransactionResult> - Transaction result with gas estimate
+   * @returns Promise<TransactionResult> - Transaction result
    */
   async deposit(options: DepositOptions): Promise<Transaction> {
     const poolInfo = poolDetailsMap[options.poolId];
@@ -102,9 +116,33 @@ export class AlphaFiSDK {
   }
 
   /**
+   * Estimate lp amounts for a DeFi pool
+   * @param options - Estimate lp amounts configuration options
+   * @returns Promise<[string, string]> - coin amounts
+   */
+  async estimateLpAmounts(options: EstimateLpAmountsOptions): Promise<[string, string]> {
+    const poolInfo = poolDetailsMap[options.poolId];
+    if (!poolInfo) {
+      throw new Error(`Pool with ID ${options.poolId} not found`);
+    }
+
+    if (poolInfo.assetTypes.length === 1) {
+      throw new Error(`Pool with ID ${options.poolId} is not a double asset pool`);
+    } else if (poolInfo.assetTypes.length === 2) {
+      return await getAmounts(
+        poolInfo.poolName as PoolName,
+        options.isAmountA,
+        options.amount,
+        false,
+      );
+    }
+    throw new Error(`Unsupported pool type for pool ${options.poolId}`);
+  }
+
+  /**
    * Withdraw assets from a DeFi pool
    * @param options - Withdraw configuration options
-   * @returns Promise<TransactionResult> - Transaction result with gas estimate
+   * @returns Promise<TransactionResult> - Transaction result
    */
   async withdraw(options: WithdrawOptions): Promise<Transaction> {
     const poolInfo = poolDetailsMap[options.poolId];
@@ -112,8 +150,25 @@ export class AlphaFiSDK {
       throw new Error(`Pool with ID ${options.poolId} not found`);
     }
 
+    let xTokens = '0';
+    if (options.withdrawMax) {
+      const receipt = await this.blockchain.getReceipt(poolInfo.poolId, this.config.address);
+      if (!receipt) {
+        throw new Error(`Receipt with ID ${poolInfo.poolId} not found`);
+      }
+      xTokens = receipt.xTokenBalance;
+    } else if (poolInfo.assetTypes.length === 1) {
+      xTokens = await coinAmountToXTokensSingleAsset(options.amount, poolInfo.poolName as PoolName);
+    } else if (poolInfo.assetTypes.length === 2) {
+      xTokens = await coinAmountToXTokensDoubleAsset(
+        options.amount,
+        poolInfo.poolName as PoolName,
+        options.isAmountA ?? true,
+      );
+    }
+
     return await withdrawTxb(
-      options.xTokens.toString(),
+      xTokens.toString(),
       poolInfo.poolName as PoolName,
       this.config.address,
     );
