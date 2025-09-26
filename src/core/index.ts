@@ -60,7 +60,7 @@ export interface WithdrawOptions {
  * Options for claim operations
  */
 export interface ClaimOptions {
-  poolId?: number;
+  poolId?: string;
 }
 
 /**
