@@ -199,7 +199,7 @@ export class TransactionManager {
   /**
    * Get pool name by ID
    */
-  private getPoolNameById(poolId: number): string {
+  private getPoolNameById(poolId: string): string {
     const poolInfo = poolDetailsMap[poolId];
     if (!poolInfo) {
       throw new Error(`Pool with ID ${poolId} not found`);
