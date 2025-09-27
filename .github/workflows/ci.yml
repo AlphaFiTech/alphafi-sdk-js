@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout alphafi-sdk-js
+        uses: actions/checkout@v4
+        with:
+          path: alphafi-sdk-js
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Checkout alphafi-sdk dependency
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/alphafi-sdk
+          ref: main
+          path: alphafi-sdk
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: alphafi-sdk-js/package-lock.json
+
+      - name: Install alphafi-sdk dependencies
+        run: npm ci
+        working-directory: alphafi-sdk
+
+      - name: Install alphafi-sdk-js dependencies
+        run: npm ci
+        working-directory: alphafi-sdk-js
+
+      - name: Run linter
+        run: npm run lint
+        working-directory: alphafi-sdk-js
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout alphafi-sdk-js
+        uses: actions/checkout@v4
+        with:
+          path: alphafi-sdk-js
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Checkout alphafi-sdk dependency
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/alphafi-sdk
+          ref: main
+          path: alphafi-sdk
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: alphafi-sdk-js/package-lock.json
+
+      - name: Install alphafi-sdk dependencies
+        run: npm ci
+        working-directory: alphafi-sdk
+
+      - name: Build alphafi-sdk
+        run: npm run build
+        working-directory: alphafi-sdk
+
+      - name: Install alphafi-sdk-js dependencies
+        run: npm ci
+        working-directory: alphafi-sdk-js
+
+      - name: Run tests
+        run: npm run test
+        working-directory: alphafi-sdk-js
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout alphafi-sdk-js
+        uses: actions/checkout@v4
+        with:
+          path: alphafi-sdk-js
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Checkout alphafi-sdk dependency
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/alphafi-sdk
+          ref: main
+          path: alphafi-sdk
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: alphafi-sdk-js/package-lock.json
+
+      - name: Install alphafi-sdk dependencies
+        run: npm ci
+        working-directory: alphafi-sdk
+
+      - name: Build alphafi-sdk
+        run: npm run build
+        working-directory: alphafi-sdk
+
+      - name: Install alphafi-sdk-js dependencies
+        run: npm ci
+        working-directory: alphafi-sdk-js
+
+      - name: Build application
+        run: npm run build
+        working-directory: alphafi-sdk-js
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: alphafi-sdk-js/dist/
+          retention-days: 7
