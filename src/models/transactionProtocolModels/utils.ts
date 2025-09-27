@@ -9,103 +9,104 @@ import BN from 'bn.js';
 
 export class TransactionUtils {
   private blockchain: Blockchain;
-  //   // Navi Asset Map
-  // static readonly naviAssetMap: Record<string, number> = {
-  //   SUI: 0,
-  //   USDC: 1,
-  //   USDT: 2,
-  //   WETH: 3,
-  //   WBTC: 4,
-  //   VSUI: 5,
-  //   HASUI: 6,
-  //   STSUI: 7,
-  //   NAVX: 8,
-  //   NS: 9,
-  //   DEEP: 10,
-  //   WAL: 11,
-  //   SUIBTC: 12,
-  //   SUIUSDT: 13,
-  // };
 
-  // // Navi Price Feed Map
-  // static readonly naviPriceFeedMap: Record<string, { feedId: string; pythPriceInfo: string }> = {
-  //   SUI: {
-  //     feedId: getConf().SUI_FEED_ID,
-  //     pythPriceInfo: getConf().SUI_PYTH_PRICE_INFO,
-  //   },
-  //   USDC: {
-  //     feedId: getConf().USDC_FEED_ID,
-  //     pythPriceInfo: getConf().USDC_PYTH_PRICE_INFO,
-  //   },
-  //   USDT: {
-  //     feedId: getConf().USDT_FEED_ID,
-  //     pythPriceInfo: getConf().USDT_PYTH_PRICE_INFO,
-  //   },
-  //   WETH: {
-  //     feedId: getConf().WETH_FEED_ID,
-  //     pythPriceInfo: getConf().WETH_PYTH_PRICE_INFO,
-  //   },
-  //   WBTC: {
-  //     feedId: getConf().WBTC_FEED_ID,
-  //     pythPriceInfo: getConf().WBTC_PYTH_PRICE_INFO,
-  //   },
-  //   VSUI: {
-  //     feedId: getConf().VSUI_FEED_ID,
-  //     pythPriceInfo: getConf().VSUI_PYTH_PRICE_INFO,
-  //   },
-  //   HASUI: {
-  //     feedId: getConf().HASUI_FEED_ID,
-  //     pythPriceInfo: getConf().HASUI_PYTH_PRICE_INFO,
-  //   },
-  //   STSUI: {
-  //     feedId: getConf().STSUI_FEED_ID,
-  //     pythPriceInfo: getConf().STSUI_PYTH_PRICE_INFO,
-  //   },
-  //   NAVX: {
-  //     feedId: getConf().NAVX_FEED_ID,
-  //     pythPriceInfo: getConf().NAVX_PYTH_PRICE_INFO,
-  //   },
-  //   NS: {
-  //     feedId: getConf().NS_FEED_ID,
-  //     pythPriceInfo: getConf().NS_PYTH_PRICE_INFO,
-  //   },
-  //   DEEP: {
-  //     feedId: getConf().DEEP_FEED_ID,
-  //     pythPriceInfo: getConf().DEEP_PYTH_PRICE_INFO,
-  //   },
-  //   BLUE: {
-  //     feedId: getConf().BLUE_FEED_ID,
-  //     pythPriceInfo: getConf().BLUE_PYTH_PRICE_INFO,
-  //   },
-  //   BUCK: {
-  //     feedId: getConf().BUCK_FEED_ID,
-  //     pythPriceInfo: getConf().BUCK_PYTH_PRICE_INFO,
-  //   },
-  //   SUIUSDT: {
-  //     feedId: getConf().SUIUSDT_FEED_ID,
-  //     pythPriceInfo: getConf().SUIUSDT_PYTH_PRICE_INFO,
-  //   },
-  //   SUIBTC: {
-  //     feedId: getConf().SUIBTC_FEED_ID,
-  //     pythPriceInfo: getConf().SUIBTC_PYTH_PRICE_INFO,
-  //   },
-  //   WAL: {
-  //     feedId: getConf().HASUI_FEED_ID, //todo: change when real ids for wal are found
-  //     pythPriceInfo: getConf().HASUI_PYTH_PRICE_INFO,
-  //   },
-  //   DMC: {
-  //     feedId: getConf().DMC_FEED_ID,
-  //     pythPriceInfo: getConf().DMC_PYTH_PRICE_INFO,
-  //   },
-  // };
+  // Navi Asset Map
+  static readonly naviAssetMap: Record<string, number> = {
+    SUI: 0,
+    USDC: 1,
+    USDT: 2,
+    WETH: 3,
+    WBTC: 4,
+    VSUI: 5,
+    HASUI: 6,
+    STSUI: 7,
+    NAVX: 8,
+    NS: 9,
+    DEEP: 10,
+    WAL: 11,
+    SUIBTC: 12,
+    SUIUSDT: 13,
+  };
+
+  // Navi Price Feed Map
+  static readonly naviPriceFeedMap: Record<string, { feedId: string; pythPriceInfo: string }> = {
+    SUI: {
+      feedId: getConf().SUI_FEED_ID,
+      pythPriceInfo: getConf().SUI_PYTH_PRICE_INFO,
+    },
+    USDC: {
+      feedId: getConf().USDC_FEED_ID,
+      pythPriceInfo: getConf().USDC_PYTH_PRICE_INFO,
+    },
+    USDT: {
+      feedId: getConf().USDT_FEED_ID,
+      pythPriceInfo: getConf().USDT_PYTH_PRICE_INFO,
+    },
+    WETH: {
+      feedId: getConf().WETH_FEED_ID,
+      pythPriceInfo: getConf().WETH_PYTH_PRICE_INFO,
+    },
+    WBTC: {
+      feedId: getConf().WBTC_FEED_ID,
+      pythPriceInfo: getConf().WBTC_PYTH_PRICE_INFO,
+    },
+    VSUI: {
+      feedId: getConf().VSUI_FEED_ID,
+      pythPriceInfo: getConf().VSUI_PYTH_PRICE_INFO,
+    },
+    HASUI: {
+      feedId: getConf().HASUI_FEED_ID,
+      pythPriceInfo: getConf().HASUI_PYTH_PRICE_INFO,
+    },
+    STSUI: {
+      feedId: getConf().STSUI_FEED_ID,
+      pythPriceInfo: getConf().STSUI_PYTH_PRICE_INFO,
+    },
+    NAVX: {
+      feedId: getConf().NAVX_FEED_ID,
+      pythPriceInfo: getConf().NAVX_PYTH_PRICE_INFO,
+    },
+    NS: {
+      feedId: getConf().NS_FEED_ID,
+      pythPriceInfo: getConf().NS_PYTH_PRICE_INFO,
+    },
+    DEEP: {
+      feedId: getConf().DEEP_FEED_ID,
+      pythPriceInfo: getConf().DEEP_PYTH_PRICE_INFO,
+    },
+    BLUE: {
+      feedId: getConf().BLUE_FEED_ID,
+      pythPriceInfo: getConf().BLUE_PYTH_PRICE_INFO,
+    },
+    BUCK: {
+      feedId: getConf().BUCK_FEED_ID,
+      pythPriceInfo: getConf().BUCK_PYTH_PRICE_INFO,
+    },
+    SUIUSDT: {
+      feedId: getConf().SUIUSDT_FEED_ID,
+      pythPriceInfo: getConf().SUIUSDT_PYTH_PRICE_INFO,
+    },
+    SUIBTC: {
+      feedId: getConf().SUIBTC_FEED_ID,
+      pythPriceInfo: getConf().SUIBTC_PYTH_PRICE_INFO,
+    },
+    WAL: {
+      feedId: getConf().HASUI_FEED_ID, //todo: change when real ids for wal are found
+      pythPriceInfo: getConf().HASUI_PYTH_PRICE_INFO,
+    },
+    DMC: {
+      feedId: getConf().DMC_FEED_ID,
+      pythPriceInfo: getConf().DMC_PYTH_PRICE_INFO,
+    },
+  };
 
   // Looping Account Addresses Map
   static readonly loopingAccountAddresses: { [key: string]: string } = {
-    //   'NAVI-LOOP-USDC-USDT': getConf().NAVI_USDC_USDT_LOOP_ACCOUNT_ADDRESS,
-    // 'NAVI-LOOP-USDT-USDC': getConf().NAVI_USDT_USDC_LOOP_ACCOUNT_ADDRESS,
-    // 'NAVI-LOOP-SUI-VSUI': getConf().NAVI_SUI_VSUI_LOOP_ACCOUNT_ADDRESS,
-    // 'NAVI-LOOP-HASUI-SUI': getConf().NAVI_HASUI_SUI_LOOP_ACCOUNT_ADDRESS,
-    // 'NAVI-LOOP-SUI-STSUI': getConf().NAVI_SUI_VSUI_LOOP_ACCOUNT_ADDRESS, // Using VSUI address as placeholder
+    'NAVI-LOOP-USDC-USDT': getConf().NAVI_USDC_USDT_LOOP_ACCOUNT_ADDRESS,
+    'NAVI-LOOP-USDT-USDC': getConf().NAVI_USDT_USDC_LOOP_ACCOUNT_ADDRESS,
+    'NAVI-LOOP-SUI-VSUI': getConf().NAVI_SUI_VSUI_LOOP_ACCOUNT_ADDRESS,
+    'NAVI-LOOP-HASUI-SUI': getConf().NAVI_HASUI_SUI_LOOP_ACCOUNT_ADDRESS,
+    'NAVI-LOOP-SUI-STSUI': getConf().NAVI_SUI_VSUI_LOOP_ACCOUNT_ADDRESS, // Using VSUI address as placeholder
   };
 
   // Cetus Pool Map

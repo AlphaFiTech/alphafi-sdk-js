@@ -17,7 +17,7 @@ import { coinsList } from '../common/coinsList.js';
  */
 export class TransactionManager {
   private bluefin: BluefinTransactions;
-  //  private navi: NaviTransactions;
+  // private navi: NaviTransactions;
   private cetus: CetusTransactions;
   private bucketTransactions: BucketTransactions;
   // private naviLoopingTransactions: NaviLoopingTransactions;
@@ -31,10 +31,10 @@ export class TransactionManager {
   ) {
     this.transactionUtils = new TransactionUtils(blockchain);
     this.bluefin = new BluefinTransactions(address, blockchain, this.transactionUtils);
-    //  this.navi = new NaviTransactions(address, blockchain, this.transactionUtils);
+    // this.navi = new NaviTransactions(address, blockchain, this.transactionUtils);
     this.cetus = new CetusTransactions(address, blockchain, this.transactionUtils);
     this.bucketTransactions = new BucketTransactions(address, blockchain, this.transactionUtils);
-    //  this.naviLoopingTransactions = new NaviLoopingTransactions(
+    // this.naviLoopingTransactions = new NaviLoopingTransactions(
     //   address,
     //   blockchain,
     //   this.transactionUtils,
@@ -91,15 +91,15 @@ export class TransactionManager {
         );
       case 'BUCKET':
         return this.bucketTransactions.depositBucketTx(options.poolId.toString(), amountStr);
-      //     case 'NAVI':
-      // if (poolInfo.strategyType === 'DOUBLE-ASSET-LOOPING') {
-      //   return this.naviLoopingTransactions.depositNaviLoopingTx(
-      //     options.poolId.toString(),
-      //     amountStr,
-      //   );
-      // } else {
-      //   return this.navi.depositNaviTx(options.poolId.toString(), amountStr);
-      // }
+      // case 'NAVI':
+      //   if (poolInfo.strategyType === 'DOUBLE-ASSET-LOOPING') {
+      //     return this.naviLoopingTransactions.depositNaviLoopingTx(
+      //       options.poolId.toString(),
+      //       amountStr,
+      //     );
+      //   } else {
+      //     return this.navi.depositNaviTx(options.poolId.toString(), amountStr);
+      //   }
       case 'ALPHALEND':
         if (poolInfo.strategyType === 'DOUBLE-ASSET-LOOPING') {
           return this.alphaLendTransactions.depositAlphaLendLoopingTx(poolInfo.poolName, amountStr);
@@ -231,15 +231,15 @@ export class TransactionManager {
           return this.withdrawCetus({ poolId: options.poolId, xTokens: xTokensStr }, poolInfo);
         case 'BLUEFIN':
           return this.withdrawBluefin({ poolId: options.poolId, xTokens: xTokensStr }, poolInfo);
-        //  case 'NAVI':
-        // if (poolInfo.strategyType === 'DOUBLE-ASSET-LOOPING') {
-        //   return this.naviLoopingTransactions.withdrawNaviLoopingTx(
-        //     options.poolId.toString(),
-        //     xTokensStr,
-        //   );
-        // } else {
-        //   return this.navi.withdrawNaviTx(options.poolId.toString(), xTokensStr);
-        // }
+        // case 'NAVI':
+        //   if (poolInfo.strategyType === 'DOUBLE-ASSET-LOOPING') {
+        //     return this.naviLoopingTransactions.withdrawNaviLoopingTx(
+        //       options.poolId.toString(),
+        //       xTokensStr,
+        //     );
+        //   } else {
+        //     return this.navi.withdrawNaviTx(options.poolId.toString(), xTokensStr);
+        //   }
         case 'BUCKET':
           return this.bucketTransactions.withdrawBucketTx(options.poolId.toString(), xTokensStr);
         case 'ALPHALEND':
