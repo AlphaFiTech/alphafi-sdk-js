@@ -334,7 +334,7 @@ export class Blockchain {
       receiptTypes.set(poolDetailsMap[pool].receipt.type, pool);
     });
 
-    let res: SuiObjectData[] = [];
+    const res: SuiObjectData[] = [];
     let currentCursor: string | null | undefined = null;
     while (true) {
       const paginatedObjects = await this.client.getOwnedObjects({
@@ -358,7 +358,7 @@ export class Blockchain {
       }
     }
 
-    let receipts: ReceiptType[] = [];
+    const receipts: ReceiptType[] = [];
     res.forEach((receipt) => {
       const key = receiptTypes.get((receipt.content as any).type);
       switch (key && poolDetailsMap[key].strategyType) {
@@ -381,7 +381,7 @@ export class Blockchain {
   }
 
   async getReceipt(poolId: string, address: string): Promise<ReceiptType | null> {
-    let res: SuiObjectData[] = [];
+    const res: SuiObjectData[] = [];
     let currentCursor: string | null | undefined = null;
     while (true) {
       const paginatedObjects = await this.client.getOwnedObjects({
@@ -408,7 +408,7 @@ export class Blockchain {
       }
     }
 
-    let receipts: ReceiptType[] = [];
+    const receipts: ReceiptType[] = [];
 
     res.forEach((receipt) => {
       if ((receipt.content as any).fields.name !== poolDetailsMap[poolId].receipt.name) {

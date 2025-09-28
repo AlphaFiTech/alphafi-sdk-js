@@ -26,13 +26,13 @@ export class BluefinTransactions {
     const poolinfo = poolDetailsMap[poolId];
 
     // Get the coin types - handle both single and double asset types
-    let pool_token1: string = poolinfo.assetTypes[0];
-    let pool_token2: string = poolinfo.assetTypes[1];
+    const pool_token1: string = poolinfo.assetTypes[0];
+    const pool_token2: string = poolinfo.assetTypes[1];
 
     const receipt = await this.blockchain.getReceipt(poolId, this.address);
 
     // Handle receipt creation for deposit
-    let someReceipt = await this.transactionUtils.getReceiptObject(
+    const someReceipt = await this.transactionUtils.getReceiptObject(
       tx,
       poolinfo.receipt.type,
       receipt?.id,
@@ -222,7 +222,7 @@ export class BluefinTransactions {
     const poolName = poolinfo.poolName;
 
     const receipt = await this.blockchain.getReceipt(poolId, this.address);
-    let someReceipt = await this.transactionUtils.getReceiptObject(
+    const someReceipt = await this.transactionUtils.getReceiptObject(
       tx,
       poolinfo.receipt.type,
       receipt?.id,
@@ -349,7 +349,7 @@ export class BluefinTransactions {
     const poolName = poolinfo.poolName;
 
     const receipt = await this.blockchain.getReceipt(poolId, this.address);
-    let someReceipt = await this.transactionUtils.getReceiptObject(
+    const someReceipt = await this.transactionUtils.getReceiptObject(
       tx,
       poolinfo.receipt.type,
       receipt?.id,
@@ -766,7 +766,7 @@ export class BluefinTransactions {
     const poolName = poolinfo.poolName;
 
     const receipt = await this.blockchain.getReceipt(poolId, this.address);
-    let someReceipt = await this.transactionUtils.getReceiptObject(
+    const someReceipt = await this.transactionUtils.getReceiptObject(
       tx,
       poolinfo.receipt.type,
       receipt?.id,
@@ -918,7 +918,7 @@ export class BluefinTransactions {
     const poolName = poolinfo.poolName;
 
     const receipt = await this.blockchain.getReceipt(poolId, this.address);
-    let someReceipt = await this.transactionUtils.getReceiptObject(
+    const someReceipt = await this.transactionUtils.getReceiptObject(
       tx,
       poolinfo.receipt.type,
       receipt?.id,
@@ -1171,8 +1171,8 @@ export class BluefinTransactions {
     }
 
     // Get the coin types - handle both single and double asset types
-    let pool_token1: string = poolinfo.assetTypes[0];
-    let pool_token2: string = poolinfo.assetTypes[1];
+    const pool_token1: string = poolinfo.assetTypes[0];
+    const pool_token2: string = poolinfo.assetTypes[1];
     const coin1Name = coinsListByType[pool_token1].name;
     const coin2Name = coinsListByType[pool_token2].name;
 
@@ -1378,7 +1378,7 @@ export class BluefinTransactions {
 
     if (!receipt) throw new Error('No receipt found!');
 
-    let alpha_receipt = await this.transactionUtils.getReceiptObject(
+    const alpha_receipt = await this.transactionUtils.getReceiptObject(
       tx,
       getConf().ALPHA_POOL_RECEIPT,
       alphaReceipt?.id,
@@ -1501,7 +1501,7 @@ export class BluefinTransactions {
 
     if (!receipt) throw new Error('No receipt found!');
 
-    let alpha_receipt = await this.transactionUtils.getReceiptObject(
+    const alpha_receipt = await this.transactionUtils.getReceiptObject(
       tx,
       getConf().ALPHA_POOL_RECEIPT,
       alphaReceipt?.id,
@@ -1922,7 +1922,7 @@ export class BluefinTransactions {
 
     if (!receipt) throw new Error('No receipt found!');
 
-    let alpha_receipt = await this.transactionUtils.getReceiptObject(
+    const alpha_receipt = await this.transactionUtils.getReceiptObject(
       tx,
       getConf().ALPHA_POOL_RECEIPT,
       alphaReceipt?.id,
@@ -2077,7 +2077,7 @@ export class BluefinTransactions {
 
     if (!receipt) throw new Error('No receipt found!');
 
-    let alpha_receipt = await this.transactionUtils.getReceiptObject(
+    const alpha_receipt = await this.transactionUtils.getReceiptObject(
       tx,
       getConf().ALPHA_POOL_RECEIPT,
       alphaReceipt?.id,

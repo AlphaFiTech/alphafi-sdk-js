@@ -31,7 +31,7 @@ export class CetusTransactions {
     const poolName = poolinfo.poolName;
 
     const receipt = await this.blockchain.getReceipt(poolId, this.address);
-    let someReceipt = await this.transactionUtils.getReceiptObject(
+    const someReceipt = await this.transactionUtils.getReceiptObject(
       tx,
       poolinfo.receipt.type,
       receipt?.id,
@@ -81,7 +81,7 @@ export class CetusTransactions {
     const poolName = poolinfo.poolName;
 
     const receipt = await this.blockchain.getReceipt(poolId, this.address);
-    let someReceipt = await this.transactionUtils.getReceiptObject(
+    const someReceipt = await this.transactionUtils.getReceiptObject(
       tx,
       poolinfo.receipt.type,
       receipt?.id,
@@ -127,7 +127,7 @@ export class CetusTransactions {
     const poolName = poolinfo.poolName;
 
     const receipt = await this.blockchain.getReceipt(poolId, this.address);
-    let someReceipt = await this.transactionUtils.getReceiptObject(
+    const someReceipt = await this.transactionUtils.getReceiptObject(
       tx,
       poolinfo.receipt.type,
       receipt?.id,
@@ -208,7 +208,7 @@ export class CetusTransactions {
 
     if (!receipt) throw new Error('No receipt found!');
 
-    let alpha_receipt = await this.transactionUtils.getReceiptObject(
+    const alpha_receipt = await this.transactionUtils.getReceiptObject(
       tx,
       getConf().ALPHA_POOL_RECEIPT,
       alphaReceipt?.id,
@@ -255,7 +255,7 @@ export class CetusTransactions {
 
     if (!receipt) throw new Error('No receipt found!');
 
-    let alpha_receipt = await this.transactionUtils.getReceiptObject(
+    const alpha_receipt = await this.transactionUtils.getReceiptObject(
       tx,
       getConf().ALPHA_POOL_RECEIPT,
       alphaReceipt?.id,
@@ -303,7 +303,7 @@ export class CetusTransactions {
 
     if (!receipt) throw new Error('No receipt found!');
 
-    let alpha_receipt = await this.transactionUtils.getReceiptObject(
+    const alpha_receipt = await this.transactionUtils.getReceiptObject(
       tx,
       getConf().ALPHA_POOL_RECEIPT,
       alphaReceipt?.id,

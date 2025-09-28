@@ -60,7 +60,7 @@ export class Receipt {
     voloExchangeRate: Decimal,
     stsuiExchangeRate: Decimal,
   ): Decimal[] {
-    let totalXTokens = new Decimal(this.receipt.xTokenBalance);
+    const totalXTokens = new Decimal(this.receipt.xTokenBalance);
     if (totalXTokens.gt(0)) {
       if (
         this.pool.poolDetails.poolName == 'NAVI-LOOP-HASUI-SUI' ||

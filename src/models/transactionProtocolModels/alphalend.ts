@@ -64,7 +64,7 @@ export class AlphaLendTransactions {
     );
 
     // Get coin for deposit
-    let totalCoin = await this.transactionUtils.getCoinFromWallet(tx, this.address, coinType);
+    const totalCoin = await this.transactionUtils.getCoinFromWallet(tx, this.address, coinType);
     const [depositCoin] = tx.splitCoins(totalCoin, [amount]);
 
     // Collect and swap rewards

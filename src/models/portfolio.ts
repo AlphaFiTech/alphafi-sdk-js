@@ -61,7 +61,7 @@ export class Portfolio {
     const voloExchangeRate = await this.protocol.getVoloExchangeRate();
     const stsuiExchangeRate = await this.protocol.getStsuiExchangeRate();
     const pools = await this.protocol.getAllPools();
-    let receiptsMap = await this.getAllReceipts(pools);
+    const receiptsMap = await this.getAllReceipts(pools);
     const walletCoins = await this.getWalletCoins();
 
     const alphaReceipt = receiptsMap.get(poolDetailsMapByPoolName['ALPHA'].poolId);
