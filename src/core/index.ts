@@ -17,7 +17,13 @@ import {
   coinAmountToXTokensSingleAsset,
   coinAmountToXTokensDoubleAsset,
   getAmounts,
+  coinsList,
+  loopingPoolCoinMap,
+  fetchVoloExchangeRate,
+  getInvestor,
+  NaviInvestor,
 } from '@alphafi/alphafi-sdk-upstream';
+import { Decimal } from 'decimal.js';
 
 /**
  * Configuration options for the AlphaFi SDK
@@ -157,7 +163,43 @@ export class AlphaFiSDK {
         throw new Error(`Receipt with ID ${poolInfo.poolId} not found`);
       }
       xTokens = receipt.xTokenBalance;
+    } else if (
+      poolDetailsMap[options.poolId].strategyType === 'DOUBLE-ASSET-LOOPING' ||
+      poolDetailsMap[options.poolId].strategyType === 'SINGLE-ASSET-LOOPING'
+    ) {
+      const decimals =
+        poolDetailsMap[options.poolId].parentProtocolName === 'NAVI'
+          ? 9 - coinsList[loopingPoolCoinMap[options.poolId].supplyCoin].expo
+          : 0;
+      let withdrawCoin2Tokens = new Decimal(options.amount).mul(10 ** decimals);
+
+      if (poolDetailsMap[options.poolId].poolName === 'NAVI-LOOP-SUI-VSUI') {
+        const voloExchRate = await fetchVoloExchangeRate(true);
+        withdrawCoin2Tokens = withdrawCoin2Tokens.div(parseFloat(voloExchRate.data.exchangeRate));
+      }
+
+      const investor_details = (await getInvestor(
+        poolDetailsMap[options.poolId].poolName as PoolName,
+        true,
+      )) as NaviInvestor;
+      const debtToSupplyRatio = new Decimal(
+        investor_details.content.fields.current_debt_to_supply_ratio,
+      );
+      const normalisedDebtToSupplyRatio = new Decimal(1).minus(
+        new Decimal(debtToSupplyRatio).div(1e20),
+      );
+
+      options.amount = new Decimal(withdrawCoin2Tokens)
+        .div(normalisedDebtToSupplyRatio)
+        .floor()
+        .toString();
+      xTokens = await coinAmountToXTokensSingleAsset(options.amount, poolInfo.poolName as PoolName);
     } else if (poolInfo.assetTypes.length === 1) {
+      const decimals =
+        poolDetailsMap[options.poolId].parentProtocolName === 'NAVI'
+          ? 9 - coinsList[loopingPoolCoinMap[options.poolId].supplyCoin].expo
+          : 0;
+      options.amount = new Decimal(options.amount).mul(10 ** decimals).toString();
       xTokens = await coinAmountToXTokensSingleAsset(options.amount, poolInfo.poolName as PoolName);
     } else if (poolInfo.assetTypes.length === 2) {
       xTokens = await coinAmountToXTokensDoubleAsset(
