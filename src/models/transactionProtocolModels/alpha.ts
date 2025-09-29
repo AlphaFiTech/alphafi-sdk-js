@@ -39,7 +39,7 @@ export class AlphaTransactions {
     tx.transferObjects([coin], this.address);
 
     // Handle receipt creation
-    let someReceipt = await this.transactionUtils.getReceiptObject(
+    const someReceipt = await this.transactionUtils.getReceiptObject(
       tx,
       poolinfo.receipt.type,
       receipt?.id,

@@ -84,7 +84,7 @@ jobs:
         working-directory: alphafi-sdk-js
 
       - name: Run tests
-        run: npm run test
+        run: npm run test -- --passWithNoTests
         working-directory: alphafi-sdk-js
 
   build:

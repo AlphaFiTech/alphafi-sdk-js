@@ -31,11 +31,11 @@ export class BucketTransactions {
     }
 
     // Get the coin type for BUCK - handle single asset type
-    let bucketCoinType: string = poolinfo.assetTypes[0];
+    const bucketCoinType: string = poolinfo.assetTypes[0];
     const receipt = await this.blockchain.getReceipt(poolId, this.address);
 
     // Handle receipt creation for deposit using optimized pattern
-    let someReceipt = await this.transactionUtils.getReceiptObject(
+    const someReceipt = await this.transactionUtils.getReceiptObject(
       tx,
       poolinfo.receipt.type,
       receipt?.id,
@@ -108,7 +108,7 @@ export class BucketTransactions {
     }
 
     // Use optimized receipt handling
-    let alpha_receipt = await this.transactionUtils.getReceiptObject(
+    const alpha_receipt = await this.transactionUtils.getReceiptObject(
       tx,
       getConf().ALPHA_POOL_RECEIPT,
       alphaReceipt?.id,
