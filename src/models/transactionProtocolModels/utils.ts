@@ -254,7 +254,7 @@ export class TransactionUtils {
     return coin;
   }
 
-  async getReceiptObject(tx: Transaction, receiptType: string, receiptId?: string) {
+  getReceiptObject(tx: Transaction, receiptType: string, receiptId?: string) {
     if (receiptId) {
       return tx.moveCall({
         target: `0x1::option::some`,

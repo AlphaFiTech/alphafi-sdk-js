@@ -23,19 +23,14 @@ export class ClaimRewardsTransactions {
    */
   async claimAllRewardsTx(): Promise<Transaction> {
     const tx = new Transaction();
-
-    // Get multi receipts to warm up the cache
-    await this.blockchain.getMultiReceipt(this.address);
+    const receiptMap = await this.blockchain.getMultiReceipt(this.address);
 
     // Get ALPHA receipt for the alpha_receipt parameter
-    const alphaReceipt = await this.blockchain.getReceipt(
-      poolDetailsMapByPoolName['ALPHA'].poolId,
-      this.address,
-    );
-    let alpha_receipt = await this.transactionUtils.getReceiptObject(
+    const alphaReceipt = receiptMap.get(poolDetailsMapByPoolName['ALPHA'].poolId);
+    let alpha_receipt = this.transactionUtils.getReceiptObject(
       tx,
       getConf().ALPHA_POOL_RECEIPT,
-      alphaReceipt?.id,
+      alphaReceipt?.[0]?.id,
     );
 
     // Get all pool names from poolDetailsMapByPoolName
@@ -55,7 +50,7 @@ export class ClaimRewardsTransactions {
       }
 
       try {
-        alpha_receipt = await this.claimRewardsForPool(tx, poolName, alpha_receipt);
+        alpha_receipt = await this.claimRewardsForPool(tx, poolName, alpha_receipt, receiptMap);
       } catch (error) {
         console.warn(`Failed to claim rewards for pool ${poolName}:`, error);
         // Continue with other pools even if one fails
@@ -78,6 +73,7 @@ export class ClaimRewardsTransactions {
     tx: Transaction,
     poolName: string,
     alpha_receipt: TransactionResult,
+    allReceipts: Map<string, ReceiptType[]>,
   ): Promise<TransactionResult> {
     const poolinfo = poolDetailsMapByPoolName[poolName];
 
@@ -86,11 +82,7 @@ export class ClaimRewardsTransactions {
     }
 
     // Get receipts for this pool
-    const allReceipts = await this.blockchain.getMultiReceipt(this.address);
-    const receipts: ReceiptType[] = Array.from(allReceipts.values()).filter(
-      (receipt) => receipt.pool_id === poolinfo.poolId,
-    );
-
+    const receipts: ReceiptType[] = allReceipts.get(poolinfo.poolId) || [];
     if (receipts.length === 0) {
       return alpha_receipt;
     }
@@ -636,18 +628,16 @@ export class ClaimRewardsTransactions {
     const tx = new Transaction();
 
     // Get ALPHA receipt
-    const alphaReceipt = await this.blockchain.getReceipt(
-      poolDetailsMapByPoolName['ALPHA'].poolId,
-      this.address,
-    );
+    const receiptMap = await this.blockchain.getMultiReceipt(this.address);
+    const alphaReceipt = receiptMap.get(poolDetailsMapByPoolName['ALPHA'].poolId);
     let alpha_receipt = await this.transactionUtils.getReceiptObject(
       tx,
       getConf().ALPHA_POOL_RECEIPT,
-      alphaReceipt?.id,
+      alphaReceipt?.[0]?.id,
     );
 
     // Claim rewards for the specific pool
-    alpha_receipt = await this.claimRewardsForPool(tx, poolName, alpha_receipt);
+    alpha_receipt = await this.claimRewardsForPool(tx, poolName, alpha_receipt, receiptMap);
 
     // Final transfer receipt option call
     tx.moveCall({
