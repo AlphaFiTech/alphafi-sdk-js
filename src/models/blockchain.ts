@@ -321,7 +321,7 @@ export class Blockchain {
     throw new Error(`Investor for poolId - ${poolId} not found`);
   }
 
-  async getMultiReceipt(address: string): Promise<Map<string, ReceiptType>> {
+  async getMultiReceipt(address: string): Promise<Map<string, ReceiptType[]>> {
     let pools = Object.keys(poolDetailsMap);
     pools = pools.filter((pool) => {
       return (
@@ -345,7 +345,7 @@ export class Blockchain {
         },
       });
 
-      // Traverse the current page data and push to coins array
+      // Traverse the current page data and push if it's a receipt
       paginatedObjects.data.forEach((obj) => {
         if (obj.data && receiptTypes.has((obj.data.content as any).type)) res.push(obj.data);
       });
@@ -370,10 +370,12 @@ export class Blockchain {
       }
     });
 
-    const receiptsMap: Map<string, ReceiptType> = new Map();
+    const receiptsMap: Map<string, ReceiptType[]> = new Map();
     receipts.forEach((receipt) => {
       if (!receiptsMap.has(receipt.pool_id)) {
-        receiptsMap.set(receipt.pool_id, receipt);
+        receiptsMap.set(receipt.pool_id, [receipt]);
+      } else {
+        receiptsMap.set(receipt.pool_id, [...receiptsMap.get(receipt.pool_id)!, receipt]);
       }
     });
 

@@ -150,7 +150,7 @@ export class Portfolio {
     receipts.forEach((receipt, poolId) => {
       const pool = pools.get(poolId);
       if (pool) {
-        portfolio.set(poolId, new Receipt(receipt, pool));
+        portfolio.set(poolId, new Receipt(receipt[0], pool));
       }
     });
     return portfolio;
