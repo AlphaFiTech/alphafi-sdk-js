@@ -37,6 +37,27 @@ export type PoolDetails = {
 };
 
 export const poolDetailsMap: Record<string, PoolDetails> = {
+  [conf[CONF_ENV].ALPHAFI_LYF_STSUI_SUI_POOL]: {
+    packageId: conf[CONF_ENV].ALPHA_LYF_LATEST_PACKAGE_ID,
+    poolName: 'BLUEFIN-LYF-STSUI-SUI',
+    packageNumber: 11,
+    strategyType: 'LEVERAGE-YIELD-FARMING',
+    parentProtocolName: 'BLUEFIN',
+    parentPoolId: conf[CONF_ENV].BLUEFIN_STSUI_SUI_ZERO_ZERO_POOL,
+    poolId: conf[CONF_ENV].ALPHAFI_LYF_STSUI_SUI_POOL,
+    investorId: conf[CONF_ENV].ALPHAFI_LYF_STSUI_SUI_INVESTOR,
+    receipt: {
+      name: conf[CONF_ENV].ALPHAFI_LYF_STSUI_SUI_RECEIPT_NAME,
+      type: conf[CONF_ENV].ALPHAFI_LYF_STSUI_SUI_RECEIPT,
+    },
+    assetTypes: [coinsList['STSUI'].type, coinsList['SUI'].type],
+    events: {
+      autoCompoundingEventType: conf[CONF_ENV].ALPHAFI_LYF_STSUI_SUI_AUTO_COMPOUNDING_EVENT,
+      rebalanceEventType: conf[CONF_ENV].ALPHAFI_LYF_STSUI_SUI_POOL_REBALANCE_EVENT,
+      liquidityChangeEventType: conf[CONF_ENV].ALPHAFI_LYF_STSUI_SUI_POOL_LIQUIDITY_CHANGE_EVENT,
+    },
+    retired: false,
+  },
   [conf[CONF_ENV].ALPHAFI_BLUEFIN_AUTOBALANCE_SUIUSDT_USDC_ZERO_ZERO_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_BLUEFIN_AUTOBALANCE_LATEST_PACKAGE_ID,
     poolName: 'BLUEFIN-AUTOBALANCE-SUIUSDT-USDC-ZERO-ZERO',
