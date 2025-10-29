@@ -22,6 +22,8 @@ import {
   fetchVoloExchangeRate,
   getInvestor,
   NaviInvestor,
+  zapDepositTxb,
+  zapDepositQuoteTxb,
 } from '@alphafi/alphafi-sdk-upstream';
 import { Decimal } from 'decimal.js';
 
@@ -60,6 +62,27 @@ export interface WithdrawOptions {
   amount: string;
   isAmountA?: boolean;
   withdrawMax: boolean;
+}
+
+/**
+ * Options for zap deposit operations
+ */
+export interface ZapDepositOptions {
+  poolId: string;
+  inputCoinAmount: bigint;
+  isInputA: boolean;
+  address: string;
+  slippage: number;
+}
+
+/**
+ * Options for zap deposit quote operations
+ */
+export interface ZapDepositQuoteOptions {
+  poolId: string;
+  inputCoinAmount: bigint;
+  isInputA: boolean;
+  slippage: number;
 }
 
 /**
@@ -213,6 +236,45 @@ export class AlphaFiSDK {
       xTokens.toString(),
       poolInfo.poolName as PoolName,
       this.config.address,
+    );
+  }
+
+  /**
+   * Get zap deposit quote for a DeFi pool
+   * @param options - Zap deposit quote configuration options
+   * @returns Promise<[string, string] | undefined> - quote
+   */
+  async zapDepositQuote(options: ZapDepositQuoteOptions): Promise<[string, string] | undefined> {
+    const poolInfo = poolDetailsMap[options.poolId];
+    if (!poolInfo) {
+      throw new Error(`Pool with ID ${options.poolId} not found`);
+    }
+
+    return await zapDepositQuoteTxb(
+      options.inputCoinAmount,
+      options.isInputA,
+      poolInfo.poolName as PoolName,
+      options.slippage,
+    );
+  }
+
+  /**
+   * Zap deposit into a DeFi pool
+   * @param options - Zap deposit configuration options
+   * @returns Promise<Transaction | undefined> - transaction
+   */
+  async zapDeposit(options: ZapDepositOptions): Promise<Transaction | undefined> {
+    const poolInfo = poolDetailsMap[options.poolId];
+    if (!poolInfo) {
+      throw new Error(`Pool with ID ${options.poolId} not found`);
+    }
+
+    return await zapDepositTxb(
+      options.inputCoinAmount,
+      options.isInputA,
+      poolInfo.poolName as PoolName,
+      options.slippage,
+      options.address,
     );
   }
 
