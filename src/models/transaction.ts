@@ -11,6 +11,7 @@ import { TransactionUtils } from './transactionProtocolModels/utils.js';
 import { PoolDetails, poolDetailsMap } from '../common/maps.js';
 import { ClaimOptions, DepositOptions, WithdrawOptions } from '../core/index.js';
 import { coinsList } from '../common/coinsList.js';
+import { ZapDepositOptions, ZapDepositTransactions } from './transactionProtocolModels/zapDeposit.js';
 
 /**
  * Main transaction manager that orchestrates all protocol-specific transaction builders
@@ -24,6 +25,7 @@ export class TransactionManager {
   private alphaLendTransactions: AlphaLendTransactions;
   private claimRewardsTransactions: ClaimRewardsTransactions;
   private transactionUtils: TransactionUtils;
+  private zapDepositTransactions: ZapDepositTransactions;
 
   constructor(
     private address: string,
@@ -49,6 +51,7 @@ export class TransactionManager {
       blockchain,
       this.transactionUtils,
     );
+    this.zapDepositTransactions = new ZapDepositTransactions(address, blockchain);
   }
 
   /**
@@ -351,5 +354,17 @@ export class TransactionManager {
       console.error(`Error estimating transaction gasBudget`, err);
       return undefined;
     }
+  }
+
+  async zapDepositTx(options: ZapDepositOptions): Promise<Transaction> {
+    return this.zapDepositTransactions.zapDepositTx(options);
+  }
+
+  async getZapEstimate(options: ZapDepositOptions): Promise<{
+    estimatedAmountA: string;
+    estimatedAmountB: string;
+    swapRequired: boolean;
+  }> {
+    return this.zapDepositTransactions.getZapEstimate(options);
   }
 }

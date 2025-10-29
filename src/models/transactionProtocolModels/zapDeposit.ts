@@ -4,10 +4,15 @@ import { poolDetailsMap } from '../../common/maps.js';
 import { Blockchain } from '../blockchain.js';
 import { coinsList } from '../../common/coinsList.js';
 import { CoinStruct } from '@mysten/sui/client';
+import { Pool } from '../pool.ts';
+import { CetusInvestor, CommonInvestorFields, getAmounts, getInvestor, PoolName } from '@alphafi/alphafi-sdk-upstream';
+import { BluefinParentPoolType, CetusParentPoolType } from 'src/utils/parsedTypes.ts';
+import Decimal from 'decimal.js';
 
 export interface ZapDepositOptions {
-  inputCoinName: string;
+  // inputCoinName: string;
   inputCoinAmount: number;
+  isInputA: boolean;
   poolId: number;
   slippage: number; // 0.01 --> 1%, 0.001 --> 0.1%
 }
@@ -32,71 +37,71 @@ export class ZapDepositTransactions {
    * @param options - Zap deposit configuration options
    * @returns Transaction ready for signing and execution
    */
-  async zapDepositTx(options: ZapDepositOptions): Promise<Transaction> {
-    console.log('Creating zap deposit transaction', options);
+  // async zapDepositTx(options: ZapDepositOptions): Promise<Transaction> {
+  //   console.log('Creating zap deposit transaction', options);
 
-    const { inputCoinName, inputCoinAmount, poolId, slippage } = options;
-    const poolinfo = poolDetailsMap[poolId];
+  //   const { isInputA, inputCoinAmount, poolId, slippage } = options;
+  //   const poolinfo = poolDetailsMap[poolId];
 
-    if (!poolinfo) {
-      throw new Error(`Pool with ID ${poolId} not found in poolDetailsMap`);
-    }
+  //   if (!poolinfo) {
+  //     throw new Error(`Pool with ID ${poolId} not found in poolDetailsMap`);
+  //   }
 
-    // Check if this is a dual asset pool that supports zap deposits
-    if (!('tokenA' in poolinfo.assetTypes && 'tokenB' in poolinfo.assetTypes)) {
-      throw new Error(`Pool ${poolId} is not a dual asset pool - zap deposits not supported`);
-    }
+  //   // Check if this is a dual asset pool that supports zap deposits
+  //   if (!('tokenA' in poolinfo.assetTypes && 'tokenB' in poolinfo.assetTypes)) {
+  //     throw new Error(`Pool ${poolId} is not a dual asset pool - zap deposits not supported`);
+  //   }
 
-    console.log('Pool info', poolinfo);
+  //   console.log('Pool info', poolinfo);
 
-    const tx = new Transaction();
+  //   const tx = new Transaction();
 
-    // Get receipts for this pool
-    const receipt: any = await this.blockchain.getReceipt(poolId.toString(), this.address);
+  //   // Get receipts for this pool
+  //   const receipt: any = await this.blockchain.getReceipt(poolId.toString(), this.address);
 
-    // Get input coins from wallet
-    const inputCoins = await this.getInputCoins(inputCoinName, inputCoinAmount);
+  //   // Get input coins from wallet
+  //   const inputCoins = await this.getInputCoins(inputCoinName, inputCoinAmount);
 
-    if (inputCoins.length === 0) {
-      throw new Error(`No ${inputCoinName} coins found in wallet`);
-    }
+  //   if (inputCoins.length === 0) {
+  //     throw new Error(`No ${inputCoinName} coins found in wallet`);
+  //   }
 
-    // Prepare input coin
-    const [inputCoin] = tx.splitCoins(tx.object(inputCoins[0].coinObjectId), [0]);
-    tx.mergeCoins(
-      inputCoin,
-      inputCoins.map((c) => c.coinObjectId),
-    );
-    const [swapCoin] = tx.splitCoins(inputCoin, [inputCoinAmount.toString()]);
+  //   // Prepare input coin
+  //   const [inputCoin] = tx.splitCoins(tx.object(inputCoins[0].coinObjectId), [0]);
+  //   tx.mergeCoins(
+  //     inputCoin,
+  //     inputCoins.map((c) => c.coinObjectId),
+  //   );
+  //   const [swapCoin] = tx.splitCoins(inputCoin, [inputCoinAmount.toString()]);
 
-    // Transfer remaining coins back to user
-    tx.transferObjects([inputCoin], this.address);
+  //   // Transfer remaining coins back to user
+  //   tx.transferObjects([inputCoin], this.address);
 
-    // Handle receipt creation
-    let someReceipt: any;
-    if (receipt.length === 0) {
-      [someReceipt] = tx.moveCall({
-        target: `0x1::option::none`,
-        typeArguments: [poolinfo.receipt.type],
-        arguments: [],
-      });
-    } else {
-      [someReceipt] = tx.moveCall({
-        target: `0x1::option::some`,
-        typeArguments: [receipt[0].type],
-        arguments: [tx.object(receipt[0].id)],
-      });
-    }
+  //   // Handle receipt creation
+  //   let someReceipt: any;
+  //   if (receipt.length === 0) {
+  //     [someReceipt] = tx.moveCall({
+  //       target: `0x1::option::none`,
+  //       typeArguments: [poolinfo.receipt.type],
+  //       arguments: [],
+  //     });
+  //   } else {
+  //     [someReceipt] = tx.moveCall({
+  //       target: `0x1::option::some`,
+  //       typeArguments: [receipt[0].type],
+  //       arguments: [tx.object(receipt[0].id)],
+  //     });
+  //   }
 
-    // Perform zap logic based on pool type
-    if (poolinfo.strategyType === 'CETUS') {
-      return this.zapDepositCetus(tx, someReceipt, poolinfo, swapCoin, inputCoinName, slippage);
-    } else if (poolinfo.strategyType === 'BLUEFIN') {
-      return this.zapDepositBluefin(tx, someReceipt, poolinfo, swapCoin, inputCoinName, slippage);
-    } else {
-      throw new Error(`Zap deposits not supported for strategy type: ${poolinfo.strategyType}`);
-    }
-  }
+  //   // Perform zap logic based on pool type
+  //   if (poolinfo.strategyType === 'CETUS') {
+  //     return this.zapDepositCetus(tx, someReceipt, poolinfo, swapCoin, inputCoinName, slippage);
+  //   } else if (poolinfo.strategyType === 'BLUEFIN') {
+  //     return this.zapDepositBluefin(tx, someReceipt, poolinfo, swapCoin, inputCoinName, slippage);
+  //   } else {
+  //     throw new Error(`Zap deposits not supported for strategy type: ${poolinfo.strategyType}`);
+  //   }
+  // }
 
   /**
    * Handle zap deposit for Cetus pools
@@ -286,8 +291,7 @@ export class ZapDepositTransactions {
       } while (true);
     } catch (error) {
       throw new Error(
-        `Failed to fetch ${coinName} coins: ${
-          error instanceof Error ? error.message : 'Unknown error'
+        `Failed to fetch ${coinName} coins: ${error instanceof Error ? error.message : 'Unknown error'
         }`,
       );
     }
@@ -303,11 +307,10 @@ export class ZapDepositTransactions {
   async getZapEstimate(options: ZapDepositOptions): Promise<{
     estimatedAmountA: string;
     estimatedAmountB: string;
-    swapRequired: boolean;
   }> {
     console.log('Getting zap deposit estimate', options);
 
-    const { inputCoinName, inputCoinAmount, poolId } = options;
+    const { isInputA, inputCoinAmount, poolId, slippage } = options;
     const poolinfo = poolDetailsMap[poolId];
 
     if (!poolinfo) {
@@ -321,11 +324,162 @@ export class ZapDepositTransactions {
     // 3. Get swap quotes from DEX
     // 4. Return estimated final amounts
 
+    // const swapGateway = new SevenKGateway();
+    const [coinTypeA, coinTypeB] = poolDetailsMap[poolId].assetTypes;
+
+    const investor = (await getInvestor(poolDetailsMap[poolId].poolName as PoolName, false)) as CetusInvestor &
+      CommonInvestorFields;//(await getInvestor(poolName, false)) as CetusInvestor &
+    // CommonInvestorFields;
+    const parentPool = await this.blockchain.getParentPool(poolDetailsMap[poolId].poolName as PoolName) as CetusParentPoolType | BluefinParentPoolType;
+
+    // get lower_tick, upper_tick, current_tick_index without 2's complement
+    const upper_bound = 443636;
+    let lower_tick = Number(investor.content.fields.lower_tick);
+    let upper_tick = Number(investor.content.fields.upper_tick);
+    let current_tick_index = Number(
+      // parentPool.content.fields.current_tick_index.fields.bits,
+      parentPool.current_tick_index,
+    );
+    if (lower_tick > upper_bound) {
+      lower_tick = -~(lower_tick - 1);
+    }
+    if (upper_tick > upper_bound) {
+      upper_tick = -~(upper_tick - 1);
+    }
+    if (current_tick_index > upper_bound) {
+      current_tick_index = -~(current_tick_index - 1);
+    }
+
+    if (current_tick_index >= upper_tick) {
+      if (isInputA) {
+        const quoteResponse = await swapGateway.getQuote(
+          coinTypeA,
+          coinTypeB,
+          inputCoinAmount.toString(),
+          [poolDetailsMap[poolId].parentPoolId],
+        );
+        if (!quoteResponse) {
+          throw new Error("Error fetching quote for zap");
+        }
+        return { estimatedAmountA: "0", estimatedAmountB: quoteResponse.returnAmountWithDecimal };
+      } else {
+        return { estimatedAmountA: "0", estimatedAmountB: inputCoinAmount.toString() };
+      }
+    } else if (current_tick_index < lower_tick) {
+      if (isInputA) {
+        return { estimatedAmountA: inputCoinAmount.toString(), estimatedAmountB: "0" };
+      } else {
+        const quoteResponse = await swapGateway.getQuote(
+          coinTypeB,
+          coinTypeA,
+          inputCoinAmount.toString(),
+          [poolDetailsMap[poolId].parentPoolId],
+        );
+        if (!quoteResponse) {
+          throw new Error("Error fetching quote for zap");
+        }
+        return { estimatedAmountA: quoteResponse.returnAmountWithDecimal, estimatedAmountB: "0" };
+      }
+    }
+
+    // get inital ratio in terms of 2 coins
+    let [amountA, amountB] = (
+      await getAmounts(poolDetailsMap[poolId].poolName as PoolName, isInputA, inputCoinAmount.toString())
+    ).map((a) => new Decimal(a));
+
+    // convert coinA of the initial ratio to coinB to get the ratio in terms of 1 coin i.e. coinB
+    if (isInputA) {
+      const quoteResponse = await swapGateway.getQuote(
+        coinTypeA,
+        coinTypeB,
+        amountA.toString(),
+        [poolDetailsMap[poolId].parentPoolId],
+      );
+      if (!quoteResponse) {
+        console.error("Error fetching quote for zap");
+        return { estimatedAmountA: "0", estimatedAmountB: "0" };
+      }
+      amountA = new Decimal(quoteResponse.returnAmountWithDecimal);
+    } else {
+      const quoteResponse = await swapGateway.getQuote(
+        coinTypeB,
+        coinTypeA,
+        amountB.toString(),
+        [poolDetailsMap[poolId].parentPoolId],
+      );
+      if (!quoteResponse) {
+        console.error("Error fetching quote for zap");
+        return { estimatedAmountA: "0", estimatedAmountB: "0" };
+      }
+      amountB = new Decimal(quoteResponse.returnAmountWithDecimal);
+    }
+
+    // get input coin and handle how much of input coin needs to be swapped
+    const totalAmount = amountA.add(amountB);
+    let [inputCoinToType1, inputCoinToType2] = [new Decimal(0), new Decimal(0)];
+
+    if (isInputA) {
+      inputCoinToType2 = new Decimal(inputCoinAmount.toString())
+        .mul(amountB)
+        .div(totalAmount)
+        .mul(amountA.mul(slippage).div(totalAmount).add(1))
+        .floor();
+
+      const quoteResponse = await swapGateway.getQuote(
+        coinTypeA,
+        coinTypeB,
+        inputCoinToType2.toString(),
+        [poolDetailsMap[poolId].parentPoolId],
+      );
+      if (!quoteResponse) {
+        throw new Error("Error fetching quote for zap");
+      }
+      const slippageReducedAmount = new Decimal(
+        quoteResponse.returnAmountWithDecimal,
+      )
+        .mul(new Decimal(1).sub(slippage))
+        .floor();
+
+      [inputCoinToType1, inputCoinToType2] = (
+        await getAmounts(poolDetailsMap[poolId].poolName as PoolName, false, slippageReducedAmount.toString(), false)
+      ).map((a) => new Decimal(a));
+    } else {
+      inputCoinToType1 = new Decimal(inputCoinAmount.toString())
+        .mul(amountA)
+        .div(totalAmount)
+        .mul(amountB.mul(slippage).div(totalAmount).add(1))
+        .floor();
+
+      const quoteResponse = await swapGateway.getQuote(
+        coinTypeB,
+        coinTypeA,
+        inputCoinToType1.toString(),
+        [poolDetailsMap[poolId].parentPoolId],
+      );
+      if (!quoteResponse) {
+        throw new Error("Error fetching quote for zap");
+      }
+      const slippageReducedAmount = new Decimal(
+        quoteResponse.returnAmountWithDecimal,
+      )
+        .mul(new Decimal(1).sub(slippage))
+        .floor();
+
+      [inputCoinToType1, inputCoinToType2] = (
+        await getAmounts(poolDetailsMap[poolId].poolName as PoolName, true, slippageReducedAmount.toString(), false)
+      ).map((a) => new Decimal(a));
+    }
+
     return {
-      estimatedAmountA: (inputCoinAmount * 0.5).toString(),
-      estimatedAmountB: (inputCoinAmount * 0.5).toString(),
-      swapRequired: true,
+      estimatedAmountA: inputCoinToType1.mul(0.9995).floor().toString(),
+      estimatedAmountB: inputCoinToType2.mul(0.9995).floor().toString(),
     };
+
+    // return {
+    //   estimatedAmountA: (inputCoinAmount * 0.5).toString(),
+    //   estimatedAmountB: (inputCoinAmount * 0.5).toString(),
+    //   swapRequired: true,
+    // };
   }
 
   /**

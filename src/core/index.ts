@@ -24,6 +24,7 @@ import {
   NaviInvestor,
 } from '@alphafi/alphafi-sdk-upstream';
 import { Decimal } from 'decimal.js';
+import { ZapDepositOptions } from 'src/models/transactionProtocolModels/zapDeposit.js';
 
 /**
  * Configuration options for the AlphaFi SDK
@@ -229,5 +230,17 @@ export class AlphaFiSDK {
 
   async getAllPoolsData() {
     const pools = await this.blockchain.getMultiPool();
+  }
+
+  async zapDeposit(options: ZapDepositOptions): Promise<Transaction> {
+    return this.transactionManager.zapDepositTx(options);
+  }
+
+  async getZapEstimate(options: ZapDepositOptions): Promise<{
+    estimatedAmountA: string;
+    estimatedAmountB: string;
+    swapRequired: boolean;
+  }> {
+    return this.transactionManager.getZapEstimate(options);
   }
 }
