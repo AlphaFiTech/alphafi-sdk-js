@@ -291,5 +291,6 @@ export class AlphaFiSDK {
 
   async getAllPoolsData() {
     const pools = await this.blockchain.getMultiPool();
+    return pools;
   }
 }
