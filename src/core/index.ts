@@ -288,9 +288,4 @@ export class AlphaFiSDK {
       poolId: options.poolId,
     });
   }
-
-  async getAllPoolsData() {
-    const pools = await this.blockchain.getMultiPool();
-    return pools;
-  }
 }
