@@ -81,7 +81,81 @@ export type FungiblePoolQueryType = {
     };
   };
 };
-
+export type VecMap<K = any, V = any> = {
+  fields: {
+    contents: {
+      fields: {
+        key: K;
+        value: V;
+      };
+      type: string;
+    }[];
+  };
+  type: string;
+};
+export type Bag = {
+  fields: {
+    id: {
+      id: string;
+    };
+    size?: string;
+  };
+  type: string;
+};
+export type ObjectTable = Bag;
+export enum RequestType {
+  Withdraw = "Withdraw",
+  AutoCompound = "AutoCompound",
+  Leverage = "Leverage",
+}
+export type WithdrawalRequest = {
+  fields: {
+    owner: string;
+    receiver: string;
+    shares: string;
+    estimated_withdraw_amount: string;
+    timestamp: string;
+    sequence_number: string;
+  };
+  type: string;
+}
+export type AlphaPoolInvestor = {
+  type: string;
+  fields: {
+    id: {
+      id: string;
+    };
+    unsupplied_balance: string;
+    claimable_balance: string;
+    alphalend_position_cap: {
+      type: string;
+      fields:{
+        position_id: string;
+      };
+    };
+    cur_debt: string;
+    current_debt_to_supply_ratio: string;
+    borrow_token_to_token_ratio: string;
+    safe_borrow_percentage: string;
+    allowed_coin_types_for_swap: VecMap<{
+      fields: {
+        name: string;
+      };
+      type: string;
+    }, boolean>;
+    minimum_swap_amount: string;
+    primary_market_id: string;
+    borrow_market_id: string;
+    resupply_market_id: string;
+    free_rewards: Bag;
+    withdraw_receivers_address: string;
+    withdraw_tickets: VecMap<RequestType, VecMap<string, WithdrawalRequest>>;
+    total_pending_withdrawals: string;
+    performance_fee: string;
+    performance_fee_cap: string;
+    additional_fields: Bag;
+  };
+};
 export type AlphaPoolQueryType = {
   objectId: string;
   version: string;
@@ -91,49 +165,60 @@ export type AlphaPoolQueryType = {
     type: string;
     hasPublicTransfer: boolean;
     fields: {
-      acc_rewards_per_xtoken: {
-        fields: {
-          contents: {
-            fields: {
-              key: {
-                fields: {
-                  name: string;
-                };
-                type: string;
-              };
-              value: string;
-            };
-            type: string;
-          }[];
+        id: {
+          id: string
         };
-        type: string;
-      };
-      alpha_bal: string;
-      deposit_fee: string;
-      deposit_fee_max_cap: string;
-      id: { id: string };
-      image_url: number[];
-      instant_withdraw_fee: string;
-      instant_withdraw_fee_max_cap: string;
-      locked_period_in_ms: string;
-      locking_start_ms: string;
-      name: number[];
-      paused: boolean;
-      performance_fee: string;
-      performance_fee_max_cap: string;
-      rewards: {
-        fields: {
-          id: {
-            id: string;
+        xTokenSupply: string;
+        tokensInvested: string;
+        positions: ObjectTable;
+        recently_updated_alphafi_receipts: VecMap<string, {
+          fields: {
+            xtokens_to_add: string;
+            xtokens_to_remove: string;
           };
-          size: string;
+          type: string;
+        }>;
+        withdraw_requests: VecMap<string, {
+          fields: {
+            total_amount_to_withdraw: string;
+            leftover_amount: string;
+          };
+          type: string;
+        }>;
+        fee_collected: string;
+        last_distribution_time: string;
+        last_autocompound_time: string;
+        locking_period: string;
+        time_from_locking_period_for_unstaking_to_start: string;
+        current_exchange_rate: {
+          fields:{
+            value: string;
+          };
         };
-        type: string;
-      };
-      tokensInvested: string;
-      withdraw_fee_max_cap: string;
-      withdrawal_fee: string;
-      xTokenSupply: string;
+        rewards: Bag;
+        acc_rewards_per_xtoken: VecMap<{
+          fields: {
+            name: string;
+          };
+          type: string;
+        }, string>;
+        deposit_fee: string;
+        deposit_fee_max_cap: string;
+        withdrawal_fee: string;
+        withdraw_fee_max_cap: string;
+        fee_address: string;
+        is_deposit_paused: boolean;
+        is_withdraw_paused: boolean;
+        investor: AlphaPoolInvestor;
+        alphafi_partner_cap: {
+          type: string;
+          fields: {
+            id: {
+              id: string;
+            }
+          };
+        };
+        additional_fields: Bag;
     };
   };
 };
@@ -702,3 +787,87 @@ type MemberQueryType = {
   };
   type: string;
 };
+
+export type AlphaFiReceiptQueryType = {
+  objectId: string;
+  version: string;
+  digest: string;
+  type: string;
+  content: {
+    dataType: string;
+    type: string;
+    hasPublicTransfer: boolean;
+    fields: {
+      id: {
+        id: string;
+      };
+      position_pool_map: VecMap<string, {
+        type: string;
+        fields: {
+          pool_id: string;
+          partner_cap_id: string;
+        };
+      }>;
+      client_address: string;
+    };
+  };
+};
+
+// <--------- Position Queries --------->
+export type UserWithdrawRequestQueryType = {
+  type: string;
+  fields: {
+    id: {
+      id: string;
+    };
+    time_of_request: string;
+    time_of_acceptance: string;
+    time_of_claim: string;
+    time_of_unlock: string;
+    status: string;
+    token_amount: string;
+  };
+};
+
+export type Table = ObjectTable;
+
+export type AlphaPositionQueryType = {
+  objectId: string;
+  version: string;
+  digest: string;
+  content: {
+    dataType: string;
+    type: string;
+    hasPublicTransfer: boolean;
+    fields: {
+      id: {
+        id: string;
+      };
+      alphafi_receipt_id: string;
+      pool_id: string;
+      coin_type: {
+        fields: {
+          name: string;
+        };
+        type: string;
+      };
+      xtokens: string;
+      withdraw_requests: VecMap<string, UserWithdrawRequestQueryType>;
+      all_withdrawals: ObjectTable;
+      all_deposits: Table;
+      last_acc_reward_per_xtoken: VecMap<{
+        fields: {
+          name: string;
+        };
+        type: string;
+      }, string>;
+      pending_rewards: VecMap<{
+        fields: {
+          name: string;
+        };
+        type: string;
+      }, string>;
+    };
+  };
+};
+

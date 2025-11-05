@@ -13,6 +13,9 @@ import {
   BluefinParentPoolQueryType,
   DefaultReceiptQueryType,
   NaviParentPoolQueryType,
+  AlphaPositionQueryType,
+  UserWithdrawRequestQueryType,
+  AlphaFiReceiptQueryType,
 } from './queryTypes.js';
 
 import {
@@ -30,6 +33,9 @@ import {
   CetusParentPoolType,
   BluefinParentPoolType,
   NaviParentPoolType,
+  AlphaPositionType,
+  UserWithdrawRequestType,
+  AlphaFiReceiptType,
 } from './parsedTypes.js';
 
 // Helper function to parse flat contents array with key-value structure
@@ -123,31 +129,112 @@ export function parseFungiblePool(query: FungiblePoolQueryType): FungiblePoolTyp
 }
 
 export function parseAlphaPool(query: AlphaPoolQueryType): AlphaPoolType {
+  const fields = query.content.fields;
   return {
-    acc_rewards_per_xtoken: parseContentsArray(
-      query.content.fields.acc_rewards_per_xtoken.fields.contents,
-    ),
-    alpha_bal: query.content.fields.alpha_bal,
-    deposit_fee: query.content.fields.deposit_fee,
-    deposit_fee_max_cap: query.content.fields.deposit_fee_max_cap,
-    id: query.content.fields.id.id,
-    image_url: query.content.fields.image_url,
-    instant_withdraw_fee: query.content.fields.instant_withdraw_fee,
-    instant_withdraw_fee_max_cap: query.content.fields.instant_withdraw_fee_max_cap,
-    locked_period_in_ms: query.content.fields.locked_period_in_ms,
-    locking_start_ms: query.content.fields.locking_start_ms,
-    name: query.content.fields.name,
-    paused: query.content.fields.paused,
-    performance_fee: query.content.fields.performance_fee,
-    performance_fee_max_cap: query.content.fields.performance_fee_max_cap,
-    rewards: {
-      id: query.content.fields.rewards.fields.id.id,
-      size: query.content.fields.rewards.fields.size,
+    id: fields.id.id,
+    xTokenSupply: fields.xTokenSupply,
+    tokensInvested: fields.tokensInvested,
+    positions: {
+      id: fields.positions.fields.id.id,
+      size: fields.positions.fields.size,
     },
-    tokensInvested: query.content.fields.tokensInvested,
-    withdraw_fee_max_cap: query.content.fields.withdraw_fee_max_cap,
-    withdrawal_fee: query.content.fields.withdrawal_fee,
-    xTokenSupply: query.content.fields.xTokenSupply,
+    recently_updated_alphafi_receipts: fields.recently_updated_alphafi_receipts.fields.contents.map(
+      (item: any) => ({
+        key: item.fields.key,
+        value: {
+          xtokens_to_add: item.fields.value.fields.xtokens_to_add,
+          xtokens_to_remove: item.fields.value.fields.xtokens_to_remove,
+        },
+      }),
+    ),
+    withdraw_requests: fields.withdraw_requests.fields.contents.map((item: any) => ({
+      key: item.fields.key,
+      value: {
+        total_amount_to_withdraw: item.fields.value.fields.total_amount_to_withdraw,
+        leftover_amount: item.fields.value.fields.leftover_amount,
+      },
+    })),
+    fee_collected: fields.fee_collected,
+    last_distribution_time: fields.last_distribution_time,
+    last_autocompound_time: fields.last_autocompound_time,
+    locking_period: fields.locking_period,
+    time_from_locking_period_for_unstaking_to_start:
+      fields.time_from_locking_period_for_unstaking_to_start,
+    current_exchange_rate: fields.current_exchange_rate.fields.value,
+    rewards: {
+      id: fields.rewards.fields.id.id,
+      size: fields.rewards.fields.size,
+    },
+    acc_rewards_per_xtoken: fields.acc_rewards_per_xtoken.fields.contents.map(
+      (item: any) => ({
+        key: item.fields.key.fields.name,
+        value: item.fields.value,
+      }),
+    ),
+    deposit_fee: fields.deposit_fee,
+    deposit_fee_max_cap: fields.deposit_fee_max_cap,
+    withdrawal_fee: fields.withdrawal_fee,
+    withdraw_fee_max_cap: fields.withdraw_fee_max_cap,
+    fee_address: fields.fee_address,
+    is_deposit_paused: fields.is_deposit_paused,
+    is_withdraw_paused: fields.is_withdraw_paused,
+    investor: {
+      id: fields.investor.fields.id.id,
+      unsupplied_balance: fields.investor.fields.unsupplied_balance,
+      claimable_balance: fields.investor.fields.claimable_balance,
+      alphalend_position_cap: {
+        position_id: fields.investor.fields.alphalend_position_cap.fields.position_id,
+      },
+      cur_debt: fields.investor.fields.cur_debt,
+      current_debt_to_supply_ratio: fields.investor.fields.current_debt_to_supply_ratio,
+      borrow_token_to_token_ratio: fields.investor.fields.borrow_token_to_token_ratio,
+      safe_borrow_percentage: fields.investor.fields.safe_borrow_percentage,
+      allowed_coin_types_for_swap: fields.investor.fields.allowed_coin_types_for_swap.fields.contents.map(
+        (item: any) => ({
+          key: item.fields.key.fields.name,
+          value: item.fields.value,
+        }),
+      ),
+      minimum_swap_amount: fields.investor.fields.minimum_swap_amount,
+      primary_market_id: fields.investor.fields.primary_market_id,
+      borrow_market_id: fields.investor.fields.borrow_market_id,
+      resupply_market_id: fields.investor.fields.resupply_market_id,
+      free_rewards: {
+        id: fields.investor.fields.free_rewards.fields.id.id,
+        size: fields.investor.fields.free_rewards.fields.size,
+      },
+      withdraw_receivers_address: fields.investor.fields.withdraw_receivers_address,
+      withdraw_tickets: fields.investor.fields.withdraw_tickets.fields.contents.map(
+        (item: any) => ({
+          key: item.fields.key,
+          value: item.fields.value.fields.contents.map((innerItem: any) => ({
+            key: innerItem.fields.key,
+            value: {
+              owner: innerItem.fields.value.fields.owner,
+              receiver: innerItem.fields.value.fields.receiver,
+              shares: innerItem.fields.value.fields.shares,
+              estimated_withdraw_amount: innerItem.fields.value.fields.estimated_withdraw_amount,
+              timestamp: innerItem.fields.value.fields.timestamp,
+              sequence_number: innerItem.fields.value.fields.sequence_number,
+            },
+          })),
+        }),
+      ),
+      total_pending_withdrawals: fields.investor.fields.total_pending_withdrawals,
+      performance_fee: fields.investor.fields.performance_fee,
+      performance_fee_cap: fields.investor.fields.performance_fee_cap,
+      additional_fields: {
+        id: fields.investor.fields.additional_fields.fields.id.id,
+        size: fields.investor.fields.additional_fields.fields.size,
+      },
+    },
+    alphafi_partner_cap: {
+      id: fields.alphafi_partner_cap.fields.id.id,
+    },
+    additional_fields: {
+      id: fields.additional_fields.fields.id.id,
+      size: fields.additional_fields.fields.size,
+    },
   };
 }
 
@@ -425,6 +512,72 @@ export function parseDistributor(query: DistributorQueryType): DistributorType {
   };
 }
 
+// <--------- Position Parsers --------->
+
+function parseUserWithdrawRequest(
+  query: UserWithdrawRequestQueryType,
+): UserWithdrawRequestType {
+  return {
+    id: query.fields.id.id,
+    time_of_request: query.fields.time_of_request,
+    time_of_acceptance: query.fields.time_of_acceptance,
+    time_of_claim: query.fields.time_of_claim,
+    time_of_unlock: query.fields.time_of_unlock,
+    status: query.fields.status,
+    token_amount: query.fields.token_amount,
+  };
+}
+
+export function parseAlphaPosition(query: AlphaPositionQueryType): AlphaPositionType {
+  return {
+    id: query.content.fields.id.id,
+    alphafi_receipt_id: query.content.fields.alphafi_receipt_id,
+    pool_id: query.content.fields.pool_id,
+    coin_type: query.content.fields.coin_type.fields.name,
+    xtokens: query.content.fields.xtokens,
+    withdraw_requests: query.content.fields.withdraw_requests.fields.contents.map(
+      (item: any) => ({
+        key: item.fields.key,
+        value: parseUserWithdrawRequest(item.fields.value),
+      }),
+    ),
+    all_withdrawals: {
+      id: query.content.fields.all_withdrawals.fields.id.id,
+      size: query.content.fields.all_withdrawals.fields.size,
+    },
+    all_deposits: {
+      id: query.content.fields.all_deposits.fields.id.id,
+      size: query.content.fields.all_deposits.fields.size,
+    },
+    last_acc_reward_per_xtoken: query.content.fields.last_acc_reward_per_xtoken.fields.contents.map(
+      (item: any) => ({
+        key: item.fields.key.fields.name,
+        value: item.fields.value,
+      }),
+    ),
+    pending_rewards: query.content.fields.pending_rewards.fields.contents.map(
+      (item: any) => ({
+        key: item.fields.key.fields.name,
+        value: item.fields.value,
+      }),
+    ),
+  };
+}
+
+export function parseAlphaFiReceipt(query: AlphaFiReceiptQueryType): AlphaFiReceiptType {
+  return {
+    id: query.content.fields.id.id,
+    position_pool_map: query.content.fields.position_pool_map.fields.contents.map((item: any) => ({
+      key: item.fields.key,
+      value: {
+        pool_id: item.fields.value.fields.pool_id,
+        partner_cap_id: item.fields.value.fields.partner_cap_id,
+      },
+    })),
+    client_address: query.content.fields.client_address,
+  };
+}
+
 // <--------- Export all parsers --------->
 
 export const parsers = {
@@ -442,4 +595,6 @@ export const parsers = {
   parseAlphaReceipt,
   parseReceipt,
   parseDistributor,
+  parseAlphaPosition,
+  parseAlphaFiReceipt,
 };

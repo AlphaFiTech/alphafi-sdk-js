@@ -8,7 +8,7 @@ import { Blockchain } from '../models/blockchain.js';
 import { Transaction } from '@mysten/sui/transactions';
 import { Protocol } from '../models/protocol.js';
 import { Portfolio } from '../models/portfolio.js';
-import { poolDetailsMap } from '../common/maps.js';
+import { poolDetailsMap, poolDetailsMapByPoolName } from '../common/maps.js';
 import {
   depositSingleAssetTxb,
   depositDoubleAssetTxb,
@@ -24,8 +24,17 @@ import {
   NaviInvestor,
   zapDepositTxb,
   zapDepositQuoteTxb,
+  getAlphaFiReceipts,
+  initiateWithdrawAlphaTxb,
+  claimAirdropTxb,
+  claimWithdrawAlphaTxb
 } from '@alphafi/alphafi-sdk-upstream';
 import { Decimal } from 'decimal.js';
+import { conf, CONF_ENV } from 'src/common/constants.js';
+import { AlphaFiReceipt } from 'src/models/alphafiReceipt.js';
+import { AlphaPoolType } from 'src/utils/parsedTypes.js';
+import { AlphaTransactions } from 'src/models/transactionProtocolModels/alpha.js';
+import { TransactionUtils } from 'src/models/transactionProtocolModels/utils.js';
 
 /**
  * Configuration options for the AlphaFi SDK
@@ -63,6 +72,7 @@ export interface WithdrawOptions {
   isAmountA?: boolean;
   withdrawMax: boolean;
 }
+
 
 /**
  * Options for zap deposit operations
@@ -237,6 +247,39 @@ export class AlphaFiSDK {
       poolInfo.poolName as PoolName,
       this.config.address,
     );
+  }
+
+  async initiateWithdrawAlpha(options: WithdrawOptions): Promise<Transaction> {
+    let xtokens = 0;
+    if(options.withdrawMax) {
+      const alphafiReceipts = await this.blockchain.getAlphaFiReceipt(this.config.address);
+      const receipt = await this.blockchain.getReceipt(
+        poolDetailsMapByPoolName['ALPHA'].poolId,
+        this.config.address,
+      );
+      if (alphafiReceipts.length === 0 && !receipt) {
+        throw new Error(`No AlphaFi receipts or receit found for address ${this.config.address}`);
+      }
+      if(alphafiReceipts.length === 0 && receipt){
+        xtokens = Number(receipt.xTokenBalance);
+      }
+      else{
+        xtokens = Number(new AlphaFiReceipt(alphafiReceipts[0], this.blockchain).getTotalShares(conf[CONF_ENV].ALPHAFI_EMBER_POOL));
+      }
+    }
+    else{
+      const alphaPool = await this.blockchain.getPool(conf[CONF_ENV].ALPHAFI_EMBER_POOL) as AlphaPoolType;
+      xtokens = (new Decimal(options.amount).div(new Decimal(alphaPool.current_exchange_rate).div(1e18))).toNumber();
+    }
+    return await new AlphaTransactions(this.config.address, this.blockchain, new TransactionUtils(this.blockchain)).initiateWithdrawAlphaTx(xtokens.toString())
+  }
+
+  async claimWithdrawAlpha(ticketId: string):Promise<Transaction>{
+    return await new AlphaTransactions(this.config.address, this.blockchain, new TransactionUtils(this.blockchain)).claimWithdrawAlphaTx(ticketId)
+  }
+
+  async claimAirdrop():Promise<Transaction>{
+    return await new AlphaTransactions(this.config.address, this.blockchain, new TransactionUtils(this.blockchain)).claimAirdropTx()
   }
 
   /**

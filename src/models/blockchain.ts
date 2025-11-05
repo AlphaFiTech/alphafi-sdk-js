@@ -7,6 +7,8 @@ import {
   InvestorType,
   ReceiptType,
   DistributorType,
+  AlphaPositionType,
+  AlphaFiReceiptType,
 } from '../utils/parsedTypes.js';
 import {
   // pool
@@ -28,6 +30,8 @@ import {
   BucketInvestorQueryType,
   NaviInvestorQueryType,
   NaviLoopInvestorQueryType,
+  AlphaPositionQueryType,
+  AlphaFiReceiptQueryType,
 } from '../utils/queryTypes.js';
 import { parsers } from '../utils/parser.js';
 
@@ -114,7 +118,29 @@ export class Blockchain {
 
     throw new Error(`Pool for poolId - ${poolId} not found`);
   }
+  async getAlphaPosition(positionId: string): Promise<AlphaPositionType> {
+    const position = await this.client.getObject({
+      id: positionId,
+      options: {
+        showContent: true,
+      },
+    });
+    return parsers.parseAlphaPosition(position.data as AlphaPositionQueryType);
+  }
 
+  async getAlphaFiReceipt(address: string): Promise<AlphaFiReceiptType[]> {
+    const receipts = await this.client.getOwnedObjects({
+      owner: address,
+      filter: {
+        StructType: this.constants.ALPHAFI_RECEIPT_TYPE,
+      },
+      options: {
+        showContent: true,
+        showType: true,
+      },
+    });
+    return receipts.data.map((receipt) => parsers.parseAlphaFiReceipt(receipt.data as AlphaFiReceiptQueryType)) as AlphaFiReceiptType[];
+  }
   async getMultiParentPool(): Promise<Map<string, ParentPoolType>> {
     let pools = Object.keys(poolDetailsMap);
     pools = pools.filter((pool) => {

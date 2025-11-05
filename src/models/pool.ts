@@ -230,7 +230,7 @@ export class Pool {
 
     let tokensInvested = new Decimal(this.pool.tokensInvested);
     if (this.poolDetails.poolName == 'ALPHA') {
-      tokensInvested = new Decimal((this.pool as AlphaPoolType).alpha_bal);
+      tokensInvested = new Decimal((this.pool as AlphaPoolType).tokensInvested);
     } else if (this.poolDetails.strategyType === 'SINGLE-ASSET-LOOPING') {
       if (!this.investor) {
         throw new Error(`Investor not found for pool ${this.pool.id}`);

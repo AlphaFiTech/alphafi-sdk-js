@@ -37,31 +37,101 @@ export type FungiblePoolType = {
 };
 
 export type AlphaPoolType = {
+  id: string;
+  xTokenSupply: string;
+  tokensInvested: string;
+  positions: {
+    id: string;
+    size?: string;
+  };
+  recently_updated_alphafi_receipts: {
+    key: string;
+    value: {
+      xtokens_to_add: string;
+      xtokens_to_remove: string;
+    };
+  }[];
+  withdraw_requests: {
+    key: string;
+    value: {
+      total_amount_to_withdraw: string;
+      leftover_amount: string;
+    };
+  }[];
+  fee_collected: string;
+  last_distribution_time: string;
+  last_autocompound_time: string;
+  locking_period: string;
+  time_from_locking_period_for_unstaking_to_start: string;
+  current_exchange_rate: string;
+  rewards: {
+    id: string;
+    size?: string;
+  };
   acc_rewards_per_xtoken: {
     key: string;
     value: string;
   }[];
-  alpha_bal: string;
   deposit_fee: string;
   deposit_fee_max_cap: string;
-  id: string;
-  image_url: number[];
-  instant_withdraw_fee: string;
-  instant_withdraw_fee_max_cap: string;
-  locked_period_in_ms: string;
-  locking_start_ms: string;
-  name: number[];
-  paused: boolean;
-  performance_fee: string;
-  performance_fee_max_cap: string;
-  rewards: {
-    id: string;
-    size: string;
-  };
-  tokensInvested: string;
-  withdraw_fee_max_cap: string;
   withdrawal_fee: string;
-  xTokenSupply: string;
+  withdraw_fee_max_cap: string;
+  fee_address: string;
+  is_deposit_paused: boolean;
+  is_withdraw_paused: boolean;
+  investor: {
+    id: string;
+    unsupplied_balance: string;
+    claimable_balance: string;
+    alphalend_position_cap: {
+      position_id: string;
+    };
+    cur_debt: string;
+    current_debt_to_supply_ratio: string;
+    borrow_token_to_token_ratio: string;
+    safe_borrow_percentage: string;
+    allowed_coin_types_for_swap: {
+      key: string;
+      value: boolean;
+    }[];
+    minimum_swap_amount: string;
+    primary_market_id: string;
+    borrow_market_id: string;
+    resupply_market_id: string;
+    free_rewards: {
+      id: string;
+      size?: string;
+    };
+    withdraw_receivers_address: string;
+    withdraw_tickets: {
+      key: string;
+      value: {
+        key: string;
+        value: {
+          owner: string;
+          receiver: string;
+          shares: string;
+          estimated_withdraw_amount: string;
+          timestamp: string;
+          sequence_number: string;
+        };
+      }[];
+    }[];
+    total_pending_withdrawals: string;
+    performance_fee: string;
+    performance_fee_cap: string;
+    additional_fields: {
+      id: string;
+      size?: string;
+    };
+  };
+  alphafi_partner_cap: {
+    id: string;
+  };
+  additional_fields: {
+    id: string;
+    size?: string;
+  };
 };
 
 // <--------- Parent Pool Types --------->
@@ -338,4 +408,56 @@ type MemberType = {
       };
     }[];
   };
+};
+
+// <--------- Position Types --------->
+export type UserWithdrawRequestType = {
+  id: string;
+  time_of_request: string;
+  time_of_acceptance: string;
+  time_of_claim: string;
+  time_of_unlock: string;
+  status: string;
+  token_amount: string;
+};
+
+export type AlphaPositionType = {
+  id: string;
+  alphafi_receipt_id: string;
+  pool_id: string;
+  coin_type: string;
+  xtokens: string;
+  withdraw_requests: {
+    key: string;
+    value: UserWithdrawRequestType;
+  }[];
+  all_withdrawals: {
+    id: string;
+    size?: string;
+  };
+  all_deposits: {
+    id: string;
+    size?: string;
+  };
+  last_acc_reward_per_xtoken: {
+    key: string;
+    value: string;
+  }[];
+  pending_rewards: {
+    key: string;
+    value: string;
+  }[];
+};
+
+
+export type AlphaFiReceiptType = {
+  id: string;
+  position_pool_map: {
+    key: string;
+    value: {
+      pool_id: string;
+      partner_cap_id: string;
+    };
+  }[];
+  client_address: string;
 };
