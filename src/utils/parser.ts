@@ -206,7 +206,7 @@ export function parseAlphaPool(query: AlphaPoolQueryType): AlphaPoolType {
       withdraw_receivers_address: fields.investor.fields.withdraw_receivers_address,
       withdraw_tickets: fields.investor.fields.withdraw_tickets.fields.contents.map(
         (item: any) => ({
-          key: item.fields.key,
+          key: item.fields.key.variant,
           value: item.fields.value.fields.contents.map((innerItem: any) => ({
             key: innerItem.fields.key,
             value: {

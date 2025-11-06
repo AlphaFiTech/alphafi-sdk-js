@@ -7,6 +7,8 @@ import { Portfolio } from '../src/models/portfolio.js';
 import { AlphaFiSDK } from '../src/index.js';
 import dotenv from 'dotenv';
 import { Transaction } from '@mysten/sui/transactions';
+import { getConf } from '../src/common/constants.js';
+import { AlphaPoolType, AlphaPositionType } from '../src/utils/parsedTypes.js';
 
 dotenv.config();
 
@@ -56,7 +58,7 @@ export async function dryRunTransactionBlock(txb: Transaction) {
         transactionBlock: serializedTxb,
       })
       .then((res) => {
-        console.log(JSON.stringify(res, null, 2));
+        console.log(res.effects.status, "\n", res.balanceChanges);
         // console.log(res.effects.status, res.balanceChanges);
       })
       .catch((error) => {
@@ -66,7 +68,27 @@ export async function dryRunTransactionBlock(txb: Transaction) {
     console.log(e);
   }
 }
+export async function executeTransactionBlock(txb: Transaction) {
+  const { keypair, suiClient } = getExecStuff();
 
+  await suiClient
+    .signAndExecuteTransaction({
+      signer: keypair,
+      transaction: txb,
+      requestType: "WaitForLocalExecution",
+      options: {
+        showEffects: true,
+        showBalanceChanges: true,
+        showObjectChanges: true,
+      },
+    })
+    .then((res) => {
+      console.log(JSON.stringify(res, null, 2));
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+}
 async function test() {
   const { address, keypair, suiClient } = getExecStuff();
   const lockedTableID = '0xe8474026c16bcb0581bc77169e1ee8d656d64c07ddfa02929ea536fe260e1a09';
@@ -92,25 +114,52 @@ async function main() {
   console.log(res);
 }
 // main();
-
+async function getPool(){
+  const { address, keypair, suiClient } = getExecStuff();
+  let pool = await new Blockchain(suiClient, "mainnet").getPool(getConf().ALPHAFI_EMBER_POOL) as AlphaPoolType;
+  console.log(JSON.stringify(pool, null, 2));
+}
+async function getPosition(){
+  const { address, keypair, suiClient } = getExecStuff();
+  let position = await new Blockchain(suiClient, "mainnet").getAlphaPosition("0x01a6ba1d80ae20e0a9a163b498cfd25236bf3b9595d06248d041e4ca2e508668") as AlphaPositionType;
+  console.log(JSON.stringify(position, null, 2));
+}
 async function deposit() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
-  const tx = await sdk.deposit({
-    poolId: '0x04378cf67d21b41399dc0b6653a5f73f8d3a03cc7643463e47e8d378f8b0bdfa', // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
-    amount: 100_000n,
-  });
-  dryRunTransactionBlock(tx);
+  // let pool = await new Blockchain(suiClient, "mainnet").getPool(getConf().ALPHAFI_EMBER_POOL) as AlphaPoolType;
+  // console.log(JSON.stringify(pool, null, 2));
+  let txb = await sdk.deposit({poolId: "0xc18a4a66b453b067d2bfbcbbe6d1adec273a89ed05e1cf040efb7ff6837053dd", amount: 1000000n});
+  
+  // const tx = await sdk.deposit({
+  //   poolId: '0x04378cf67d21b41399dc0b6653a5f73f8d3a03cc7643463e47e8d378f8b0bdfa', // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+  //   amount: 100_000n,
+  // });
+  await dryRunTransactionBlock(txb);
+  // await executeTransactionBlock(txb)
 }
-deposit();
 
 async function withdraw() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
-  const tx = await sdk.withdraw({
-    poolId: '0x04378cf67d21b41399dc0b6653a5f73f8d3a03cc7643463e47e8d378f8b0bdfa', // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
-    xTokens: 100_000n,
+  const tx = await sdk.initiateWithdrawAlpha({
+    poolId: '0xc18a4a66b453b067d2bfbcbbe6d1adec273a89ed05e1cf040efb7ff6837053dd', // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    amount: "2000000",
+    withdrawMax: false
   });
-  dryRunTransactionBlock(tx);
+  await dryRunTransactionBlock(tx);
+  // await executeTransactionBlock(tx);
 }
+async function claimAirdrop(){
+  const { address, keypair, suiClient } = getExecStuff();
+  const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
+  const tx = await sdk.claimAirdrop();
+  await dryRunTransactionBlock(tx);
+}
+// getPool();
+// deposit()
 // withdraw();
+// claimAirdrop()
+// getPosition()
+
+

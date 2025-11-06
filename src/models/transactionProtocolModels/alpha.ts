@@ -3,9 +3,11 @@ import { getConf } from '../../common/constants.js';
 import { poolDetailsMapByPoolName } from '../../common/maps.js';
 import { Blockchain } from '../blockchain.js';
 import { TransactionUtils } from './utils.js';
-import { coinsListByType } from '../../common/coinsList.js';
+import { AlphalendClient } from '@alphafi/alphalend-sdk';
+import { coinsList } from '@alphafi/alphafi-sdk-upstream';
 
 export class AlphaTransactions {
+  private alphalendClient: AlphalendClient;
   constructor(
     private address: string,
     private blockchain: Blockchain,
@@ -14,6 +16,7 @@ export class AlphaTransactions {
     this.address = address;
     this.blockchain = blockchain;
     this.transactionUtils = transactionUtils;
+    this.alphalendClient = new AlphalendClient('mainnet', this.blockchain.client);
   }
 
   /**
@@ -21,8 +24,8 @@ export class AlphaTransactions {
    */
   private createAlphaFiReceipt(tx: Transaction) {
     return tx.moveCall({
-      target: `${getConf().ALPHA_EMBER_LATEST_PACKAGE_ID}::alphafi_ember_pool::create_alphafi_receipt`,
-      arguments: [tx.pure.address(this.address)],
+      target: `${getConf().ALPHAFI_RECEIPT_PACKAGE_ID}::alphafi_receipt::create_alphafi_receipt_v2`,
+      arguments: [tx.pure.string(getConf().ALPHAFI_RECEIPT_IMAGE_URL)],
     });
   }
 
@@ -64,6 +67,7 @@ export class AlphaTransactions {
     // Get receipts
     const receipt = await this.blockchain.getReceipt(poolinfo.poolId, this.address);
     const alphafiReceipt = await this.blockchain.getAlphaFiReceipt(this.address);
+    await this.alphalendClient.updatePrices(tx, [coinsList["ALPHA"].type, coinsList["SUI"].type, coinsList["ESUI"].type]);
 
     if (alphafiReceipt.length === 0) {
       // Create new AlphaFi receipt
@@ -98,7 +102,14 @@ export class AlphaTransactions {
         ],
       });
 
-      tx.transferObjects([alphafiReceiptObj], this.address);
+      tx.moveCall({
+        target: `${getConf().ALPHAFI_RECEIPT_PACKAGE_ID}::alphafi_receipt::transfer_receipt_to_new_owner`,
+        arguments: [
+          alphafiReceiptObj,
+          tx.pure.address(this.address),
+          tx.object(getConf().ALPHAFI_RECEIPT_WHITELISTED_ADDRESSES),
+        ]
+      })
     } else {
       const existingReceipt = alphafiReceipt[0];
 
@@ -155,7 +166,7 @@ export class AlphaTransactions {
       this.address,
     );
     const alphafiReceipt = await this.blockchain.getAlphaFiReceipt(this.address);
-
+    await this.alphalendClient.updatePrices(tx, [coinsList["ALPHA"].type, coinsList["SUI"].type, coinsList["ESUI"].type]);
     if (alphafiReceipt.length === 0) {
       // Create new AlphaFi receipt
       const alphafiReceiptObj = this.createAlphaFiReceipt(tx);
@@ -191,7 +202,14 @@ export class AlphaTransactions {
         ],
       });
 
-      tx.transferObjects([alphafiReceiptObj], this.address);
+      tx.moveCall({
+        target: `${getConf().ALPHAFI_RECEIPT_PACKAGE_ID}::alphafi_receipt::transfer_receipt_to_new_owner`,
+        arguments: [
+          alphafiReceiptObj,
+          tx.pure.address(this.address),
+          tx.object(getConf().ALPHAFI_RECEIPT_WHITELISTED_ADDRESSES),
+        ]
+      })
     } else {
       const existingReceipt = alphafiReceipt[0];
       const isPositionPresent = this.isPositionPresent(
@@ -249,8 +267,8 @@ export class AlphaTransactions {
     if (alphafiReceipt.length === 0) {
       throw new Error('No Alphafi receipt found!');
     }
-
-    tx.moveCall({
+    await this.alphalendClient.updatePrices(tx, [coinsList["ALPHA"].type, coinsList["SUI"].type, coinsList["ESUI"].type]);
+    let coin = tx.moveCall({
       target: `${getConf().ALPHA_EMBER_LATEST_PACKAGE_ID}::alphafi_ember_pool::user_claim_withdraw`,
       typeArguments: [getConf().ALPHA_COIN_TYPE],
       arguments: [
@@ -262,7 +280,7 @@ export class AlphaTransactions {
         tx.object(getConf().CLOCK_PACKAGE_ID),
       ],
     });
-
+    tx.transferObjects([coin], this.address);
     return tx;
   }
 
@@ -278,7 +296,7 @@ export class AlphaTransactions {
       this.address,
     );
     const alphafiReceipt = await this.blockchain.getAlphaFiReceipt(this.address);
-
+    await this.alphalendClient.updatePrices(tx, [coinsList["ALPHA"].type, coinsList["SUI"].type, coinsList["ESUI"].type]);
     if (alphafiReceipt.length === 0) {
       // Create new AlphaFi receipt
       const alphafiReceiptObj = this.createAlphaFiReceipt(tx);
@@ -303,7 +321,7 @@ export class AlphaTransactions {
       // Get user rewards
       airdropCoin = tx.moveCall({
         target: `${getConf().ALPHA_EMBER_LATEST_PACKAGE_ID}::alphafi_ember_pool::get_user_rewards`,
-        typeArguments: [getConf().ALPHA_COIN_TYPE, coinsListByType['SUI'].type],
+        typeArguments: [getConf().ALPHA_COIN_TYPE, coinsList['SUI'].type],
         arguments: [
           tx.object(getConf().ALPHA_EMBER_VERSION),
           alphafiReceiptObj,
@@ -341,7 +359,7 @@ export class AlphaTransactions {
       // Get user rewards
       airdropCoin = tx.moveCall({
         target: `${getConf().ALPHA_EMBER_LATEST_PACKAGE_ID}::alphafi_ember_pool::get_user_rewards`,
-        typeArguments: [getConf().ALPHA_COIN_TYPE, coinsListByType['SUI'].type],
+        typeArguments: [getConf().ALPHA_COIN_TYPE, coinsList['SUI'].type],
         arguments: [
           tx.object(getConf().ALPHA_EMBER_VERSION),
           tx.object(existingReceipt.id),

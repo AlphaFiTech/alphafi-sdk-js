@@ -138,11 +138,16 @@ export class AlphaFiSDK {
     }
 
     if (poolInfo.assetTypes.length === 1) {
-      return await depositSingleAssetTxb(
-        poolInfo.poolName as PoolName,
-        this.config.address,
-        options.amount.toString(),
-      );
+      if(poolInfo.poolName === "ALPHA"){
+        return await new AlphaTransactions(this.config.address, this.blockchain, new TransactionUtils(this.blockchain)).depositAlphaTx(options.amount.toString())
+      }
+      else{
+        return await depositSingleAssetTxb(
+          poolInfo.poolName as PoolName,
+          this.config.address,
+          options.amount.toString(),
+        );
+      }
     } else if (poolInfo.assetTypes.length === 2) {
       return await depositDoubleAssetTxb(
         poolInfo.poolName as PoolName,

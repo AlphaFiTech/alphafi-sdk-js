@@ -97,7 +97,7 @@ export class Blockchain {
   }
 
   async getPool(poolId: string): Promise<PoolType> {
-    const poolObjectId = poolDetailsMap[poolId].poolId;
+    const poolObjectId = poolId;
     const pool = await this.client.getObject({
       id: poolObjectId,
       options: {
@@ -136,7 +136,6 @@ export class Blockchain {
       },
       options: {
         showContent: true,
-        showType: true,
       },
     });
     return receipts.data.map((receipt) => parsers.parseAlphaFiReceipt(receipt.data as AlphaFiReceiptQueryType)) as AlphaFiReceiptType[];

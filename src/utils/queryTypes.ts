@@ -103,11 +103,11 @@ export type Bag = {
   type: string;
 };
 export type ObjectTable = Bag;
-export enum RequestType {
-  Withdraw = "Withdraw",
-  AutoCompound = "AutoCompound",
-  Leverage = "Leverage",
-}
+// export enum RequestType {
+//   Withdraw = "Withdraw",
+//   AutoCompound = "AutoCompound",
+//   Leverage = "Leverage",
+// }
 export type WithdrawalRequest = {
   fields: {
     owner: string;
@@ -149,7 +149,9 @@ export type AlphaPoolInvestor = {
     resupply_market_id: string;
     free_rewards: Bag;
     withdraw_receivers_address: string;
-    withdraw_tickets: VecMap<RequestType, VecMap<string, WithdrawalRequest>>;
+    withdraw_tickets: VecMap<{
+      variant: string;
+    }, VecMap<string, WithdrawalRequest>>;
     total_pending_withdrawals: string;
     performance_fee: string;
     performance_fee_cap: string;
