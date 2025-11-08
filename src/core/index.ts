@@ -3,7 +3,6 @@
  */
 
 import { SuiClient } from '@mysten/sui/client';
-import { TransactionManager } from '../models/transaction.js';
 import { Blockchain } from '../models/blockchain.js';
 import { Transaction } from '@mysten/sui/transactions';
 import { Protocol } from '../models/protocol.js';
@@ -24,8 +23,12 @@ import {
   NaviInvestor,
   zapDepositTxb,
   zapDepositQuoteTxb,
+  getReceipts,
+  claimRewardTxb,
 } from '@alphafi/alphafi-sdk-upstream';
 import { Decimal } from 'decimal.js';
+import { PoolLabel, StrategyType } from '../strategies/index.js';
+import poolsConfig from '../config/poolsData.js';
 
 /**
  * Configuration options for the AlphaFi SDK
@@ -98,22 +101,25 @@ export interface ClaimOptions {
  */
 export class AlphaFiSDK {
   private config: AlphaFiSDKConfig;
-  private transactionManager: TransactionManager;
+  // private transactionManager: TransactionManager;
   private blockchain: Blockchain;
   private protocol: Protocol;
   private portfolio: Portfolio;
-  // private address: string;
+  private poolLabels: PoolLabel[];
 
   constructor(config: AlphaFiSDKConfig) {
     this.config = config;
 
+    // Parse and store pool labels from configuration
+    this.poolLabels = this.parsePoolLabels(poolsConfig);
+
     // Initialize core components
-    this.blockchain = new Blockchain(config.client, config.network);
+    this.blockchain = new Blockchain(config.network);
     this.protocol = new Protocol(config.client, config.network);
     this.portfolio = new Portfolio(this.protocol, this.blockchain, config.client, config.address);
 
     // Initialize the transaction facade
-    this.transactionManager = new TransactionManager(config.address, this.blockchain);
+    // this.transactionManager = new TransactionManager(config.address, this.blockchain);
   }
 
   /**
@@ -181,11 +187,11 @@ export class AlphaFiSDK {
 
     let xTokens = '0';
     if (options.withdrawMax) {
-      const receipt = await this.blockchain.getReceipt(poolInfo.poolId, this.config.address);
+      const receipt = await getReceipts(poolInfo.poolName as PoolName, this.config.address, true);
       if (!receipt) {
         throw new Error(`Receipt with ID ${poolInfo.poolId} not found`);
       }
-      xTokens = receipt.xTokenBalance;
+      xTokens = receipt[0].content.fields.xTokenBalance;
     } else if (
       poolDetailsMap[options.poolId].strategyType === 'DOUBLE-ASSET-LOOPING' ||
       poolDetailsMap[options.poolId].strategyType === 'SINGLE-ASSET-LOOPING'
@@ -284,8 +290,28 @@ export class AlphaFiSDK {
    * @returns Promise<TransactionResult> - Transaction result with gas estimate
    */
   async claim(options: ClaimOptions): Promise<Transaction> {
-    return this.transactionManager.claim({
-      poolId: options.poolId,
+    return await claimRewardTxb(this.config.address);
+    // return this.transactionManager.claim({
+    //   poolId: options.poolId,
+    // });
+  }
+
+  private parsePoolLabels(
+    poolsJson:
+      | readonly {
+          strategy_type: StrategyType;
+          data: any;
+        }[]
+      | {
+          strategy_type: StrategyType;
+          data: any;
+        }[],
+  ): PoolLabel[] {
+    return poolsJson.map((entry) => {
+      return {
+        ...entry.data,
+        strategy_type: entry.strategy_type as StrategyType,
+      };
     });
   }
 }

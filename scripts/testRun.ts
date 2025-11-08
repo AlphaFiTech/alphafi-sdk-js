@@ -1,6 +1,6 @@
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { Blockchain } from '../src/models/blockchain';
-import { fromB64 } from '@mysten/sui/utils';
+import { fromB64, normalizeStructTag } from '@mysten/sui/utils';
 import { SuiClient } from '@mysten/sui/client';
 import { Protocol } from '../src/models/protocol.js';
 import { Portfolio } from '../src/models/portfolio.js';
@@ -80,18 +80,37 @@ async function test() {
 
 async function main() {
   const { address, keypair, suiClient } = getExecStuff();
-  const client = getSuiClient('mainnet');
-  const blockchain = new Blockchain(client, 'mainnet');
-  const protocol = new Protocol(client, 'mainnet');
-  const portfolio = new Portfolio(protocol, blockchain, client, address);
+  const blockchain = new Blockchain('mainnet');
+  const protocol = new Protocol(suiClient, 'mainnet');
+  const portfolio = new Portfolio(protocol, blockchain, suiClient, address);
   // const res = await protocol.getAllPoolsData();
   // for (const pool of res) {
   //   console.log(poolDetailsMap[pool[0]].poolName, pool[1]);
   // }
-  const res = await portfolio.getPortfolioData();
+  // const res = await portfolio.getPortfolioData();
+  // const res = await blockchain.getObject(
+  //   '0xcf994611fd4c48e277ce3ffd4d4364c914af2c3cbb05f7bf6facd371de688630',
+  // );
+  const res = await blockchain.multiGetObjects([
+    '0x58c4a8c5d18c61156e1a5a82811fbf71963a4de3f5d52292504646611a308888',
+    '0x89793208211927a4d1458a59d34b775aaec17af8c98a59a1ba97f7b005c0e587',
+  ]);
+  // const res = await blockchain.getReceipt(
+  //   address,
+  //   '0x45564ea956f9b25890a5c1c3a199c8d86aabd5291b34723fb662283419ee2f4d::alphafi_alphalend_single_loop_pool::Receipt',
+  // );
+  // const res = await blockchain.multiGetReceipts(address, [
+  //   '0x45564ea956f9b25890a5c1c3a199c8d86aabd5291b34723fb662283419ee2f4d::alphafi_alphalend_single_loop_pool::Receipt',
+  //   '0x8f7d2c35e19c65213bc2153086969a55ec207b5a25ebdee303a6d9edd9c053e3::alphafi_navi_pool::Receipt',
+  // ]);
   console.log(res);
+  // console.log(
+  //   normalizeStructTag(
+  //     '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
+  //   ),
+  // );
 }
-// main();
+main();
 
 async function deposit() {
   const { address, keypair, suiClient } = getExecStuff();
@@ -102,7 +121,7 @@ async function deposit() {
   });
   dryRunTransactionBlock(tx);
 }
-deposit();
+// deposit();
 
 async function withdraw() {
   const { address, keypair, suiClient } = getExecStuff();

@@ -1,9 +1,8 @@
 import { Decimal } from 'decimal.js';
 import { poolDetailsMap, poolDetailsMapByPoolName } from '../common/maps.js';
 import { Blockchain } from './blockchain.js';
-import { SuiClient } from '@mysten/sui/client/client.js';
+import { SuiClient } from '@mysten/sui/client';
 import { getConf } from '../common/constants.js';
-import { Pool, PoolData } from './pool.js';
 import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
 
 type LoopingDebt = {
@@ -22,43 +21,7 @@ export class Protocol {
 
   constructor(suiClient: SuiClient, network: 'mainnet' | 'testnet' | 'devnet' | 'localnet') {
     this.suiClient = suiClient;
-    this.blockchain = new Blockchain(suiClient, network);
-  }
-
-  async getAllPoolsData(): Promise<Map<string, PoolData>> {
-    const pools = await this.getAllPools();
-    const aprMap = await this.getAprMap();
-    const priceMap = await this.getPriceMap();
-    const naviTvlMap = await this.getNaviTvlMap();
-    const bucketTvl = await this.getBucketTVL();
-    const poolDataMap = new Map<string, PoolData>();
-    for (const pool of pools.values()) {
-      const poolData = pool.getPoolData(aprMap, priceMap, naviTvlMap, bucketTvl);
-      poolDataMap.set(pool.pool.id, poolData);
-    }
-    return poolDataMap;
-  }
-
-  async getAllPools(): Promise<Map<string, Pool>> {
-    const pools = new Map<string, Pool>();
-    const poolKeys = Object.keys(poolDetailsMap);
-    const poolObjects = await this.blockchain.getMultiPool();
-    const investorObjects = await this.blockchain.getMultiInvestor();
-    const parentPoolObjects = await this.blockchain.getMultiParentPool();
-
-    for (const poolKey of poolKeys) {
-      const poolDetail = poolDetailsMap[poolKey];
-      const poolObject = poolObjects.get(poolDetail.poolId);
-      const investorObject = investorObjects.get(poolDetail.investorId);
-      const parentPoolObject = parentPoolObjects.get(poolDetail.parentPoolId);
-      if (!poolObject) {
-        console.error(`Pool ${poolKey} not found in blockchain`);
-        continue;
-      }
-      const pool = new Pool(poolObject, investorObject, parentPoolObject);
-      pools.set(poolKey, pool);
-    }
-    return pools;
+    this.blockchain = new Blockchain(network);
   }
 
   async getAprMap(): Promise<Map<string, { parentApr: Decimal; alphaMiningApr: Decimal }>> {
