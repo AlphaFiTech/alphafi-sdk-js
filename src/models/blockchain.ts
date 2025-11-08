@@ -5,7 +5,7 @@ import { Transaction } from '@mysten/sui/transactions';
 
 export class Blockchain {
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
-  gqlClient: SuiGraphQLClient<{}>;
+  gqlClient: SuiGraphQLClient<any>;
   suiClient: SuiClient;
 
   constructor(network: 'mainnet' | 'testnet' | 'devnet' | 'localnet') {
