@@ -1,4 +1,4 @@
-import { SuiClient } from '@mysten/sui/client/client.js';
+import { SuiClient } from '@mysten/sui/client';
 import { Blockchain } from './blockchain.js';
 import { Protocol } from './protocol.js';
 import { Receipt } from './receipt.js';
