@@ -29,6 +29,8 @@ import {
 import { Decimal } from 'decimal.js';
 import { PoolLabel, StrategyType } from '../strategies/index.js';
 import poolsConfig from '../config/poolsData.js';
+import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
+import { coinsListByType } from '../common/coinsList.js';
 
 /**
  * Configuration options for the AlphaFi SDK
@@ -198,13 +200,16 @@ export class AlphaFiSDK {
     ) {
       const decimals =
         poolDetailsMap[options.poolId].parentProtocolName === 'NAVI'
-          ? 9 - coinsList[loopingPoolCoinMap[options.poolId].supplyCoin].expo
+          ? 9 - coinsList[loopingPoolCoinMap[poolInfo.poolName].supplyCoin].expo
           : 0;
       let withdrawCoin2Tokens = new Decimal(options.amount).mul(10 ** decimals);
 
       if (poolDetailsMap[options.poolId].poolName === 'NAVI-LOOP-SUI-VSUI') {
         const voloExchRate = await fetchVoloExchangeRate(true);
         withdrawCoin2Tokens = withdrawCoin2Tokens.div(parseFloat(voloExchRate.data.exchangeRate));
+      } else if (poolDetailsMap[options.poolId].poolName === 'ALPHALEND-LOOP-SUI-STSUI') {
+        const suiTostSuiExchangeRate = await stSuiExchangeRate(getStSuiConf().LST_INFO, true);
+        withdrawCoin2Tokens = withdrawCoin2Tokens.div(suiTostSuiExchangeRate);
       }
 
       const investor_details = (await getInvestor(
@@ -226,7 +231,7 @@ export class AlphaFiSDK {
     } else if (poolInfo.assetTypes.length === 1) {
       const decimals =
         poolDetailsMap[options.poolId].parentProtocolName === 'NAVI'
-          ? 9 - coinsList[loopingPoolCoinMap[options.poolId].supplyCoin].expo
+          ? 9 - coinsListByType[poolInfo.assetTypes[0] as keyof typeof coinsList].expo
           : 0;
       options.amount = new Decimal(options.amount).mul(10 ** decimals).toString();
       xTokens = await coinAmountToXTokensSingleAsset(options.amount, poolInfo.poolName as PoolName);
