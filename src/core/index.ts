@@ -198,7 +198,7 @@ export class AlphaFiSDK {
     ) {
       const decimals =
         poolDetailsMap[options.poolId].parentProtocolName === 'NAVI'
-          ? 9 - coinsList[loopingPoolCoinMap[options.poolId].supplyCoin].expo
+          ? 9 - coinsList[loopingPoolCoinMap[poolInfo.poolName].supplyCoin].expo
           : 0;
       let withdrawCoin2Tokens = new Decimal(options.amount).mul(10 ** decimals);
 
@@ -299,13 +299,13 @@ export class AlphaFiSDK {
   private parsePoolLabels(
     poolsJson:
       | readonly {
-          strategy_type: StrategyType;
-          data: any;
-        }[]
+        strategy_type: StrategyType;
+        data: any;
+      }[]
       | {
-          strategy_type: StrategyType;
-          data: any;
-        }[],
+        strategy_type: StrategyType;
+        data: any;
+      }[],
   ): PoolLabel[] {
     return poolsJson.map((entry) => {
       return {
