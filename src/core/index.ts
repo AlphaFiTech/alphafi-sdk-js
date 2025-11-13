@@ -22,6 +22,7 @@ import {
   zapDepositQuoteTxb,
   getReceipts,
   claimRewardTxb,
+  getDoubleAssetVaultBalance,
 } from '@alphafi/alphafi-sdk-upstream';
 import { Decimal } from 'decimal.js';
 import { PoolLabel, StrategyType } from '../strategies/index.js';
