@@ -25,6 +25,7 @@ import {
   zapDepositQuoteTxb,
   getReceipts,
   claimRewardTxb,
+  getDoubleAssetVaultBalance,
 } from '@alphafi/alphafi-sdk-upstream';
 import { Decimal } from 'decimal.js';
 import { PoolLabel, StrategyType } from '../strategies/index.js';
@@ -135,7 +136,19 @@ export class AlphaFiSDK {
       throw new Error(`Pool with ID ${options.poolId} not found`);
     }
 
-    if (poolInfo.assetTypes.length === 1) {
+    if (poolInfo.poolName === 'BLUEFIN-LYF-STSUI-SUI') {
+      const tx = await zapDepositTxb(
+        options.amount,
+        false,
+        poolInfo.poolName as PoolName,
+        0.005,
+        this.config.address,
+      );
+      if (!tx) {
+        throw new Error(`Failed to create LYF SUI deposit transaction`);
+      }
+      return tx;
+    } else if (poolInfo.assetTypes.length === 1) {
       return await depositSingleAssetTxb(
         poolInfo.poolName as PoolName,
         this.config.address,
@@ -228,6 +241,23 @@ export class AlphaFiSDK {
         .floor()
         .toString();
       xTokens = await coinAmountToXTokensSingleAsset(options.amount, poolInfo.poolName as PoolName);
+    } else if (poolInfo.poolName === 'BLUEFIN-LYF-STSUI-SUI') {
+      const receipt = await getReceipts(poolInfo.poolName as PoolName, this.config.address, true);
+      const xTokenBalance = new Decimal(receipt[0].content.fields.xTokenBalance);
+      const exchangeRate = await stSuiExchangeRate(getStSuiConf().LST_INFO, true);
+      const balance = await getDoubleAssetVaultBalance(
+        this.config.address,
+        poolInfo.poolName as PoolName,
+      );
+      const totalSuiTokens = new Decimal(balance?.coinA ?? 0)
+        .mul(exchangeRate)
+        .add(new Decimal(balance?.coinB ?? 0));
+
+      xTokens = new Decimal(xTokenBalance)
+        .mul(options.amount)
+        .div(totalSuiTokens)
+        .floor()
+        .toString();
     } else if (poolInfo.assetTypes.length === 1) {
       const decimals =
         poolDetailsMap[options.poolId].parentProtocolName === 'NAVI'
