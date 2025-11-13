@@ -21,13 +21,12 @@ type GraphQLResponse = {
 };
 
 export class CoinInfoProvider {
-  private readonly apiUrl: string;
+  private readonly apiUrl: string = 'https://api.alphalend.xyz/public/graphql';
   private readonly coinInfoByType: Map<string, CoinInfo>;
   private lastFetchedAt: number | null;
   private readonly maxAgeMs: number = 2 * 60 * 1000; // 2 minutes
 
-  constructor(apiUrl: string = 'https://api.alphalend.xyz/public/graphql') {
-    this.apiUrl = apiUrl;
+  constructor() {
     this.coinInfoByType = new Map();
     this.lastFetchedAt = null;
   }

@@ -28,11 +28,11 @@ export type {
 export { BaseStrategy } from './strategy.js';
 
 // Re-export pool label types
-export type { LpPoolLabel, LpEventTypes } from './lp.js';
-export type { AlphaPoolLabel, AlphaEventTypes } from './alpha.js';
-export type { AutobalanceLpPoolLabel, AutobalanceLpEventTypes } from './autobalanceLp.js';
-export type { FungibleLpPoolLabel, FungibleLpEventTypes } from './fungibleLp.js';
-export type { LendingPoolLabel, LendingEventTypes } from './lending.js';
+export type { LpPoolLabel } from './lp.js';
+export type { AlphaPoolLabel } from './alpha.js';
+export type { AutobalanceLpPoolLabel } from './autobalanceLp.js';
+export type { FungibleLpPoolLabel } from './fungibleLp.js';
+export type { LendingPoolLabel } from './lending.js';
 export type { LoopingPoolLabel } from './looping.js';
 export type { SingleAssetLoopingPoolLabel } from './singleAssetLooping.js';
 export type { LyfPoolLabel } from './lyf.js';

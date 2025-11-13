@@ -4,6 +4,7 @@
  */
 
 import { Decimal } from 'decimal.js';
+import { SingleTvl, DoubleTvl } from '../models/types.js';
 
 export interface KeyValuePair {
   key: string;
@@ -82,6 +83,12 @@ export interface Strategy<TPool = any, TInvestor = any, TParentPool = any, TRece
    * Get the exchange rate for the strategy (xtoken to underlying token ratio)
    */
   exchangeRate(): Decimal;
+
+  /**
+   * Compute the TVL (and parent TVL if applicable) for the strategy.
+   */
+  getTvl(): Promise<SingleTvl | DoubleTvl>;
+  getParentTvl(): Promise<SingleTvl | DoubleTvl>;
 }
 
 /**
@@ -96,6 +103,8 @@ export abstract class BaseStrategy<TPool = any, TInvestor = any, TParentPool = a
   abstract parseParentPoolObject(response: any): TParentPool;
   abstract parseReceiptObjects(responses: any[]): TReceipt[];
   abstract exchangeRate(): Decimal;
+  abstract getTvl(): Promise<SingleTvl | DoubleTvl>;
+  abstract getParentTvl(): Promise<SingleTvl | DoubleTvl>;
 
   // ===== Parsing Helper Methods =====
 

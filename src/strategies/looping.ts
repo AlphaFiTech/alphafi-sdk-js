@@ -5,8 +5,9 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { BaseStrategy, KeyValuePair, StrategyType, ProtocolType, NameType } from './strategy.js';
-import { PoolData } from '../models/types.js';
+import { BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
+import { PoolData, SingleTvl } from '../models/types.js';
+import { StrategyContext } from '../models/strategy_context.js';
 
 // ===== Looping Strategy Class =====
 
@@ -22,12 +23,19 @@ export class LoopingStrategy extends BaseStrategy<
   private poolLabel: LoopingPoolLabel;
   private poolObject: LoopingPoolObject;
   private investorObject: LoopingInvestorObject;
+  private context: StrategyContext;
 
-  constructor(poolLabel: LoopingPoolLabel, poolObject: any, investorObject: any) {
+  constructor(
+    poolLabel: LoopingPoolLabel,
+    poolObject: any,
+    investorObject: any,
+    context: StrategyContext,
+  ) {
     super();
     this.poolLabel = poolLabel;
     this.poolObject = this.parsePoolObject(poolObject);
     this.investorObject = this.parseInvestorObject(investorObject);
+    this.context = context;
   }
 
   // ===== Strategy Interface Implementation =====
@@ -37,8 +45,8 @@ export class LoopingStrategy extends BaseStrategy<
    * Exchange rate = tokens_invested / xtoken_supply
    */
   exchangeRate(): Decimal {
-    const tokensInvested = new Decimal(this.poolObject.tokens_invested || '0');
-    const xtokenSupply = new Decimal(this.poolObject.xtoken_supply || '0');
+    const tokensInvested = new Decimal(this.poolObject.tokensInvested);
+    const xtokenSupply = new Decimal(this.poolObject.xTokenSupply);
 
     if (xtokenSupply.isZero()) {
       return new Decimal(1); // Default exchange rate when no tokens are supplied
@@ -51,17 +59,60 @@ export class LoopingStrategy extends BaseStrategy<
    * Stubbed getData similar to Rust get_data; returns zero/empty placeholders
    */
   async getData(): Promise<PoolData> {
+    const [alphafi, parent] = await Promise.all([this.getTvl(), this.getParentTvl()]);
     return {
-      poolId: this.poolLabel.pool_id,
-      apr: {
-        baseApr: new Decimal(0),
-        alphaMiningApr: new Decimal(0),
-        apy: new Decimal(0),
-        lastAutocompounded: new Date(0),
+      poolId: this.poolLabel.poolId,
+      apr: this.context.getAprData(this.poolLabel.poolId),
+      tvl: {
+        alphafi,
+        parent,
       },
-      tvl: new Decimal(0),
-      parentTvl: new Decimal(0),
     };
+  }
+
+  /**
+   * Compute TVL mirroring Rust get_base_tvl_inner:
+   * - Adjust tokens_invested by current_debt_to_supply_ratio
+   * - Scale by supply token decimals (or 1e9 for Navi)
+   * - Convert to user deposit token using price ratio
+   */
+  async getTvl(): Promise<SingleTvl> {
+    const supplyType = this.poolLabel.supplyAsset.type;
+    const userDepositType = this.poolLabel.userDepositAsset.type;
+    const cdsr = new Decimal(this.investorObject.currentDebtToSupplyRatio);
+    const adjusted = new Decimal(this.poolObject.tokensInvested).mul(
+      new Decimal(1).minus(cdsr.div(new Decimal(10).pow(20))),
+    );
+
+    let tokensInvested = adjusted;
+    if (this.poolLabel.parentProtocol === 'Navi') {
+      tokensInvested = tokensInvested.div(new Decimal(10).pow(9));
+    } else {
+      const supplyDecimals =
+        (await this.context.coinInfoProvider.getCoinByType(supplyType))?.decimals ?? 9;
+      tokensInvested = tokensInvested.div(new Decimal(10).pow(supplyDecimals));
+    }
+
+    const supplyPrice = await this.context.getCoinPrice(supplyType);
+    const userDepositPrice = await this.context.getCoinPrice(userDepositType);
+
+    const tokenAmount = tokensInvested.mul(supplyPrice).div(userDepositPrice);
+    const usdValue = tokensInvested.mul(userDepositPrice);
+    return { tokenAmount, usdValue };
+  }
+
+  async getParentTvl(): Promise<SingleTvl> {
+    const protocol = this.poolLabel.parentProtocol;
+    const coinType = this.poolLabel.supplyAsset.type;
+    const price = await this.context.getCoinPrice(coinType);
+    if (protocol === 'Navi') {
+      const tokenAmount = this.context.getNaviTvlByPoolId(this.poolLabel.poolId);
+      return { tokenAmount, usdValue: tokenAmount.mul(price) };
+    } else if (protocol === 'Alphalend') {
+      const tokenAmount = this.context.getAlphaLendTvl(coinType);
+      return { tokenAmount, usdValue: tokenAmount.mul(price) };
+    }
+    throw new Error(`Unsupported parent protocol: ${protocol}`);
   }
 
   // ===== Parsing Functions (similar to Rust SDK) =====
@@ -74,24 +125,28 @@ export class LoopingStrategy extends BaseStrategy<
       const fields = this.extractFields(response);
 
       return {
-        acc_rewards_per_xtoken: this.parseVecMap(fields.acc_rewards_per_xtoken || {}),
-        deposit_fee: this.getStringField(fields, 'deposit_fee'),
-        deposit_fee_max_cap: this.getStringField(fields, 'deposit_fee_max_cap'),
+        accRewardsPerXtoken: this.parseVecMap(fields.acc_rewards_per_xtoken || {}),
+        depositFee: this.getStringField(fields, 'deposit_fee'),
+        depositFeeMaxCap: this.getStringField(fields, 'deposit_fee_max_cap'),
         id: this.getStringField(fields, 'id'),
-        image_url: this.getStringField(fields, 'image_url'),
+        imageUrl: this.getStringField(fields, 'image_url'),
         name: this.getStringField(fields, 'name'),
         paused: this.getBooleanField(fields, 'paused', false),
-        rewards: {
-          coinType:
-            this.getStringField(fields.rewards || {}, 'coinType') ||
-            this.getStringField(fields.rewards || {}, 'coin_type'),
-          amount: this.getStringField(fields.rewards || {}, 'amount'),
-          apr: this.getStringField(fields.rewards || {}, 'apr'),
-        },
-        tokens_invested: this.getStringField(fields, 'tokens_invested'),
-        withdraw_fee_max_cap: this.getStringField(fields, 'withdraw_fee_max_cap'),
-        withdrawal_fee: this.getStringField(fields, 'withdrawal_fee'),
-        xtoken_supply: this.getStringField(fields, 'xtoken_supply'),
+        rewards: (() => {
+          const idVal =
+            (this.getNestedField(fields, 'rewards.fields.id.id') as string | undefined) || '';
+          const sizeVal =
+            (this.getNestedField(fields, 'rewards.fields.size') as string | undefined) || '';
+          return { id: String(idVal), size: String(sizeVal) };
+        })(),
+        tokensInvested:
+          this.getStringField(fields, 'tokens_invested') ||
+          this.getStringField(fields, 'tokensInvested'),
+        withdrawFeeMaxCap: this.getStringField(fields, 'withdraw_fee_max_cap'),
+        withdrawalFee: this.getStringField(fields, 'withdrawal_fee'),
+        xTokenSupply:
+          this.getStringField(fields, 'xtoken_supply') ||
+          this.getStringField(fields, 'xTokenSupply'),
       };
     }, 'Failed to parse Looping pool object');
   }
@@ -104,22 +159,28 @@ export class LoopingStrategy extends BaseStrategy<
       const fields = this.extractFields(response);
 
       return {
-        current_debt_to_supply_ratio: this.getStringField(fields, 'current_debt_to_supply_ratio'),
-        free_rewards: {
-          id: this.getStringField(fields.free_rewards || {}, 'id'),
-          size: this.getStringField(fields.free_rewards || {}, 'size'),
-        },
+        currentDebtToSupplyRatio: this.getStringField(fields, 'current_debt_to_supply_ratio'),
+        freeRewards: (() => {
+          const idVal =
+            (this.getNestedField(fields, 'free_rewards.fields.id.id') as string | undefined) || '';
+          const sizeVal =
+            (this.getNestedField(fields, 'free_rewards.fields.size') as string | undefined) || '';
+          return { id: String(idVal), size: String(sizeVal) };
+        })(),
         id: this.getStringField(fields, 'id'),
         loops: this.getStringField(fields, 'loops'),
-        max_cap_performance_fee: this.getStringField(fields, 'max_cap_performance_fee'),
-        minimum_swap_amount: this.getStringField(fields, 'minimum_swap_amount'),
-        navi_acc_cap: {
-          id: this.getStringField(fields.navi_acc_cap || {}, 'id'),
-          owner: this.getStringField(fields.navi_acc_cap || {}, 'owner'),
+        maxCapPerformanceFee: this.getStringField(fields, 'max_cap_performance_fee'),
+        minimumSwapAmount: this.getStringField(fields, 'minimum_swap_amount'),
+        naviAccCap: {
+          id:
+            (this.getNestedField(fields, 'navi_acc_cap.fields.id.id') as string | undefined) || '',
+          owner: this.getNestedField(fields, 'navi_acc_cap.fields.owner') || '',
         },
-        performance_fee: this.getStringField(fields, 'performance_fee'),
-        safe_borrow_percentage: this.getStringField(fields, 'safe_borrow_percentage'),
-        tokens_deposited: this.getStringField(fields, 'tokens_deposited'),
+        performanceFee: this.getStringField(fields, 'performance_fee'),
+        safeBorrowPercentage: this.getStringField(fields, 'safe_borrow_percentage'),
+        tokensDeposited:
+          this.getStringField(fields, 'tokens_deposited') ||
+          this.getStringField(fields, 'tokensDeposited'),
       };
     }, 'Failed to parse Looping investor object');
   }
@@ -141,13 +202,13 @@ export class LoopingStrategy extends BaseStrategy<
 
         return {
           id: this.getStringField(fields, 'id'),
-          image_url: this.getStringField(fields, 'image_url'),
-          last_acc_reward_per_xtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
+          imageUrl: this.getStringField(fields, 'image_url'),
+          lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
           name: this.getStringField(fields, 'name'),
           owner: this.getStringField(fields, 'owner'),
-          pending_rewards: this.parseVecMap(fields.pending_rewards || {}),
-          pool_id: this.getStringField(fields, 'pool_id'),
-          xtoken_balance: this.getStringField(fields, 'xtoken_balance'),
+          pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
+          poolId: this.getStringField(fields, 'pool_id'),
+          xTokenBalance: this.getStringField(fields, 'xtoken_balance'),
           type: this.getStringField(fields, 'type'),
         };
       }, `Failed to parse Looping receipt object at index ${index}`);
@@ -161,44 +222,43 @@ export class LoopingStrategy extends BaseStrategy<
  * Looping Pool object data structure
  */
 export interface LoopingPoolObject {
-  acc_rewards_per_xtoken: KeyValuePair[];
-  deposit_fee: string;
-  deposit_fee_max_cap: string;
+  accRewardsPerXtoken: KeyValuePair[];
+  depositFee: string;
+  depositFeeMaxCap: string;
   id: string;
-  image_url: string;
+  imageUrl: string;
   name: string;
   paused: boolean;
   rewards: {
-    coinType: string;
-    amount: string;
-    apr: string;
+    id: string;
+    size: string;
   };
-  tokens_invested: string;
-  withdraw_fee_max_cap: string;
-  withdrawal_fee: string;
-  xtoken_supply: string;
+  tokensInvested: string;
+  withdrawFeeMaxCap: string;
+  withdrawalFee: string;
+  xTokenSupply: string;
 }
 
 /**
  * Looping Investor object data structure
  */
 export interface LoopingInvestorObject {
-  current_debt_to_supply_ratio: string;
-  free_rewards: {
+  currentDebtToSupplyRatio: string;
+  freeRewards: {
     id: string;
     size: string;
   };
   id: string;
   loops: string;
-  max_cap_performance_fee: string;
-  minimum_swap_amount: string;
-  navi_acc_cap: {
+  maxCapPerformanceFee: string;
+  minimumSwapAmount: string;
+  naviAccCap: {
     id: string;
     owner: string;
   };
-  performance_fee: string;
-  safe_borrow_percentage: string;
-  tokens_deposited: string;
+  performanceFee: string;
+  safeBorrowPercentage: string;
+  tokensDeposited: string;
 }
 
 /**
@@ -206,13 +266,13 @@ export interface LoopingInvestorObject {
  */
 export interface LoopingReceiptObject {
   id: string;
-  image_url: string;
-  last_acc_reward_per_xtoken: KeyValuePair[];
+  imageUrl: string;
+  lastAccRewardPerXtoken: KeyValuePair[];
   name: string;
   owner: string;
-  pending_rewards: KeyValuePair[];
-  pool_id: string;
-  xtoken_balance: string;
+  pendingRewards: KeyValuePair[];
+  poolId: string;
+  xTokenBalance: string;
   type: string;
 }
 
@@ -222,23 +282,23 @@ export interface LoopingReceiptObject {
  * Looping Pool Label - Configuration for Looping strategy pools
  */
 export interface LoopingPoolLabel {
-  pool_id: string;
-  package_id: string;
-  package_number: number;
-  strategy_type: 'Looping';
-  parent_protocol: ProtocolType;
-  investor_id: string;
+  poolId: string;
+  packageId: string;
+  packageNumber: number;
+  strategyType: 'Looping';
+  parentProtocol: ProtocolType;
+  investorId: string;
   receipt: NameType;
-  supply_asset: NameType;
-  borrow_asset: NameType;
-  user_deposit_asset: NameType;
-  user_withdraw_asset: NameType;
+  supplyAsset: NameType;
+  borrowAsset: NameType;
+  userDepositAsset: NameType;
+  userWithdrawAsset: NameType;
   events: {
-    autocompound_event_type: string;
-    liquidity_change_event_type: string;
-    check_ratio_event_type: string;
+    autocompoundEventType: string;
+    liquidityChangeEventType: string;
+    checkRatioEventType: string;
   };
-  is_active: boolean;
-  pool_name: string;
-  is_native: boolean;
+  isActive: boolean;
+  poolName: string;
+  isNative: boolean;
 }

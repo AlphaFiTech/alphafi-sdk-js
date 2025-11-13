@@ -7,12 +7,32 @@ export type AprData = {
   lastAutocompounded: Date;
 };
 
+export type SingleTvl = {
+  tokenAmount: Decimal;
+  usdValue: Decimal;
+};
+
+export type DoubleTvl = {
+  tokenAmountA: Decimal;
+  tokenAmountB: Decimal;
+  usdValue: Decimal;
+};
+
+export type TvlData =
+  | {
+      alphafi: SingleTvl;
+      parent: SingleTvl;
+    }
+  | {
+      alphafi: DoubleTvl;
+      parent: DoubleTvl;
+    };
+
 export type PoolData =
   | {
       poolId: string;
       apr: AprData;
-      tvl: Decimal;
-      parentTvl: Decimal;
+      tvl: TvlData;
       lpBreakdown: {
         token1Amount: Decimal;
         token2Amount: Decimal;
@@ -29,6 +49,5 @@ export type PoolData =
   | {
       poolId: string;
       apr: AprData;
-      tvl: Decimal;
-      parentTvl: Decimal;
+      tvl: TvlData;
     };

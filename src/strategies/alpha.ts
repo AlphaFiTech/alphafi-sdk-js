@@ -5,8 +5,9 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { BaseStrategy, KeyValuePair, StrategyType, ProtocolType, NameType } from './strategy.js';
-import { PoolData } from '../models/types.js';
+import { BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
+import { PoolData, SingleTvl } from '../models/types.js';
+import { StrategyContext } from '../models/strategy_context.js';
 
 // ===== Alpha Strategy Class =====
 
@@ -21,11 +22,13 @@ export class AlphaStrategy extends BaseStrategy<
 > {
   private poolLabel: AlphaPoolLabel;
   private poolObject: AlphaPoolObject;
+  private context: StrategyContext;
 
-  constructor(poolLabel: AlphaPoolLabel, poolObject: any) {
+  constructor(poolLabel: AlphaPoolLabel, poolObject: any, context: StrategyContext) {
     super();
     this.poolLabel = poolLabel;
     this.poolObject = this.parsePoolObject(poolObject);
+    this.context = context;
   }
 
   // ===== Strategy Interface Implementation =====
@@ -35,8 +38,9 @@ export class AlphaStrategy extends BaseStrategy<
    * Exchange rate = tokens_invested / xtoken_supply
    */
   exchangeRate(): Decimal {
-    const tokensInvested = new Decimal(this.poolObject.tokens_invested || '0');
-    const xtokenSupply = new Decimal(this.poolObject.xtoken_supply || '0');
+    // For Alpha, tokens invested numerator should use alphaBal (matches Rust)
+    const tokensInvested = new Decimal(this.poolObject.alphaBal);
+    const xtokenSupply = new Decimal(this.poolObject.xTokenSupply);
 
     if (xtokenSupply.isZero()) {
       return new Decimal(1); // Default exchange rate when no tokens are supplied
@@ -49,17 +53,33 @@ export class AlphaStrategy extends BaseStrategy<
    * Stubbed getData similar to Rust get_data; returns zero/empty placeholders
    */
   async getData(): Promise<PoolData> {
+    const [alphafi, parent] = await Promise.all([this.getTvl(), this.getParentTvl()]);
     return {
-      poolId: this.poolLabel.pool_id,
-      apr: {
-        baseApr: new Decimal(0),
-        alphaMiningApr: new Decimal(0),
-        apy: new Decimal(0),
-        lastAutocompounded: new Date(0),
+      poolId: this.poolLabel.poolId,
+      apr: this.context.getAprData(this.poolLabel.poolId),
+      tvl: {
+        alphafi,
+        parent,
       },
-      tvl: new Decimal(0),
-      parentTvl: new Decimal(0),
     };
+  }
+
+  /**
+   * Compute TVL in quote currency using coin price data.
+   */
+  async getTvl(): Promise<SingleTvl> {
+    const coinType = this.poolLabel.asset.type;
+    const decimals = await this.context.getCoinDecimals(coinType);
+    const price = await this.context.getCoinPrice(coinType);
+    const tokenAmount = new Decimal(this.poolObject.tokensInvested).div(
+      new Decimal(10).pow(decimals),
+    );
+    const usdValue = tokenAmount.mul(price);
+    return { tokenAmount, usdValue };
+  }
+
+  async getParentTvl(): Promise<SingleTvl> {
+    return { tokenAmount: new Decimal(0), usdValue: new Decimal(0) };
   }
 
   // ===== Parsing Functions (similar to Rust SDK) =====
@@ -72,31 +92,35 @@ export class AlphaStrategy extends BaseStrategy<
       const fields = this.extractFields(response);
 
       return {
-        acc_rewards_per_xtoken: this.parseVecMap(fields.acc_rewards_per_xtoken || {}),
-        alpha_bal: this.getStringField(fields, 'alpha_bal'),
-        deposit_fee: this.getStringField(fields, 'deposit_fee'),
-        deposit_fee_max_cap: this.getStringField(fields, 'deposit_fee_max_cap'),
+        accRewardsPerXtoken: this.parseVecMap(fields.acc_rewards_per_xtoken || {}),
+        alphaBal: this.getStringField(fields, 'alpha_bal'),
+        depositFee: this.getStringField(fields, 'deposit_fee'),
+        depositFeeMaxCap: this.getStringField(fields, 'deposit_fee_max_cap'),
         id: this.getStringField(fields, 'id'),
-        image_url: this.getStringField(fields, 'image_url'),
-        instant_withdraw_fee: this.getStringField(fields, 'instant_withdraw_fee'),
-        instant_withdraw_fee_max_cap: this.getStringField(fields, 'instant_withdraw_fee_max_cap'),
-        locked_period_in_ms: this.getStringField(fields, 'locked_period_in_ms'),
-        locking_start_ms: this.getStringField(fields, 'locking_start_ms'),
+        imageUrl: this.getStringField(fields, 'image_url'),
+        instantWithdrawFee: this.getStringField(fields, 'instant_withdraw_fee'),
+        instantWithdrawFeeMaxCap: this.getStringField(fields, 'instant_withdraw_fee_max_cap'),
+        lockedPeriodInMs: this.getStringField(fields, 'locked_period_in_ms'),
+        lockingStartMs: this.getStringField(fields, 'locking_start_ms'),
         name: this.getStringField(fields, 'name'),
         paused: this.getBooleanField(fields, 'paused', false),
-        performance_fee: this.getStringField(fields, 'performance_fee'),
-        performance_fee_max_cap: this.getStringField(fields, 'performance_fee_max_cap'),
-        rewards: {
-          coinType:
-            this.getStringField(fields.rewards || {}, 'coinType') ||
-            this.getStringField(fields.rewards || {}, 'coin_type'),
-          amount: this.getStringField(fields.rewards || {}, 'amount'),
-          apr: this.getStringField(fields.rewards || {}, 'apr'),
-        },
-        tokens_invested: this.getStringField(fields, 'tokens_invested'),
-        withdraw_fee_max_cap: this.getStringField(fields, 'withdraw_fee_max_cap'),
-        withdrawal_fee: this.getStringField(fields, 'withdrawal_fee'),
-        xtoken_supply: this.getStringField(fields, 'xtoken_supply'),
+        performanceFee: this.getStringField(fields, 'performance_fee'),
+        performanceFeeMaxCap: this.getStringField(fields, 'performance_fee_max_cap'),
+        rewards: (() => {
+          const idVal =
+            (this.getNestedField(fields, 'rewards.fields.id.id') as string | undefined) || '';
+          const sizeVal =
+            (this.getNestedField(fields, 'rewards.fields.size') as string | undefined) || '';
+          return { id: String(idVal), size: String(sizeVal) };
+        })(),
+        tokensInvested:
+          this.getStringField(fields, 'tokens_invested') ||
+          this.getStringField(fields, 'tokensInvested'),
+        withdrawFeeMaxCap: this.getStringField(fields, 'withdraw_fee_max_cap'),
+        withdrawalFee: this.getStringField(fields, 'withdrawal_fee'),
+        xTokenSupply:
+          this.getStringField(fields, 'xtoken_supply') ||
+          this.getStringField(fields, 'xTokenSupply'),
       };
     }, 'Failed to parse Alpha pool object');
   }
@@ -125,18 +149,36 @@ export class AlphaStrategy extends BaseStrategy<
 
         return {
           id: this.getStringField(fields, 'id'),
-          image_url: this.getStringField(fields, 'image_url'),
-          last_acc_reward_per_xtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
-          locked_balance: {
-            id: this.getStringField(fields.locked_balance || {}, 'id'),
-            size: this.getStringField(fields.locked_balance || {}, 'size'),
-          },
+          imageUrl: this.getStringField(fields, 'image_url'),
+          lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
+          lockedBalance: (() => {
+            const idVal =
+              (this.getNestedField(fields, 'locked_balance.fields.id.id') as string | undefined) ||
+              '';
+            const sizeVal =
+              (this.getNestedField(fields, 'locked_balance.fields.size') as string | undefined) ||
+              '';
+            const headVal =
+              (this.getNestedField(fields, 'locked_balance.fields.head') as string | undefined) ||
+              '';
+            const tailVal =
+              (this.getNestedField(fields, 'locked_balance.fields.tail') as string | undefined) ||
+              '';
+            return {
+              id: String(idVal),
+              size: String(sizeVal),
+              head: String(headVal),
+              tail: String(tailVal),
+            };
+          })(),
           name: this.getStringField(fields, 'name'),
           owner: this.getStringField(fields, 'owner'),
-          pending_rewards: this.parseVecMap(fields.pending_rewards || {}),
-          pool_id: this.getStringField(fields, 'pool_id'),
-          unlocked_xtokens: this.getStringField(fields, 'unlocked_xtokens'),
-          xtoken_balance: this.getStringField(fields, 'xtoken_balance'),
+          pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
+          poolId: this.getStringField(fields, 'pool_id'),
+          unlockedXtokens: this.getStringField(fields, 'unlocked_xtokens'),
+          xTokenBalance:
+            this.getStringField(fields, 'xtoken_balance') ||
+            this.getStringField(fields, 'xTokenBalance'),
           type: this.getStringField(fields, 'type'),
         };
       }, `Failed to parse Alpha receipt object at index ${index}`);
@@ -150,29 +192,28 @@ export class AlphaStrategy extends BaseStrategy<
  * Alpha Pool object data structure
  */
 export interface AlphaPoolObject {
-  acc_rewards_per_xtoken: KeyValuePair[];
-  alpha_bal: string;
-  deposit_fee: string;
-  deposit_fee_max_cap: string;
+  accRewardsPerXtoken: KeyValuePair[];
+  alphaBal: string;
+  depositFee: string;
+  depositFeeMaxCap: string;
   id: string;
-  image_url: string;
-  instant_withdraw_fee: string;
-  instant_withdraw_fee_max_cap: string;
-  locked_period_in_ms: string;
-  locking_start_ms: string;
+  imageUrl: string;
+  instantWithdrawFee: string;
+  instantWithdrawFeeMaxCap: string;
+  lockedPeriodInMs: string;
+  lockingStartMs: string;
   name: string;
   paused: boolean;
-  performance_fee: string;
-  performance_fee_max_cap: string;
+  performanceFee: string;
+  performanceFeeMaxCap: string;
   rewards: {
-    coinType: string;
-    amount: string;
-    apr: string;
+    id: string;
+    size: string;
   };
-  tokens_invested: string;
-  withdraw_fee_max_cap: string;
-  withdrawal_fee: string;
-  xtoken_supply: string;
+  tokensInvested: string;
+  withdrawFeeMaxCap: string;
+  withdrawalFee: string;
+  xTokenSupply: string;
 }
 
 /**
@@ -180,46 +221,43 @@ export interface AlphaPoolObject {
  */
 export interface AlphaReceiptObject {
   id: string;
-  image_url: string;
-  last_acc_reward_per_xtoken: KeyValuePair[];
-  locked_balance: {
+  imageUrl: string;
+  lastAccRewardPerXtoken: KeyValuePair[];
+  lockedBalance: {
     id: string;
     size: string;
+    head: string;
+    tail: string;
   };
   name: string;
   owner: string;
-  pending_rewards: KeyValuePair[];
-  pool_id: string;
-  unlocked_xtokens: string;
-  xtoken_balance: string;
+  pendingRewards: KeyValuePair[];
+  poolId: string;
+  unlockedXtokens: string;
+  xTokenBalance: string;
   type: string;
 }
 
 // ===== Pool Label =====
 
 /**
- * Event types configuration for Alpha strategy
- */
-export interface AlphaEventTypes {
-  autocompound_event_type: string;
-  liquidity_change_event_type: string;
-  withdraw_v2_event_type: string;
-  after_transaction_event_type: string;
-}
-
-/**
  * Alpha Pool Label - Configuration for Alpha strategy pools
  */
 export interface AlphaPoolLabel {
-  pool_id: string;
-  package_id: string;
-  package_number: number;
-  strategy_type: 'AlphaVault';
-  parent_protocol: ProtocolType;
+  poolId: string;
+  packageId: string;
+  packageNumber: number;
+  strategyType: 'AlphaVault';
+  parentProtocol: ProtocolType;
   receipt: NameType;
   asset: NameType;
-  events: AlphaEventTypes;
-  is_active: boolean;
-  pool_name: string;
-  is_native: boolean;
+  events: {
+    autocompoundEventType: string;
+    liquidityChangeEventType: string;
+    withdrawV2EventType: string;
+    afterTransactionEventType: string;
+  };
+  isActive: boolean;
+  poolName: string;
+  isNative: boolean;
 }

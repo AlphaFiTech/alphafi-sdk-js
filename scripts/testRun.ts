@@ -69,14 +69,12 @@ export async function dryRunTransactionBlock(txb: Transaction) {
 
 async function test() {
   const { address, keypair, suiClient } = getExecStuff();
-  const lockedTableID = '0xe8474026c16bcb0581bc77169e1ee8d656d64c07ddfa02929ea536fe260e1a09';
-  const blockchain = new Blockchain(suiClient, 'mainnet');
+  const blockchain = new Blockchain('mainnet');
   const protocol = new Protocol(suiClient, 'mainnet');
-  const portfolio = new Portfolio(protocol, blockchain, suiClient, address);
-  const res = await portfolio.getPortfolioData();
+  const res = await protocol.getAprMap();
   console.log(res);
 }
-// test();
+test();
 
 async function main() {
   const { address, keypair, suiClient } = getExecStuff();
@@ -110,7 +108,7 @@ async function main() {
   //   ),
   // );
 }
-main();
+// main();
 
 async function deposit() {
   const { address, keypair, suiClient } = getExecStuff();

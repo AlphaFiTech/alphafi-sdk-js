@@ -5,8 +5,9 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { BaseStrategy, KeyValuePair, StrategyType, ProtocolType, NameType } from './strategy.js';
-import { PoolData } from '../models/types.js';
+import { BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
+import { PoolData, SingleTvl } from '../models/types.js';
+import { StrategyContext } from '../models/strategy_context.js';
 
 // ===== Lending Strategy Class =====
 
@@ -23,17 +24,20 @@ export class LendingStrategy extends BaseStrategy<
   private poolObject: LendingPoolObject;
   private investorObject: LendingInvestorObject;
   private parentPoolObject?: LendingParentPoolObject;
+  private context: StrategyContext;
 
   constructor(
     poolLabel: LendingPoolLabel,
     poolObject: any,
     investorObject: any,
+    context: StrategyContext,
     parentPoolObject?: any,
   ) {
     super();
     this.poolLabel = poolLabel;
     this.poolObject = this.parsePoolObject(poolObject);
     this.investorObject = this.parseInvestorObject(investorObject);
+    this.context = context;
     if (parentPoolObject) {
       this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
     }
@@ -46,8 +50,8 @@ export class LendingStrategy extends BaseStrategy<
    * Exchange rate = tokens_invested / xtoken_supply
    */
   exchangeRate(): Decimal {
-    const tokensInvested = new Decimal(this.poolObject.tokens_invested || '0');
-    const xtokenSupply = new Decimal(this.poolObject.xtoken_supply || '0');
+    const tokensInvested = new Decimal(this.poolObject.tokensInvested);
+    const xtokenSupply = new Decimal(this.poolObject.xTokenSupply);
 
     if (xtokenSupply.isZero()) {
       return new Decimal(1); // Default exchange rate when no tokens are supplied
@@ -60,17 +64,42 @@ export class LendingStrategy extends BaseStrategy<
    * Stubbed getData similar to Rust get_data; returns zero/empty placeholders
    */
   async getData(): Promise<PoolData> {
+    const [alphafi, parent] = await Promise.all([this.getTvl(), this.getParentTvl()]);
     return {
-      poolId: this.poolLabel.pool_id,
-      apr: {
-        baseApr: new Decimal(0),
-        alphaMiningApr: new Decimal(0),
-        apy: new Decimal(0),
-        lastAutocompounded: new Date(0),
+      poolId: this.poolLabel.poolId,
+      apr: this.context.getAprData(this.poolLabel.poolId),
+      tvl: {
+        alphafi,
+        parent,
       },
-      tvl: new Decimal(0),
-      parentTvl: new Decimal(0),
     };
+  }
+
+  /**
+   * Compute TVL in quote currency using coin price data.
+   */
+  async getTvl(): Promise<SingleTvl> {
+    const coinType = this.poolLabel.asset.type;
+    const price = await this.context.getCoinPrice(coinType);
+    const tokenAmount = new Decimal(this.poolObject.tokensInvested).div(new Decimal(10).pow(9));
+    const usdValue = tokenAmount.mul(price);
+    return { tokenAmount, usdValue };
+  }
+
+  async getParentTvl(): Promise<SingleTvl> {
+    const protocol = this.poolLabel.parentProtocol;
+    const price = await this.context.getCoinPrice(this.poolLabel.asset.type);
+    if (protocol === 'Bucket') {
+      const tokenAmount = this.context.getBucketTvl();
+      return { tokenAmount, usdValue: tokenAmount.mul(price) };
+    } else if (protocol === 'Navi') {
+      const tokenAmount = this.context.getNaviTvlByPoolId(this.poolLabel.poolId);
+      return { tokenAmount, usdValue: tokenAmount.mul(price) };
+    } else if (protocol === 'Alphalend') {
+      const tokenAmount = this.context.getAlphaLendTvl(this.poolLabel.asset.type);
+      return { tokenAmount, usdValue: tokenAmount.mul(price) };
+    }
+    throw new Error(`Unsupported parent protocol: ${protocol}`);
   }
 
   // ===== Parsing Functions (similar to Rust SDK) =====
@@ -83,24 +112,28 @@ export class LendingStrategy extends BaseStrategy<
       const fields = this.extractFields(response);
 
       return {
-        acc_rewards_per_xtoken: this.parseVecMap(fields.acc_rewards_per_xtoken || {}),
-        deposit_fee: this.getStringField(fields, 'deposit_fee'),
-        deposit_fee_max_cap: this.getStringField(fields, 'deposit_fee_max_cap'),
+        accRewardsPerXtoken: this.parseVecMap(fields.acc_rewards_per_xtoken || {}),
+        depositFee: this.getStringField(fields, 'deposit_fee'),
+        depositFeeMaxCap: this.getStringField(fields, 'deposit_fee_max_cap'),
         id: this.getStringField(fields, 'id'),
-        image_url: this.getStringField(fields, 'image_url'),
+        imageUrl: this.getStringField(fields, 'image_url'),
         name: this.getStringField(fields, 'name'),
         paused: this.getBooleanField(fields, 'paused', false),
-        rewards: {
-          coinType:
-            this.getStringField(fields.rewards || {}, 'coinType') ||
-            this.getStringField(fields.rewards || {}, 'coin_type'),
-          amount: this.getStringField(fields.rewards || {}, 'amount'),
-          apr: this.getStringField(fields.rewards || {}, 'apr'),
-        },
-        tokens_invested: this.getStringField(fields, 'tokens_invested'),
-        withdraw_fee_max_cap: this.getStringField(fields, 'withdraw_fee_max_cap'),
-        withdrawal_fee: this.getStringField(fields, 'withdrawal_fee'),
-        xtoken_supply: this.getStringField(fields, 'xtoken_supply'),
+        rewards: (() => {
+          const idVal =
+            (this.getNestedField(fields, 'rewards.fields.id.id') as string | undefined) || '';
+          const sizeVal =
+            (this.getNestedField(fields, 'rewards.fields.size') as string | undefined) || '';
+          return { id: String(idVal), size: String(sizeVal) };
+        })(),
+        tokensInvested:
+          this.getStringField(fields, 'tokens_invested') ||
+          this.getStringField(fields, 'tokensInvested'),
+        withdrawFeeMaxCap: this.getStringField(fields, 'withdraw_fee_max_cap'),
+        withdrawalFee: this.getStringField(fields, 'withdrawal_fee'),
+        xTokenSupply:
+          this.getStringField(fields, 'xtoken_supply') ||
+          this.getStringField(fields, 'xTokenSupply'),
       };
     }, 'Failed to parse Lending pool object');
   }
@@ -113,19 +146,26 @@ export class LendingStrategy extends BaseStrategy<
       const fields = this.extractFields(response);
 
       return {
-        free_rewards: {
-          id: this.getStringField(fields.free_rewards || {}, 'id'),
-          size: this.getStringField(fields.free_rewards || {}, 'size'),
-        },
+        freeRewards: (() => {
+          const idVal =
+            (this.getNestedField(fields, 'free_rewards.fields.id.id') as string | undefined) || '';
+          const sizeVal =
+            (this.getNestedField(fields, 'free_rewards.fields.size') as string | undefined) || '';
+          return { id: String(idVal), size: String(sizeVal) };
+        })(),
         id: this.getStringField(fields, 'id'),
-        max_cap_performance_fee: this.getStringField(fields, 'max_cap_performance_fee'),
-        minimum_swap_amount: this.getStringField(fields, 'minimum_swap_amount'),
-        navi_acc_cap: {
-          id: this.getStringField(fields.navi_acc_cap || {}, 'id'),
-          owner: this.getStringField(fields.navi_acc_cap || {}, 'owner'),
-        },
-        performance_fee: this.getStringField(fields, 'performance_fee'),
-        tokens_deposited: this.getStringField(fields, 'tokens_deposited'),
+        maxCapPerformanceFee: this.getStringField(fields, 'max_cap_performance_fee'),
+        minimumSwapAmount: this.getStringField(fields, 'minimum_swap_amount'),
+        naviAccCap: (() => {
+          const capFields = this.getNestedField(fields, 'navi_acc_cap.fields') || {};
+          const idVal = (capFields?.id?.id as string | undefined) || '';
+          const ownerVal = (capFields?.owner as string | undefined) || '';
+          return { id: String(idVal), owner: String(ownerVal) };
+        })(),
+        performanceFee: this.getStringField(fields, 'performance_fee'),
+        tokensDeposited:
+          this.getStringField(fields, 'tokens_deposited') ||
+          this.getStringField(fields, 'tokensDeposited'),
       };
     }, 'Failed to parse Lending investor object');
   }
@@ -141,7 +181,7 @@ export class LendingStrategy extends BaseStrategy<
         balance: this.getStringField(fields, 'balance'),
         decimal: this.getNumberField(fields, 'decimal'),
         id: this.getStringField(fields, 'id'),
-        treasury_balance: this.getStringField(fields, 'treasury_balance'),
+        treasuryBalance: this.getStringField(fields, 'treasury_balance'),
       };
     }, 'Failed to parse Lending parent pool object');
   }
@@ -156,13 +196,16 @@ export class LendingStrategy extends BaseStrategy<
 
         return {
           id: this.getStringField(fields, 'id'),
-          image_url: this.getStringField(fields, 'image_url'),
-          last_acc_reward_per_xtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
+          imageUrl: this.getStringField(fields, 'image_url'),
+          lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
           name: this.getStringField(fields, 'name'),
           owner: this.getStringField(fields, 'owner'),
-          pending_rewards: this.parseVecMap(fields.pending_rewards || {}),
-          pool_id: this.getStringField(fields, 'pool_id'),
-          xtoken_balance: this.getStringField(fields, 'xtoken_balance'),
+          pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
+          poolId: this.getStringField(fields, 'pool_id'),
+          xTokenBalance:
+            this.getStringField(fields, 'xtoken_balance') ||
+            this.getStringField(fields, 'xTokenBalance'),
+          type: this.getStringField(fields, 'type'),
         };
       }, `Failed to parse Lending receipt object at index ${index}`);
     });
@@ -175,41 +218,40 @@ export class LendingStrategy extends BaseStrategy<
  * Lending Pool object data structure
  */
 export interface LendingPoolObject {
-  acc_rewards_per_xtoken: KeyValuePair[];
-  deposit_fee: string;
-  deposit_fee_max_cap: string;
+  accRewardsPerXtoken: KeyValuePair[];
+  depositFee: string;
+  depositFeeMaxCap: string;
   id: string;
-  image_url: string;
+  imageUrl: string;
   name: string;
   paused: boolean;
   rewards: {
-    coinType: string;
-    amount: string;
-    apr: string;
+    id: string;
+    size: string;
   };
-  tokens_invested: string;
-  withdraw_fee_max_cap: string;
-  withdrawal_fee: string;
-  xtoken_supply: string;
+  tokensInvested: string;
+  withdrawFeeMaxCap: string;
+  withdrawalFee: string;
+  xTokenSupply: string;
 }
 
 /**
  * Lending Investor object data structure
  */
 export interface LendingInvestorObject {
-  free_rewards: {
+  freeRewards: {
     id: string;
     size: string;
   };
   id: string;
-  max_cap_performance_fee: string;
-  minimum_swap_amount: string;
-  navi_acc_cap: {
+  maxCapPerformanceFee: string;
+  minimumSwapAmount: string;
+  naviAccCap: {
     id: string;
     owner: string;
   };
-  performance_fee: string;
-  tokens_deposited: string;
+  performanceFee: string;
+  tokensDeposited: string;
 }
 
 /**
@@ -219,7 +261,7 @@ export interface LendingParentPoolObject {
   balance: string;
   decimal: number;
   id: string;
-  treasury_balance: string;
+  treasuryBalance: string;
 }
 
 /**
@@ -227,40 +269,36 @@ export interface LendingParentPoolObject {
  */
 export interface LendingReceiptObject {
   id: string;
-  image_url: string;
-  last_acc_reward_per_xtoken: KeyValuePair[];
+  imageUrl: string;
+  lastAccRewardPerXtoken: KeyValuePair[];
   name: string;
   owner: string;
-  pending_rewards: KeyValuePair[];
-  pool_id: string;
-  xtoken_balance: string;
+  pendingRewards: KeyValuePair[];
+  poolId: string;
+  xTokenBalance: string;
+  type: string;
 }
 
 // ===== Pool Label =====
 
 /**
- * Event types configuration for Lending strategy
- */
-export interface LendingEventTypes {
-  autocompound_event_type: string;
-  liquidity_change_event_type: string;
-}
-
-/**
  * Lending Pool Label - Configuration for Lending strategy pools
  */
 export interface LendingPoolLabel {
-  pool_id: string;
-  package_id: string;
-  package_number: number;
-  strategy_type: 'Lending';
-  parent_protocol: ProtocolType;
-  parent_pool_id: string;
-  investor_id: string;
+  poolId: string;
+  packageId: string;
+  packageNumber: number;
+  strategyType: 'Lending';
+  parentProtocol: ProtocolType;
+  parentPoolId: string;
+  investorId: string;
   receipt: NameType;
   asset: NameType;
-  events: LendingEventTypes;
-  is_active: boolean;
-  pool_name: string;
-  is_native: boolean;
+  events: {
+    autocompoundEventType: string;
+    liquidityChangeEventType: string;
+  };
+  isActive: boolean;
+  poolName: string;
+  isNative: boolean;
 }

@@ -5,8 +5,9 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { BaseStrategy, KeyValuePair, StrategyType, ProtocolType, NameType } from './strategy.js';
-import { PoolData } from '../models/types.js';
+import { BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
+import { PoolData, SingleTvl } from '../models/types.js';
+import { StrategyContext } from '../models/strategy_context.js';
 
 // ===== SingleAssetLooping Strategy Class =====
 
@@ -22,12 +23,19 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
   private poolLabel: SingleAssetLoopingPoolLabel;
   private poolObject: SingleAssetLoopingPoolObject;
   private investorObject: SingleAssetLoopingInvestorObject;
+  private context: StrategyContext;
 
-  constructor(poolLabel: SingleAssetLoopingPoolLabel, poolObject: any, investorObject: any) {
+  constructor(
+    poolLabel: SingleAssetLoopingPoolLabel,
+    poolObject: any,
+    investorObject: any,
+    context: StrategyContext,
+  ) {
     super();
     this.poolLabel = poolLabel;
     this.poolObject = this.parsePoolObject(poolObject);
     this.investorObject = this.parseInvestorObject(investorObject);
+    this.context = context;
   }
 
   // ===== Strategy Interface Implementation =====
@@ -37,8 +45,8 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
    * Exchange rate = tokens_invested / xtoken_supply
    */
   exchangeRate(): Decimal {
-    const tokensInvested = new Decimal(this.poolObject.tokens_invested || '0');
-    const xtokenSupply = new Decimal(this.poolObject.xtoken_supply || '0');
+    const tokensInvested = new Decimal(this.poolObject.tokensInvested);
+    const xtokenSupply = new Decimal(this.poolObject.xTokenSupply);
 
     if (xtokenSupply.isZero()) {
       return new Decimal(1); // Default exchange rate when no tokens are supplied
@@ -51,17 +59,48 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
    * Stubbed getData similar to Rust get_data; returns zero/empty placeholders
    */
   async getData(): Promise<PoolData> {
+    const [alphafi, parent] = await Promise.all([this.getTvl(), this.getParentTvl()]);
     return {
-      poolId: this.poolLabel.pool_id,
-      apr: {
-        baseApr: new Decimal(0),
-        alphaMiningApr: new Decimal(0),
-        apy: new Decimal(0),
-        lastAutocompounded: new Date(0),
+      poolId: this.poolLabel.poolId,
+      apr: this.context.getAprData(this.poolLabel.poolId),
+      tvl: {
+        alphafi,
+        parent,
       },
-      tvl: new Decimal(0),
-      parentTvl: new Decimal(0),
     };
+  }
+
+  /**
+   * Compute TVL in quote currency using coin price data.
+   */
+  async getTvl(): Promise<SingleTvl> {
+    const coinType = this.poolLabel.asset.type;
+    const decimals = await this.context.getCoinDecimals(coinType);
+    const price = await this.context.getCoinPrice(coinType);
+    const currentDebtToSupplyRatio = new Decimal(this.investorObject.currentDebtToSupplyRatio);
+    const scaling = new Decimal(10).pow(20);
+    const adjustedTokensInvested = new Decimal(this.poolObject.tokensInvested).mul(
+      new Decimal(1).minus(currentDebtToSupplyRatio.div(scaling)),
+    );
+
+    const tokenAmount = adjustedTokensInvested.div(new Decimal(10).pow(decimals));
+    const usdValue = tokenAmount.mul(price);
+
+    return { tokenAmount, usdValue };
+  }
+
+  async getParentTvl(): Promise<SingleTvl> {
+    const protocol = this.poolLabel.parentProtocol;
+    const coinType = this.poolLabel.asset.type;
+    const price = await this.context.getCoinPrice(coinType);
+    if (protocol === 'Alphalend') {
+      const tokenAmount = this.context.getAlphaLendTvl(coinType);
+      return { tokenAmount, usdValue: tokenAmount.mul(price) };
+    } else if (protocol === 'Navi') {
+      const tokenAmount = this.context.getNaviTvlByPoolId(this.poolLabel.poolId);
+      return { tokenAmount, usdValue: tokenAmount.mul(price) };
+    }
+    throw new Error(`Unsupported parent protocol: ${protocol}`);
   }
 
   // ===== Parsing Functions (similar to Rust SDK) =====
@@ -74,24 +113,31 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
       const fields = this.extractFields(response);
 
       return {
-        acc_rewards_per_xtoken: this.parseVecMap(fields.acc_rewards_per_xtoken || {}),
-        deposit_fee: this.getStringField(fields, 'deposit_fee'),
-        deposit_fee_max_cap: this.getStringField(fields, 'deposit_fee_max_cap'),
+        accRewardsPerXtoken: this.parseVecMap(fields.acc_rewards_per_xtoken || {}),
+        depositFee: this.getStringField(fields, 'deposit_fee'),
+        depositFeeMaxCap: this.getStringField(fields, 'deposit_fee_max_cap'),
         id: this.getStringField(fields, 'id'),
-        image_url: this.getStringField(fields, 'image_url'),
+        imageUrl: this.getStringField(fields, 'image_url'),
+        investorId: this.getStringField(fields, 'investor_id'),
+        maxSupply: this.getStringField(fields, 'max_supply'),
         name: this.getStringField(fields, 'name'),
         paused: this.getBooleanField(fields, 'paused', false),
-        rewards: {
-          coinType:
-            this.getStringField(fields.rewards || {}, 'coinType') ||
-            this.getStringField(fields.rewards || {}, 'coin_type'),
-          amount: this.getStringField(fields.rewards || {}, 'amount'),
-          apr: this.getStringField(fields.rewards || {}, 'apr'),
-        },
-        tokens_invested: this.getStringField(fields, 'tokens_invested'),
-        withdraw_fee_max_cap: this.getStringField(fields, 'withdraw_fee_max_cap'),
-        withdrawal_fee: this.getStringField(fields, 'withdrawal_fee'),
-        xtoken_supply: this.getStringField(fields, 'xtoken_supply'),
+        rewards: (() => {
+          // Parse rewards PoolRewardsInfo { id, size }
+          const rewardsId =
+            (this.getNestedField(fields, 'rewards.fields.id.id') as string | undefined) || '';
+          const rewardsSize =
+            (this.getNestedField(fields, 'rewards.fields.size') as string | undefined) || '';
+          return { id: String(rewardsId), size: String(rewardsSize) };
+        })(),
+        tokensInvested:
+          this.getStringField(fields, 'tokens_invested') ||
+          this.getStringField(fields, 'tokensInvested'),
+        withdrawFeeMaxCap: this.getStringField(fields, 'withdraw_fee_max_cap'),
+        withdrawalFee: this.getStringField(fields, 'withdrawal_fee'),
+        xTokenSupply:
+          this.getStringField(fields, 'xtoken_supply') ||
+          this.getStringField(fields, 'xTokenSupply'),
       };
     }, 'Failed to parse SingleAssetLooping pool object');
   }
@@ -104,14 +150,32 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
       const fields = this.extractFields(response);
 
       return {
-        free_rewards: {
-          id: this.getStringField(fields.free_rewards || {}, 'id'),
-          size: this.getStringField(fields.free_rewards || {}, 'size'),
-        },
+        assetLtv: this.getStringField(fields, 'asset_ltv'),
+        curDebt: this.getStringField(fields, 'cur_debt'),
+        currentDebtToSupplyRatio: this.getStringField(fields, 'current_debt_to_supply_ratio'),
+        freeRewards: (() => {
+          const idVal =
+            (this.getNestedField(fields, 'free_rewards.fields.id.id') as string | undefined) || '';
+          const sizeVal =
+            (this.getNestedField(fields, 'free_rewards.fields.size') as string | undefined) || '';
+          return { id: String(idVal), size: String(sizeVal) };
+        })(),
         id: this.getStringField(fields, 'id'),
-        performance_fee: this.getStringField(fields, 'performance_fee'),
-        performance_fee_max_cap: this.getStringField(fields, 'performance_fee_max_cap'),
-        tokens_deposited: this.getStringField(fields, 'tokens_deposited'),
+        marketId: this.getStringField(fields, 'market_id'),
+        maxCapPerformanceFee: this.getStringField(fields, 'max_cap_performance_fee'),
+        minimumSwapAmount: this.getStringField(fields, 'minimum_swap_amount'),
+        performanceFee: this.getStringField(fields, 'performance_fee'),
+        positionCap: {
+          clientAddress: this.getNestedField(fields, 'position_cap.fields.client_address') || '',
+          id:
+            (this.getNestedField(fields, 'position_cap.fields.id.id') as string | undefined) || '',
+          imageUrl: this.getNestedField(fields, 'position_cap.fields.image_url') || '',
+          positionId: this.getNestedField(fields, 'position_cap.fields.position_id') || '',
+        },
+        safeBorrowPercentage: this.getStringField(fields, 'safe_borrow_percentage'),
+        tokensDeposited:
+          this.getStringField(fields, 'tokens_deposited') ||
+          this.getStringField(fields, 'tokensDeposited'),
       };
     }, 'Failed to parse SingleAssetLooping investor object');
   }
@@ -133,13 +197,16 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
 
         return {
           id: this.getStringField(fields, 'id'),
-          image_url: this.getStringField(fields, 'image_url'),
-          last_acc_reward_per_xtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
+          imageUrl: this.getStringField(fields, 'image_url'),
+          lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
           name: this.getStringField(fields, 'name'),
           owner: this.getStringField(fields, 'owner'),
-          pending_rewards: this.parseVecMap(fields.pending_rewards || {}),
-          pool_id: this.getStringField(fields, 'pool_id'),
-          xtoken_balance: this.getStringField(fields, 'xtoken_balance'),
+          pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
+          poolId: this.getStringField(fields, 'pool_id'),
+          xTokenBalance:
+            this.getStringField(fields, 'xtoken_balance') ||
+            this.getStringField(fields, 'xTokenBalance'),
+          type: this.getStringField(fields, 'type'),
         };
       }, `Failed to parse SingleAssetLooping receipt object at index ${index}`);
     });
@@ -152,36 +219,49 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
  * SingleAssetLooping Pool object data structure
  */
 export interface SingleAssetLoopingPoolObject {
-  acc_rewards_per_xtoken: KeyValuePair[];
-  deposit_fee: string;
-  deposit_fee_max_cap: string;
+  accRewardsPerXtoken: KeyValuePair[];
+  depositFee: string;
+  depositFeeMaxCap: string;
   id: string;
-  image_url: string;
+  imageUrl: string;
+  investorId: string;
+  maxSupply: string;
   name: string;
   paused: boolean;
   rewards: {
-    coinType: string;
-    amount: string;
-    apr: string;
+    id: string;
+    size: string;
   };
-  tokens_invested: string;
-  withdraw_fee_max_cap: string;
-  withdrawal_fee: string;
-  xtoken_supply: string;
+  tokensInvested: string;
+  withdrawFeeMaxCap: string;
+  withdrawalFee: string;
+  xTokenSupply: string;
 }
 
 /**
  * SingleAssetLooping Investor object data structure
  */
 export interface SingleAssetLoopingInvestorObject {
-  free_rewards: {
+  assetLtv: string;
+  curDebt: string;
+  currentDebtToSupplyRatio: string;
+  freeRewards: {
     id: string;
     size: string;
   };
   id: string;
-  performance_fee: string;
-  performance_fee_max_cap: string;
-  tokens_deposited: string;
+  marketId: string;
+  maxCapPerformanceFee: string;
+  minimumSwapAmount: string;
+  performanceFee: string;
+  positionCap: {
+    clientAddress: string;
+    id: string;
+    imageUrl: string;
+    positionId: string;
+  };
+  safeBorrowPercentage: string;
+  tokensDeposited: string;
 }
 
 /**
@@ -189,13 +269,14 @@ export interface SingleAssetLoopingInvestorObject {
  */
 export interface SingleAssetLoopingReceiptObject {
   id: string;
-  image_url: string;
-  last_acc_reward_per_xtoken: KeyValuePair[];
+  imageUrl: string;
+  lastAccRewardPerXtoken: KeyValuePair[];
   name: string;
   owner: string;
-  pending_rewards: KeyValuePair[];
-  pool_id: string;
-  xtoken_balance: string;
+  pendingRewards: KeyValuePair[];
+  poolId: string;
+  xTokenBalance: string;
+  type: string;
 }
 
 // ===== Pool Label =====
@@ -204,19 +285,19 @@ export interface SingleAssetLoopingReceiptObject {
  * SingleAssetLooping Pool Label - Configuration for SingleAssetLooping strategy pools
  */
 export interface SingleAssetLoopingPoolLabel {
-  pool_id: string;
-  package_id: string;
-  package_number: number;
-  strategy_type: 'SingleAssetLooping';
-  parent_protocol: ProtocolType;
-  investor_id: string;
+  poolId: string;
+  packageId: string;
+  packageNumber: number;
+  strategyType: 'SingleAssetLooping';
+  parentProtocol: ProtocolType;
+  investorId: string;
   receipt: NameType;
   asset: NameType;
   events: {
-    autocompound_event_type: string;
-    liquidity_change_event_type: string;
+    autocompoundEventType: string;
+    liquidityChangeEventType: string;
   };
-  is_active: boolean;
-  pool_name: string;
-  is_native: boolean;
+  isActive: boolean;
+  poolName: string;
+  isNative: boolean;
 }

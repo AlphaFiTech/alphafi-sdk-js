@@ -5,8 +5,11 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { BaseStrategy, KeyValuePair, StrategyType, ProtocolType, NameType } from './strategy.js';
-import { PoolData } from '../models/types.js';
+import { BaseStrategy, ProtocolType, NameType } from './strategy.js';
+import { PoolData, DoubleTvl } from '../models/types.js';
+import { StrategyContext } from '../models/strategy_context.js';
+import BN from 'bn.js';
+import { ClmmPoolUtil, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
 
 // ===== FungibleLp Strategy Class =====
 
@@ -23,17 +26,20 @@ export class FungibleLpStrategy extends BaseStrategy<
   private poolObject: FungibleLpPoolObject;
   private investorObject: FungibleLpInvestorObject;
   private parentPoolObject?: FungibleLpParentPoolObject;
+  private context: StrategyContext;
 
   constructor(
     poolLabel: FungibleLpPoolLabel,
     poolObject: any,
     investorObject: any,
+    context: StrategyContext,
     parentPoolObject?: any,
   ) {
     super();
     this.poolLabel = poolLabel;
     this.poolObject = this.parsePoolObject(poolObject);
     this.investorObject = this.parseInvestorObject(investorObject);
+    this.context = context;
     if (parentPoolObject) {
       this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
     }
@@ -46,8 +52,8 @@ export class FungibleLpStrategy extends BaseStrategy<
    * Exchange rate = tokens_invested / treasury_cap.total_supply
    */
   exchangeRate(): Decimal {
-    const tokensInvested = new Decimal(this.poolObject.tokens_invested || '0');
-    const totalSupply = new Decimal(this.poolObject.treasury_cap.total_supply || '0');
+    const tokensInvested = new Decimal(this.poolObject.tokensInvested);
+    const totalSupply = new Decimal(this.poolObject.treasuryCap.totalSupply);
 
     if (totalSupply.isZero()) {
       return new Decimal(1); // Default exchange rate when no tokens are supplied
@@ -60,29 +66,181 @@ export class FungibleLpStrategy extends BaseStrategy<
    * Stubbed getData similar to Rust get_data; returns zero/empty placeholders
    */
   async getData(): Promise<PoolData> {
+    const [alphafi, parent, lpBreakdown, parentLpBreakdown, currentLPPoolPrice, positionRange] =
+      await Promise.all([
+        this.getTvl(),
+        this.getParentTvl(),
+        this.getLpBreakdown(),
+        this.getParentLpBreakdown(),
+        this.getCurrentLPPoolPrice(),
+        this.getPositionRange(),
+      ]);
     return {
-      poolId: this.poolLabel.pool_id,
-      apr: {
-        baseApr: new Decimal(0),
-        alphaMiningApr: new Decimal(0),
-        apy: new Decimal(0),
-        lastAutocompounded: new Date(0),
+      poolId: this.poolLabel.poolId,
+      apr: this.context.getAprData(this.poolLabel.poolId),
+      tvl: {
+        alphafi,
+        parent,
       },
-      tvl: new Decimal(0),
-      parentTvl: new Decimal(0),
-      lpBreakdown: {
-        token1Amount: new Decimal(0),
-        token2Amount: new Decimal(0),
-        totalLiquidity: new Decimal(0),
-      },
-      parentLpBreakdown: {
-        token1Amount: new Decimal(0),
-        token2Amount: new Decimal(0),
-        totalLiquidity: new Decimal(0),
-      },
-      currentLPPoolPrice: new Decimal(0),
-      positionRange: { lowerPrice: new Decimal(0), upperPrice: new Decimal(0) },
+      lpBreakdown,
+      parentLpBreakdown,
+      currentLPPoolPrice,
+      positionRange,
     };
+  }
+
+  /**
+   * Compute TVL using primary asset (asset_a) price and tokens_invested.
+   */
+  async getTvl(): Promise<DoubleTvl> {
+    const coinTypeA = this.poolLabel.assetA.type;
+    const coinTypeB = this.poolLabel.assetB.type;
+    const priceA = await this.context.getCoinPrice(coinTypeA);
+    const priceB = await this.context.getCoinPrice(coinTypeB);
+    const { amountA, amountB } = await this.getTokenAmounts(this.poolObject.tokensInvested);
+    const usdValue = amountA.mul(priceA).add(amountB.mul(priceB));
+    return { tokenAmountA: amountA, tokenAmountB: amountB, usdValue };
+  }
+
+  async getParentTvl(): Promise<DoubleTvl> {
+    if (!this.parentPoolObject) {
+      return {
+        tokenAmountA: new Decimal(0),
+        tokenAmountB: new Decimal(0),
+        usdValue: new Decimal(0),
+      };
+    }
+    const coinTypeA = this.poolLabel.assetA.type;
+    const coinTypeB = this.poolLabel.assetB.type;
+    const decimalsA = await this.context.getCoinDecimals(coinTypeA);
+    const decimalsB = await this.context.getCoinDecimals(coinTypeB);
+    const priceA = await this.context.getCoinPrice(coinTypeA);
+    const priceB = await this.context.getCoinPrice(coinTypeB);
+    const tokenAmountA = new Decimal(this.parentPoolObject.coinA).div(
+      new Decimal(10).pow(decimalsA),
+    );
+    const tokenAmountB = new Decimal(this.parentPoolObject.coinB).div(
+      new Decimal(10).pow(decimalsB),
+    );
+    const usdValue = tokenAmountA.mul(priceA).add(tokenAmountB.mul(priceB));
+    return { tokenAmountA, tokenAmountB, usdValue };
+  }
+
+  // ===== Helper Functions =====
+
+  /**
+   * Estimate token A and B amounts from liquidity using Cetus CLMM SDK.
+   */
+  private async getTokenAmounts(
+    liquidity: string,
+  ): Promise<{ amountA: Decimal; amountB: Decimal }> {
+    if (!this.parentPoolObject) {
+      return { amountA: new Decimal(0), amountB: new Decimal(0) };
+    }
+    const coinTypeA = this.poolLabel.assetA.type;
+    const coinTypeB = this.poolLabel.assetB.type;
+    const scalingA = new Decimal(10).pow(await this.context.getCoinDecimals(coinTypeA));
+    const scalingB = new Decimal(10).pow(await this.context.getCoinDecimals(coinTypeB));
+
+    const liquidityBN = new BN(new Decimal(liquidity).toFixed(0));
+    const currentSqrtPriceBN = new BN(this.parentPoolObject.currentSqrtPrice);
+
+    const upperBound = 443636;
+    let lowerTick = this.investorObject.lowerTick;
+    let upperTick = this.investorObject.upperTick;
+    if (lowerTick > upperBound) {
+      lowerTick = -~(lowerTick - 1);
+    }
+    if (upperTick > upperBound) {
+      upperTick = -~(upperTick - 1);
+    }
+    const lowerSqrtPriceBN = TickMath.tickIndexToSqrtPriceX64(lowerTick as number);
+    const upperSqrtPriceBN = TickMath.tickIndexToSqrtPriceX64(upperTick as number);
+    const amounts = ClmmPoolUtil.getCoinAmountFromLiquidity(
+      liquidityBN,
+      currentSqrtPriceBN,
+      lowerSqrtPriceBN,
+      upperSqrtPriceBN,
+      false,
+    );
+
+    const amountA = new Decimal(amounts.coinA.toString()).div(scalingA);
+    const amountB = new Decimal(amounts.coinB.toString()).div(scalingB);
+    return { amountA, amountB };
+  }
+
+  private async getLpBreakdown(): Promise<{
+    token1Amount: Decimal;
+    token2Amount: Decimal;
+    totalLiquidity: Decimal;
+  }> {
+    const liquidity = this.poolObject.tokensInvested;
+    const { amountA, amountB } = await this.getTokenAmounts(liquidity);
+    const totalLiquidity = new Decimal(liquidity).div(new Decimal(1e9));
+    return {
+      token1Amount: amountA,
+      token2Amount: amountB,
+      totalLiquidity,
+    };
+  }
+
+  private async getParentLpBreakdown(): Promise<{
+    token1Amount: Decimal;
+    token2Amount: Decimal;
+    totalLiquidity: Decimal;
+  }> {
+    if (!this.parentPoolObject) {
+      return {
+        token1Amount: new Decimal(0),
+        token2Amount: new Decimal(0),
+        totalLiquidity: new Decimal(0),
+      };
+    }
+    const coinTypeA = this.poolLabel.assetA.type;
+    const coinTypeB = this.poolLabel.assetB.type;
+    const decimalsA = await this.context.getCoinDecimals(coinTypeA);
+    const decimalsB = await this.context.getCoinDecimals(coinTypeB);
+    const token1Amount = new Decimal(this.parentPoolObject.coinA).div(
+      new Decimal(10).pow(decimalsA),
+    );
+    const token2Amount = new Decimal(this.parentPoolObject.coinB).div(
+      new Decimal(10).pow(decimalsB),
+    );
+    const totalLiquidity = new Decimal(this.parentPoolObject.liquidity).div(new Decimal(1e9));
+    return { token1Amount, token2Amount, totalLiquidity };
+  }
+
+  async getCurrentLPPoolPrice(): Promise<Decimal> {
+    if (!this.parentPoolObject) {
+      return new Decimal(0);
+    }
+    const coinTypeA = this.poolLabel.assetA.type;
+    const coinTypeB = this.poolLabel.assetB.type;
+    const decimalsA = await this.context.getCoinDecimals(coinTypeA);
+    const decimalsB = await this.context.getCoinDecimals(coinTypeB);
+    const currentTick = this.parentPoolObject.currentTickIndex;
+    const price = TickMath.tickIndexToPrice(currentTick, decimalsA, decimalsB);
+    return new Decimal(price.toString());
+  }
+
+  async getPositionRange(): Promise<{ lowerPrice: Decimal; upperPrice: Decimal }> {
+    const coinTypeA = this.poolLabel.assetA.type;
+    const coinTypeB = this.poolLabel.assetB.type;
+    const decimalsA = await this.context.getCoinDecimals(coinTypeA);
+    const decimalsB = await this.context.getCoinDecimals(coinTypeB);
+
+    const upperBound = 443636;
+    let lowerTick = this.investorObject.lowerTick;
+    let upperTick = this.investorObject.upperTick;
+    if (lowerTick > upperBound) {
+      lowerTick = -~(lowerTick - 1);
+    }
+    if (upperTick > upperBound) {
+      upperTick = -~(upperTick - 1);
+    }
+    const lower = TickMath.tickIndexToPrice(lowerTick, decimalsA, decimalsB);
+    const upper = TickMath.tickIndexToPrice(upperTick, decimalsA, decimalsB);
+    return { lowerPrice: new Decimal(lower.toString()), upperPrice: new Decimal(upper.toString()) };
   }
 
   // ===== Parsing Functions (similar to Rust SDK) =====
@@ -95,15 +253,24 @@ export class FungibleLpStrategy extends BaseStrategy<
       const fields = this.extractFields(response);
 
       return {
+        depositFee: this.getStringField(fields, 'deposit_fee'),
+        depositFeeMaxCap: this.getStringField(fields, 'deposit_fee_max_cap'),
         id: this.getStringField(fields, 'id'),
-        image_url: this.getStringField(fields, 'image_url'),
-        name: this.getStringField(fields, 'name'),
         paused: this.getBooleanField(fields, 'paused', false),
-        treasury_cap: {
-          id: this.getStringField(fields.treasury_cap || {}, 'id'),
-          total_supply: this.getStringField(fields.treasury_cap || {}, 'total_supply'),
+        treasuryCap: {
+          id:
+            (this.getNestedField(fields, 'treasury_cap.fields.id.id') as string | undefined) ||
+            this.getStringField(fields.treasury_cap || {}, 'id'),
+          totalSupply:
+            (this.getNestedField(fields, 'treasury_cap.fields.total_supply.fields.value') as
+              | string
+              | undefined) || this.getStringField(fields.treasury_cap || {}, 'total_supply'),
         },
-        tokens_invested: this.getStringField(fields, 'tokens_invested'),
+        tokensInvested:
+          this.getStringField(fields, 'tokens_invested') ||
+          this.getStringField(fields, 'tokensInvested'),
+        withdrawFeeMaxCap: this.getStringField(fields, 'withdraw_fee_max_cap'),
+        withdrawalFee: this.getStringField(fields, 'withdrawal_fee'),
       };
     }, 'Failed to parse FungibleLp pool object');
   }
@@ -116,14 +283,24 @@ export class FungibleLpStrategy extends BaseStrategy<
       const fields = this.extractFields(response);
 
       return {
-        emergency_balance_a: this.getStringField(fields, 'emergency_balance_a'),
-        emergency_balance_b: this.getStringField(fields, 'emergency_balance_b'),
-        free_balance_a: this.getStringField(fields, 'free_balance_a'),
-        free_balance_b: this.getStringField(fields, 'free_balance_b'),
+        emergencyBalanceA: this.getStringField(fields, 'emergency_balance_a'),
+        emergencyBalanceB: this.getStringField(fields, 'emergency_balance_b'),
+        freeBalanceA: this.getStringField(fields, 'free_balance_a'),
+        freeBalanceB: this.getStringField(fields, 'free_balance_b'),
+        freeRewards: (() => {
+          const idVal =
+            (this.getNestedField(fields, 'free_rewards.fields.id.id') as string | undefined) || '';
+          const sizeVal =
+            (this.getNestedField(fields, 'free_rewards.fields.size') as string | undefined) || '';
+          return { id: String(idVal), size: String(sizeVal) };
+        })(),
         id: this.getStringField(fields, 'id'),
-        is_emergency: this.getBooleanField(fields, 'is_emergency', false),
-        lower_tick: this.getNumberField(fields, 'lower_tick'),
-        upper_tick: this.getNumberField(fields, 'upper_tick'),
+        isEmergency: this.getBooleanField(fields, 'is_emergency', false),
+        lowerTick: this.getNumberField(fields, 'lower_tick'),
+        minimumSwapAmount: this.getStringField(fields, 'minimum_swap_amount'),
+        performanceFee: this.getStringField(fields, 'performance_fee'),
+        performanceFeeMaxCap: this.getStringField(fields, 'performance_fee_max_cap'),
+        upperTick: this.getNumberField(fields, 'upper_tick'),
       };
     }, 'Failed to parse FungibleLp investor object');
   }
@@ -136,10 +313,12 @@ export class FungibleLpStrategy extends BaseStrategy<
       const fields = this.extractFields(response);
 
       return {
-        coin_a: this.getStringField(fields, 'coin_a'),
-        coin_b: this.getStringField(fields, 'coin_b'),
-        current_sqrt_price: this.getStringField(fields, 'current_sqrt_price'),
-        current_tick_index: this.getNumberField(fields, 'current_tick_index'),
+        coinA: this.getStringField(fields, 'coin_a'),
+        coinB: this.getStringField(fields, 'coin_b'),
+        currentSqrtPrice: this.getStringField(fields, 'current_sqrt_price'),
+        currentTickIndex:
+          (this.getNestedField(fields, 'current_tick_index.fields.bits') as number | undefined) ||
+          this.getNumberField(fields, 'current_tick_index'),
         id: this.getStringField(fields, 'id'),
         liquidity: this.getStringField(fields, 'liquidity'),
       };
@@ -160,39 +339,48 @@ export class FungibleLpStrategy extends BaseStrategy<
  * FungibleLp Pool object data structure
  */
 export interface FungibleLpPoolObject {
+  depositFee: string;
+  depositFeeMaxCap: string;
   id: string;
-  image_url: string;
-  name: string;
   paused: boolean;
-  treasury_cap: {
+  treasuryCap: {
     id: string;
-    total_supply: string;
+    totalSupply: string;
   };
-  tokens_invested: string;
+  tokensInvested: string;
+  withdrawFeeMaxCap: string;
+  withdrawalFee: string;
 }
 
 /**
  * FungibleLp Investor object data structure
  */
 export interface FungibleLpInvestorObject {
-  emergency_balance_a: string;
-  emergency_balance_b: string;
-  free_balance_a: string;
-  free_balance_b: string;
+  emergencyBalanceA: string;
+  emergencyBalanceB: string;
+  freeBalanceA: string;
+  freeBalanceB: string;
+  freeRewards: {
+    id: string;
+    size: string;
+  };
   id: string;
-  is_emergency: boolean;
-  lower_tick: number;
-  upper_tick: number;
+  isEmergency: boolean;
+  lowerTick: number;
+  minimumSwapAmount: string;
+  performanceFee: string;
+  performanceFeeMaxCap: string;
+  upperTick: number;
 }
 
 /**
  * FungibleLp Parent Pool object data structure (underlying protocol pool)
  */
 export interface FungibleLpParentPoolObject {
-  coin_a: string;
-  coin_b: string;
-  current_sqrt_price: string;
-  current_tick_index: number;
+  coinA: string;
+  coinB: string;
+  currentSqrtPrice: string;
+  currentTickIndex: number;
   id: string;
   liquidity: string;
 }
@@ -200,30 +388,25 @@ export interface FungibleLpParentPoolObject {
 // ===== Pool Label =====
 
 /**
- * Event types configuration for FungibleLp strategy
- */
-export interface FungibleLpEventTypes {
-  autocompound_event_type: string;
-  rebalance_event_type: string;
-  liquidity_change_event_type: string;
-}
-
-/**
  * FungibleLp Pool Label - Configuration for FungibleLp strategy pools
  */
 export interface FungibleLpPoolLabel {
-  pool_id: string;
-  package_id: string;
-  package_number: number;
-  strategy_type: 'FungibleLp';
-  parent_protocol: ProtocolType;
-  parent_pool_id: string;
-  investor_id: string;
-  fungible_coin: NameType;
-  asset_a: NameType;
-  asset_b: NameType;
-  events: FungibleLpEventTypes;
-  is_active: boolean;
-  pool_name: string;
-  is_native: boolean;
+  poolId: string;
+  packageId: string;
+  packageNumber: number;
+  strategyType: 'FungibleLp';
+  parentProtocol: ProtocolType;
+  parentPoolId: string;
+  investorId: string;
+  fungibleCoin: NameType;
+  assetA: NameType;
+  assetB: NameType;
+  events: {
+    autocompoundEventType: string;
+    rebalanceEventType: string;
+    liquidityChangeEventType: string;
+  };
+  isActive: boolean;
+  poolName: string;
+  isNative: boolean;
 }
