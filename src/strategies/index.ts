@@ -1,0 +1,38 @@
+/**
+ * Strategies module exports
+ * Re-exports all strategy-related classes and interfaces
+ */
+
+// Base strategy and types
+export * from './strategy.js';
+
+// Strategy implementations
+export * from './lp.js';
+export * from './alpha.js';
+export * from './autobalanceLp.js';
+export * from './fungibleLp.js';
+export * from './lending.js';
+export * from './looping.js';
+export * from './singleAssetLooping.js';
+export * from './lyf.js';
+
+// Re-export commonly used types for convenience
+export type {
+  Strategy,
+  KeyValuePair,
+  StrategyType,
+  ProtocolType,
+  NameType,
+  PoolLabel,
+} from './strategy.js';
+export { BaseStrategy } from './strategy.js';
+
+// Re-export pool label types
+export type { LpPoolLabel, LpEventTypes } from './lp.js';
+export type { AlphaPoolLabel, AlphaEventTypes } from './alpha.js';
+export type { AutobalanceLpPoolLabel, AutobalanceLpEventTypes } from './autobalanceLp.js';
+export type { FungibleLpPoolLabel, FungibleLpEventTypes } from './fungibleLp.js';
+export type { LendingPoolLabel, LendingEventTypes } from './lending.js';
+export type { LoopingPoolLabel } from './looping.js';
+export type { SingleAssetLoopingPoolLabel } from './singleAssetLooping.js';
+export type { LyfPoolLabel } from './lyf.js';
