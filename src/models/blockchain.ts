@@ -1,104 +1,178 @@
-import { SuiClient, SuiObjectData } from '@mysten/sui/client';
-import { conf, CONF_ENV } from '../common/constants.js';
-import { poolDetailsMap } from '../common/maps.js';
-import {
-  PoolType,
-  ParentPoolType,
-  InvestorType,
-  ReceiptType,
-  DistributorType,
-  AlphaPositionType,
-  AlphaFiReceiptType,
-} from '../utils/parsedTypes.js';
-import {
-  // pool
-  AlphaPoolQueryType,
-  DefaultPoolQueryType,
-  FungiblePoolQueryType,
-  // parent pool
-  BluefinParentPoolQueryType,
-  CetusParentPoolQueryType,
-  NaviParentPoolQueryType,
-  // investor
-  CetusInvestorQueryType,
-  BluefinInvestorQueryType,
-  // receipt
-  DefaultReceiptQueryType,
-  AlphaReceiptQueryType,
-  // distributor
-  DistributorQueryType,
-  BucketInvestorQueryType,
-  NaviInvestorQueryType,
-  NaviLoopInvestorQueryType,
-  AlphaPositionQueryType,
-  AlphaFiReceiptQueryType,
-} from '../utils/queryTypes.js';
-import { parsers } from '../utils/parser.js';
+import { getFullnodeUrl, SuiClient, SuiObjectData } from '@mysten/sui/client';
+import { SuiGraphQLClient } from '@mysten/sui/graphql';
+import { graphql } from '@mysten/sui/graphql/schemas/latest';
+import { Transaction } from '@mysten/sui/transactions';
+import { conf, CONF_ENV } from 'src/common/constants.js';
+import { poolDetailsMap } from 'src/common/maps.js';
+import { AlphaFiReceiptType, AlphaPositionType, PoolType, ReceiptType } from 'src/utils/parsedTypes.js';
+import { parsers } from 'src/utils/parser.js';
+import { AlphaFiReceiptQueryType, AlphaPoolQueryType, AlphaPositionQueryType, AlphaReceiptQueryType, DefaultPoolQueryType, DefaultReceiptQueryType, FungiblePoolQueryType } from 'src/utils/queryTypes.js';
 
 export class Blockchain {
-  client: SuiClient;
-  constants: any;
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+  gqlClient: SuiGraphQLClient<any>;
+  suiClient: SuiClient;
 
-  constructor(client: SuiClient, network: 'mainnet' | 'testnet' | 'devnet' | 'localnet') {
-    this.client = client;
+  constructor(network: 'mainnet' | 'testnet' | 'devnet' | 'localnet') {
     this.network = network;
-    this.constants = conf[CONF_ENV];
+    this.suiClient = new SuiClient({
+      url: getFullnodeUrl(network),
+    });
+    this.gqlClient = new SuiGraphQLClient({
+      url:
+        network === 'testnet'
+          ? 'https://graphql.testnet.sui.io/graphql'
+          : 'https://graphql.mainnet.sui.io/graphql',
+    });
   }
 
-  async getMultiPool(): Promise<Map<string, PoolType>> {
-    let pools = Object.keys(poolDetailsMap);
-    pools = pools.filter((pool) => {
-      return poolDetailsMap[pool].poolId !== '';
-    });
-
-    const result: Map<string, PoolType> = new Map();
-
-    const batchSize = 49;
-    const batches: string[][] = [];
-    for (let i = 0; i < pools.length; i += batchSize) {
-      const batchEntries: string[] = pools.slice(i, i + batchSize);
-      batches.push(batchEntries);
+  /**
+   * Get estimated gas budget for a transaction
+   */
+  async getEstimatedGasBudget(tx: Transaction, sender: string): Promise<number | undefined> {
+    try {
+      const simResult = await this.suiClient.devInspectTransactionBlock({
+        transactionBlock: tx,
+        sender,
+      });
+      return (
+        Number(simResult.effects.gasUsed.computationCost) +
+        Number(simResult.effects.gasUsed.nonRefundableStorageFee) +
+        1e8
+      );
+    } catch (err) {
+      console.error(`Error estimating transaction gasBudget`, err);
+      return undefined;
     }
+  }
 
-    for (const batch of batches) {
-      try {
-        const poolsData = await this.client.multiGetObjects({
-          ids: batch.map((p) => poolDetailsMap[p].poolId),
-          options: {
-            showContent: true,
-          },
-        });
-        for (let i = 0; i < batch.length; i = i + 1) {
-          if (poolsData[i].data) {
-            switch (poolDetailsMap[batch[i]].strategyType) {
-              case 'ALPHA-VAULT':
-                result.set(
-                  batch[i],
-                  parsers.parseAlphaPool(poolsData[i].data as AlphaPoolQueryType),
-                );
-                break;
-              case 'FUNGIBLE-DOUBLE-ASSET-POOL':
-                result.set(
-                  batch[i],
-                  parsers.parseFungiblePool(poolsData[i].data as FungiblePoolQueryType),
-                );
-                break;
-              default:
-                result.set(batch[i], parsers.parsePool(poolsData[i].data as DefaultPoolQueryType));
+  async getObject(objectId: string) {
+    const query = graphql(`
+      query getObject($objectId: SuiAddress!) {
+        object(address: $objectId) {
+          asMoveObject {
+            contents {
+              json
             }
           }
         }
-      } catch (error) {
-        console.trace(`Error getting multiPools - ${error}`);
       }
-    }
-    return result;
+    `);
+
+    const result = await this.gqlClient.query({
+      query,
+      variables: { objectId },
+    });
+
+    return result.data?.object?.asMoveObject?.contents?.json;
   }
 
+  async multiGetObjects(objectIds: string[]) {
+    const query = graphql(`
+      query multiGetObjects($objectIds: [ObjectKey!]!) {
+        multiGetObjects(keys: $objectIds) {
+          asMoveObject {
+            contents {
+              json
+            }
+          }
+        }
+      }
+    `);
+
+    const result = await this.gqlClient.query({
+      query,
+      variables: { objectIds: objectIds.map((id) => ({ address: id })) },
+    });
+
+    return result.data?.multiGetObjects?.map((obj) => obj?.asMoveObject?.contents?.json);
+  }
+
+  async getReceipt(address: string, type: string) {
+    const query = graphql(`
+      query getReceipt($address: SuiAddress!, $type: String!) {
+        objects(filter: { owner: $address, type: $type }) {
+          nodes {
+            asMoveObject {
+              contents {
+                json
+              }
+            }
+          }
+        }
+      }
+    `);
+
+    const result = await this.gqlClient.query({
+      query,
+      variables: { address, type },
+    });
+
+    return result.data?.objects?.nodes.map((obj) => obj?.asMoveObject?.contents?.json);
+  }
+
+  async multiGetReceipts(address: string, types: string[]) {
+    const batches: string[][] = [];
+    for (let i = 0; i < types.length; i += 10) {
+      batches.push(types.slice(i, i + 10));
+    }
+
+    const promises: Promise<any>[] = [];
+    for (const batch of batches) {
+      promises.push(
+        this.gqlClient.query({
+          query: this.getMultiReceiptsQuery(batch),
+          variables: { address },
+        }),
+      );
+    }
+
+    const results = await Promise.all(promises);
+    const receiptsMap: Map<string, any[]> = new Map();
+
+    for (const result of results) {
+      for (const receipts of Object.values(result.data)) {
+        if ((receipts as any).nodes.length > 0) {
+          receiptsMap.set(
+            (receipts as any).nodes[0].asMoveObject.contents.type.repr,
+            (receipts as any).nodes.map((obj: any) => obj?.asMoveObject?.contents?.json),
+          );
+        }
+      }
+    }
+
+    return receiptsMap;
+  }
+
+  private getMultiReceiptsQuery(types: string[]) {
+    let char = 65;
+    let query = `query multiGetReceipts($address: SuiAddress!) {`;
+    types.forEach((type) => {
+      query += `
+        ${String.fromCharCode(char)}: objects(
+          filter: {owner: $address, type: "${type}"}
+        ) {
+          nodes {
+            asMoveObject {
+              contents {
+                type {
+                  repr
+                }
+                json
+              }
+            }
+          }
+        }
+      `;
+      char++;
+    });
+
+    query += `}`;
+    return graphql(query);
+  }
   async getPool(poolId: string): Promise<PoolType> {
     const poolObjectId = poolId;
-    const pool = await this.client.getObject({
+    const pool = await this.suiClient.getObject({
       id: poolObjectId,
       options: {
         showContent: true,
@@ -119,7 +193,7 @@ export class Blockchain {
     throw new Error(`Pool for poolId - ${poolId} not found`);
   }
   async getAlphaPosition(positionId: string): Promise<AlphaPositionType> {
-    const position = await this.client.getObject({
+    const position = await this.suiClient.getObject({
       id: positionId,
       options: {
         showContent: true,
@@ -129,10 +203,10 @@ export class Blockchain {
   }
 
   async getAlphaFiReceipt(address: string): Promise<AlphaFiReceiptType[]> {
-    const receipts = await this.client.getOwnedObjects({
+    const receipts = await this.suiClient.getOwnedObjects({
       owner: address,
       filter: {
-        StructType: this.constants.ALPHAFI_RECEIPT_TYPE,
+        StructType: conf[CONF_ENV].ALPHAFI_RECEIPT_TYPE,
       },
       options: {
         showContent: true,
@@ -140,278 +214,11 @@ export class Blockchain {
     });
     return receipts.data.map((receipt) => parsers.parseAlphaFiReceipt(receipt.data as AlphaFiReceiptQueryType)) as AlphaFiReceiptType[];
   }
-  async getMultiParentPool(): Promise<Map<string, ParentPoolType>> {
-    let pools = Object.keys(poolDetailsMap);
-    pools = pools.filter((pool) => {
-      return (
-        poolDetailsMap[pool].parentPoolId !== '' &&
-        (poolDetailsMap[pool].parentProtocolName === 'CETUS' ||
-          poolDetailsMap[pool].parentProtocolName === 'BLUEFIN')
-      );
-    });
-    const parentPoolSet: Map<string, string> = new Map();
-
-    pools.forEach((pool) => {
-      parentPoolSet.set(poolDetailsMap[pool].parentPoolId, poolDetailsMap[pool].parentProtocolName);
-    });
-    const protocolIds: {
-      id: string;
-      protocolName: string;
-    }[] = [];
-    parentPoolSet.forEach((value, key) => {
-      protocolIds.push({
-        id: key,
-        protocolName: value,
-      });
-    });
-
-    const result: Map<string, ParentPoolType> = new Map();
-
-    const batchSize = 49;
-    const batches: {
-      id: string;
-      protocolName: string;
-    }[][] = [];
-    for (let i = 0; i < protocolIds.length; i += batchSize) {
-      const batchEntries: {
-        id: string;
-        protocolName: string;
-      }[] = protocolIds.slice(i, i + batchSize);
-      batches.push(batchEntries);
-    }
-
-    for (const batch of batches) {
-      try {
-        const poolsData = await this.client.multiGetObjects({
-          ids: batch.map((p) => p.id),
-          options: {
-            showContent: true,
-          },
-        });
-
-        for (let i = 0; i < batch.length; i = i + 1) {
-          if (poolsData[i].data) {
-            switch (batch[i].protocolName) {
-              case 'BLUEFIN':
-                result.set(
-                  batch[i].id,
-                  parsers.parseBluefinParentPool(poolsData[i].data as BluefinParentPoolQueryType),
-                );
-                break;
-              default:
-                result.set(
-                  batch[i].id,
-                  parsers.parseCetusParentPool(poolsData[i].data as CetusParentPoolQueryType),
-                );
-            }
-          }
-        }
-      } catch (error) {
-        console.trace(`Error getting multiPools - ${error}`);
-      }
-    }
-    return result;
-  }
-
-  async getParentPool(poolId: string): Promise<ParentPoolType> {
-    const parentPoolObjectId = poolDetailsMap[poolId].parentPoolId;
-    const parentPool = await this.client.getObject({
-      id: parentPoolObjectId,
-      options: {
-        showContent: true,
-      },
-    });
-
-    if (parentPool.data) {
-      switch (poolDetailsMap[poolId].parentProtocolName) {
-        case 'BLUEFIN':
-          return parsers.parseBluefinParentPool(parentPool.data as BluefinParentPoolQueryType);
-        case 'NAVI':
-          return parsers.parseNaviParentPool(parentPool.data as NaviParentPoolQueryType);
-        case 'ALPHALEND':
-          return parsers.parseNaviParentPool(parentPool.data as NaviParentPoolQueryType);
-        default:
-          return parsers.parseCetusParentPool(parentPool.data as CetusParentPoolQueryType);
-      }
-    }
-
-    throw new Error(`Parent pool for poolId - ${poolId} not found`);
-  }
-
-  async getMultiInvestor(): Promise<Map<string, InvestorType>> {
-    let pools = Object.keys(poolDetailsMap);
-    pools = pools.filter((pool) => {
-      return (
-        poolDetailsMap[pool].investorId !== '' &&
-        poolDetailsMap[pool].strategyType !== 'ALPHA-VAULT'
-      );
-    });
-
-    const result: Map<string, InvestorType> = new Map();
-
-    const batchSize = 49;
-    const batches: string[][] = [];
-    for (let i = 0; i < pools.length; i += batchSize) {
-      const batchEntries: string[] = pools.slice(i, i + batchSize);
-      batches.push(batchEntries);
-    }
-
-    for (const batch of batches) {
-      try {
-        const investorsData = await this.client.multiGetObjects({
-          ids: batch.map((p) => poolDetailsMap[p].investorId),
-          options: {
-            showContent: true,
-          },
-        });
-        for (let i = 0; i < batch.length; i = i + 1) {
-          if (investorsData[i].data) {
-            switch (poolDetailsMap[batch[i]].parentProtocolName) {
-              case 'BLUEFIN':
-                result.set(
-                  poolDetailsMap[batch[i]].investorId,
-                  parsers.parseBluefinInvestor(investorsData[i].data as BluefinInvestorQueryType),
-                );
-                break;
-              case 'BUCKET':
-                result.set(
-                  poolDetailsMap[batch[i]].investorId,
-                  parsers.parseBucketInvestor(investorsData[i].data as BucketInvestorQueryType),
-                );
-                break;
-              case 'NAVI':
-                if (poolDetailsMap[batch[i]].strategyType === 'SINGLE-ASSET-LOOPING') {
-                  result.set(
-                    poolDetailsMap[batch[i]].investorId,
-                    parsers.parseNaviLoopInvestor(
-                      investorsData[i].data as NaviLoopInvestorQueryType,
-                    ),
-                  );
-                } else {
-                  result.set(
-                    poolDetailsMap[batch[i]].investorId,
-                    parsers.parseNaviInvestor(investorsData[i].data as NaviInvestorQueryType),
-                  );
-                }
-                break;
-              case 'ALPHALEND':
-                result.set(
-                  poolDetailsMap[batch[i]].investorId,
-                  parsers.parseNaviLoopInvestor(investorsData[i].data as NaviLoopInvestorQueryType),
-                );
-                break;
-              default:
-                result.set(
-                  poolDetailsMap[batch[i]].investorId,
-                  parsers.parseCetusInvestor(investorsData[i].data as CetusInvestorQueryType),
-                );
-            }
-          }
-        }
-      } catch (error) {
-        console.trace(`Error getting multiInvestors - ${error}`);
-      }
-    }
-    return result;
-  }
-
-  async getInvestor(poolId: string): Promise<InvestorType> {
-    const investorObjectId = poolDetailsMap[poolId].investorId;
-    const investor = await this.client.getObject({
-      id: investorObjectId,
-      options: {
-        showContent: true,
-      },
-    });
-
-    if (investor.data) {
-      switch (poolDetailsMap[poolId].parentProtocolName) {
-        case 'BLUEFIN':
-          return parsers.parseBluefinInvestor(investor.data as BluefinInvestorQueryType);
-        case 'BUCKET':
-          return parsers.parseBucketInvestor(investor.data as BucketInvestorQueryType);
-        case 'NAVI':
-          if (poolDetailsMap[poolId].strategyType === 'SINGLE-ASSET-LOOPING') {
-            return parsers.parseNaviLoopInvestor(investor.data as NaviLoopInvestorQueryType);
-          } else {
-            return parsers.parseNaviInvestor(investor.data as NaviInvestorQueryType);
-          }
-        case 'ALPHALEND':
-          return parsers.parseNaviLoopInvestor(investor.data as NaviLoopInvestorQueryType);
-        default:
-          return parsers.parseCetusInvestor(investor.data as CetusInvestorQueryType);
-      }
-    }
-
-    throw new Error(`Investor for poolId - ${poolId} not found`);
-  }
-
-  async getMultiReceipt(address: string): Promise<Map<string, ReceiptType[]>> {
-    let pools = Object.keys(poolDetailsMap);
-    pools = pools.filter((pool) => {
-      return (
-        poolDetailsMap[pool].receipt.type !== '' &&
-        poolDetailsMap[pool].strategyType !== 'FUNGIBLE-DOUBLE-ASSET-POOL'
-      );
-    });
-    const receiptTypes: Map<string, string> = new Map();
-    pools.forEach((pool) => {
-      receiptTypes.set(poolDetailsMap[pool].receipt.type, pool);
-    });
-
+  async getReceiptOld(poolId: string, address: string): Promise<ReceiptType | null> {
     const res: SuiObjectData[] = [];
     let currentCursor: string | null | undefined = null;
     while (true) {
-      const paginatedObjects = await this.client.getOwnedObjects({
-        owner: address,
-        cursor: currentCursor,
-        options: {
-          showContent: true,
-        },
-      });
-
-      // Traverse the current page data and push if it's a receipt
-      paginatedObjects.data.forEach((obj) => {
-        if (obj.data && receiptTypes.has((obj.data.content as any).type)) res.push(obj.data);
-      });
-      // Check if there's a next page
-      if (paginatedObjects.hasNextPage && paginatedObjects.nextCursor) {
-        currentCursor = paginatedObjects.nextCursor;
-      } else {
-        // No more pages available
-        break;
-      }
-    }
-
-    const receipts: ReceiptType[] = [];
-    res.forEach((receipt) => {
-      const key = receiptTypes.get((receipt.content as any).type);
-      switch (key && poolDetailsMap[key].strategyType) {
-        case 'ALPHA-VAULT':
-          receipts.push(parsers.parseAlphaReceipt(receipt as AlphaReceiptQueryType));
-          break;
-        default:
-          receipts.push(parsers.parseReceipt(receipt as DefaultReceiptQueryType));
-      }
-    });
-
-    const receiptsMap: Map<string, ReceiptType[]> = new Map();
-    receipts.forEach((receipt) => {
-      if (!receiptsMap.has(receipt.pool_id)) {
-        receiptsMap.set(receipt.pool_id, [receipt]);
-      } else {
-        receiptsMap.set(receipt.pool_id, [...receiptsMap.get(receipt.pool_id)!, receipt]);
-      }
-    });
-
-    return receiptsMap;
-  }
-
-  async getReceipt(poolId: string, address: string): Promise<ReceiptType | null> {
-    const res: SuiObjectData[] = [];
-    let currentCursor: string | null | undefined = null;
-    while (true) {
-      const paginatedObjects = await this.client.getOwnedObjects({
+      const paginatedObjects = await this.suiClient.getOwnedObjects({
         owner: address,
         cursor: currentCursor,
         filter: {
@@ -451,21 +258,5 @@ export class Blockchain {
     });
 
     return receipts.length > 0 ? receipts[0] : null;
-  }
-
-  async getDistributor(): Promise<DistributorType> {
-    const distributorObjectId = this.constants.ALPHA_DISTRIBUTOR;
-    const distributor = await this.client.getObject({
-      id: distributorObjectId,
-      options: {
-        showContent: true,
-      },
-    });
-
-    if (distributor.data) {
-      return parsers.parseDistributor(distributor.data as DistributorQueryType);
-    }
-
-    throw new Error(`Distributor with object id - ${distributorObjectId} not found`);
   }
 }

@@ -1,6 +1,6 @@
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { Blockchain } from '../src/models/blockchain';
-import { fromB64 } from '@mysten/sui/utils';
+import { fromB64, normalizeStructTag } from '@mysten/sui/utils';
 import { SuiClient } from '@mysten/sui/client';
 import { Protocol } from '../src/models/protocol.js';
 import { Portfolio } from '../src/models/portfolio.js';
@@ -8,7 +8,7 @@ import { AlphaFiSDK } from '../src/index.js';
 import dotenv from 'dotenv';
 import { Transaction } from '@mysten/sui/transactions';
 import { getConf } from '../src/common/constants.js';
-import { AlphaPoolType, AlphaPositionType } from '../src/utils/parsedTypes.js';
+import { AlphaFiReceiptType, AlphaPoolType, AlphaPositionType } from '../src/utils/parsedTypes.js';
 
 dotenv.config();
 
@@ -58,7 +58,7 @@ export async function dryRunTransactionBlock(txb: Transaction) {
         transactionBlock: serializedTxb,
       })
       .then((res) => {
-        console.log(res.effects.status, "\n", res.balanceChanges);
+        console.log(res.effects.status, "\n", res.balanceChanges, res.events[res.events.length-1]);
         // console.log(res.effects.status, res.balanceChanges);
       })
       .catch((error) => {
@@ -89,39 +89,63 @@ export async function executeTransactionBlock(txb: Transaction) {
       console.error(error);
     });
 }
-async function test() {
-  const { address, keypair, suiClient } = getExecStuff();
-  const lockedTableID = '0xe8474026c16bcb0581bc77169e1ee8d656d64c07ddfa02929ea536fe260e1a09';
-  const blockchain = new Blockchain(suiClient, 'mainnet');
-  const protocol = new Protocol(suiClient, 'mainnet');
-  const portfolio = new Portfolio(protocol, blockchain, suiClient, address);
-  const res = await portfolio.getPortfolioData();
-  console.log(res);
-}
+// async function test() {
+//   const { address, keypair, suiClient } = getExecStuff();
+//   const lockedTableID = '0xe8474026c16bcb0581bc77169e1ee8d656d64c07ddfa02929ea536fe260e1a09';
+//   const blockchain = new Blockchain('mainnet');
+//   const protocol = new Protocol(suiClient, 'mainnet');
+//   const portfolio = new Portfolio(protocol, blockchain, suiClient, address);
+//   const res = await portfolio.getPortfolioData();
+//   console.log(res);
+// }
 // test();
 
 async function main() {
   const { address, keypair, suiClient } = getExecStuff();
-  const client = getSuiClient('mainnet');
-  const blockchain = new Blockchain(client, 'mainnet');
-  const protocol = new Protocol(client, 'mainnet');
-  const portfolio = new Portfolio(protocol, blockchain, client, address);
+  const blockchain = new Blockchain('mainnet');
+  const protocol = new Protocol(suiClient, 'mainnet');
+  const portfolio = new Portfolio(protocol, blockchain, suiClient, address);
   // const res = await protocol.getAllPoolsData();
   // for (const pool of res) {
   //   console.log(poolDetailsMap[pool[0]].poolName, pool[1]);
   // }
-  const res = await portfolio.getPortfolioData();
+  // const res = await portfolio.getPortfolioData();
+  // const res = await blockchain.getObject(
+  //   '0xcf994611fd4c48e277ce3ffd4d4364c914af2c3cbb05f7bf6facd371de688630',
+  // );
+  const res = await blockchain.multiGetObjects([
+    '0x58c4a8c5d18c61156e1a5a82811fbf71963a4de3f5d52292504646611a308888',
+    '0x89793208211927a4d1458a59d34b775aaec17af8c98a59a1ba97f7b005c0e587',
+  ]);
+  // const res = await blockchain.getReceipt(
+  //   address,
+  //   '0x45564ea956f9b25890a5c1c3a199c8d86aabd5291b34723fb662283419ee2f4d::alphafi_alphalend_single_loop_pool::Receipt',
+  // );
+  // const res = await blockchain.multiGetReceipts(address, [
+  //   '0x45564ea956f9b25890a5c1c3a199c8d86aabd5291b34723fb662283419ee2f4d::alphafi_alphalend_single_loop_pool::Receipt',
+  //   '0x8f7d2c35e19c65213bc2153086969a55ec207b5a25ebdee303a6d9edd9c053e3::alphafi_navi_pool::Receipt',
+  // ]);
   console.log(res);
+  // console.log(
+  //   normalizeStructTag(
+  //     '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
+  //   ),
+  // );
 }
 // main();
 async function getPool(){
   const { address, keypair, suiClient } = getExecStuff();
-  let pool = await new Blockchain(suiClient, "mainnet").getPool(getConf().ALPHAFI_EMBER_POOL) as AlphaPoolType;
+  let pool = await new Blockchain("mainnet").getPool(getConf().ALPHAFI_EMBER_POOL) as AlphaPoolType;
   console.log(JSON.stringify(pool, null, 2));
 }
 async function getPosition(){
   const { address, keypair, suiClient } = getExecStuff();
-  let position = await new Blockchain(suiClient, "mainnet").getAlphaPosition("0x01a6ba1d80ae20e0a9a163b498cfd25236bf3b9595d06248d041e4ca2e508668") as AlphaPositionType;
+  let position = await new Blockchain("mainnet").getAlphaPosition("0xdc30032ee586791ba510686001a0dc7ea0d1963734cec75fefe1bfd7dfd65083") as AlphaPositionType;
+  console.log(JSON.stringify(position, null, 2));
+}
+async function getReceipt(){
+  const { address, keypair, suiClient } = getExecStuff();
+  let position = await new Blockchain("mainnet").getAlphaFiReceipt(address);
   console.log(JSON.stringify(position, null, 2));
 }
 async function deposit() {
@@ -129,24 +153,25 @@ async function deposit() {
   const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
   // let pool = await new Blockchain(suiClient, "mainnet").getPool(getConf().ALPHAFI_EMBER_POOL) as AlphaPoolType;
   // console.log(JSON.stringify(pool, null, 2));
-  let txb = await sdk.deposit({poolId: "0xc18a4a66b453b067d2bfbcbbe6d1adec273a89ed05e1cf040efb7ff6837053dd", amount: 1000000n});
+  let txb = await sdk.deposit({poolId: "0x3b325fa89cc3687290c3e2d3fb43b556b9ce11b214921420a8214108ab7d13cc", amount: 1000000n});
   
   // const tx = await sdk.deposit({
   //   poolId: '0x04378cf67d21b41399dc0b6653a5f73f8d3a03cc7643463e47e8d378f8b0bdfa', // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
   //   amount: 100_000n,
   // });
-  await dryRunTransactionBlock(txb);
-  // await executeTransactionBlock(txb)
+  // await dryRunTransactionBlock(txb);
+  await executeTransactionBlock(txb)
 }
 
 async function withdraw() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
-  const tx = await sdk.initiateWithdrawAlpha({
-    poolId: '0xc18a4a66b453b067d2bfbcbbe6d1adec273a89ed05e1cf040efb7ff6837053dd', // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
-    amount: "2000000",
-    withdrawMax: false
-  });
+  // const tx = await sdk.initiateWithdrawAlpha({
+  //   poolId: '0x3b325fa89cc3687290c3e2d3fb43b556b9ce11b214921420a8214108ab7d13cc',
+  //   amount: "50000",
+  //   withdrawMax: false
+  // });
+  const tx = await sdk.claimWithdrawAlpha("0x2177bf8bec05bbbffd3e1c568cb2f4f89f2c4d9f8c12a29a54e13288a4547071");
   await dryRunTransactionBlock(tx);
   // await executeTransactionBlock(tx);
 }
@@ -156,10 +181,11 @@ async function claimAirdrop(){
   const tx = await sdk.claimAirdrop();
   await dryRunTransactionBlock(tx);
 }
-// getPool();
+getPool();
 // deposit()
 // withdraw();
 // claimAirdrop()
 // getPosition()
+// getReceipt()
 
 

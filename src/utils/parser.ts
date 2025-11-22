@@ -134,6 +134,8 @@ export function parseAlphaPool(query: AlphaPoolQueryType): AlphaPoolType {
     id: fields.id.id,
     xTokenSupply: fields.xTokenSupply,
     tokensInvested: fields.tokensInvested,
+    unsupplied_balance: fields.unsupplied_balance,
+    claimable_balance: fields.claimable_balance,
     positions: {
       id: fields.positions.fields.id.id,
       size: fields.positions.fields.size,
@@ -178,56 +180,6 @@ export function parseAlphaPool(query: AlphaPoolQueryType): AlphaPoolType {
     fee_address: fields.fee_address,
     is_deposit_paused: fields.is_deposit_paused,
     is_withdraw_paused: fields.is_withdraw_paused,
-    investor: {
-      id: fields.investor.fields.id.id,
-      unsupplied_balance: fields.investor.fields.unsupplied_balance,
-      claimable_balance: fields.investor.fields.claimable_balance,
-      alphalend_position_cap: {
-        position_id: fields.investor.fields.alphalend_position_cap.fields.position_id,
-      },
-      cur_debt: fields.investor.fields.cur_debt,
-      current_debt_to_supply_ratio: fields.investor.fields.current_debt_to_supply_ratio,
-      borrow_token_to_token_ratio: fields.investor.fields.borrow_token_to_token_ratio,
-      safe_borrow_percentage: fields.investor.fields.safe_borrow_percentage,
-      allowed_coin_types_for_swap: fields.investor.fields.allowed_coin_types_for_swap.fields.contents.map(
-        (item: any) => ({
-          key: item.fields.key.fields.name,
-          value: item.fields.value,
-        }),
-      ),
-      minimum_swap_amount: fields.investor.fields.minimum_swap_amount,
-      primary_market_id: fields.investor.fields.primary_market_id,
-      borrow_market_id: fields.investor.fields.borrow_market_id,
-      resupply_market_id: fields.investor.fields.resupply_market_id,
-      free_rewards: {
-        id: fields.investor.fields.free_rewards.fields.id.id,
-        size: fields.investor.fields.free_rewards.fields.size,
-      },
-      withdraw_receivers_address: fields.investor.fields.withdraw_receivers_address,
-      withdraw_tickets: fields.investor.fields.withdraw_tickets.fields.contents.map(
-        (item: any) => ({
-          key: item.fields.key.variant,
-          value: item.fields.value.fields.contents.map((innerItem: any) => ({
-            key: innerItem.fields.key,
-            value: {
-              owner: innerItem.fields.value.fields.owner,
-              receiver: innerItem.fields.value.fields.receiver,
-              shares: innerItem.fields.value.fields.shares,
-              estimated_withdraw_amount: innerItem.fields.value.fields.estimated_withdraw_amount,
-              timestamp: innerItem.fields.value.fields.timestamp,
-              sequence_number: innerItem.fields.value.fields.sequence_number,
-            },
-          })),
-        }),
-      ),
-      total_pending_withdrawals: fields.investor.fields.total_pending_withdrawals,
-      performance_fee: fields.investor.fields.performance_fee,
-      performance_fee_cap: fields.investor.fields.performance_fee_cap,
-      additional_fields: {
-        id: fields.investor.fields.additional_fields.fields.id.id,
-        size: fields.investor.fields.additional_fields.fields.size,
-      },
-    },
     alphafi_partner_cap: {
       id: fields.alphafi_partner_cap.fields.id.id,
     },

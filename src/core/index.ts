@@ -3,7 +3,6 @@
  */
 
 import { SuiClient } from '@mysten/sui/client';
-import { TransactionManager } from '../models/transaction.js';
 import { Blockchain } from '../models/blockchain.js';
 import { Transaction } from '@mysten/sui/transactions';
 import { Protocol } from '../models/protocol.js';
@@ -24,17 +23,18 @@ import {
   NaviInvestor,
   zapDepositTxb,
   zapDepositQuoteTxb,
-  getAlphaFiReceipts,
-  initiateWithdrawAlphaTxb,
-  claimAirdropTxb,
-  claimWithdrawAlphaTxb
+  getReceipts,
+  claimRewardTxb,
 } from '@alphafi/alphafi-sdk-upstream';
 import { Decimal } from 'decimal.js';
 import { conf, CONF_ENV } from 'src/common/constants.js';
 import { AlphaFiReceipt } from 'src/models/alphafiReceipt.js';
 import { AlphaPoolType } from 'src/utils/parsedTypes.js';
 import { AlphaTransactions } from 'src/models/transactionProtocolModels/alpha.js';
-import { TransactionUtils } from 'src/models/transactionProtocolModels/utils.js';
+import { PoolLabel, StrategyType } from '../strategies/index.js';
+import poolsConfig from '../config/poolsData.js';
+import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
+import { coinsListByType } from '../common/coinsList.js';
 
 /**
  * Configuration options for the AlphaFi SDK
@@ -108,22 +108,25 @@ export interface ClaimOptions {
  */
 export class AlphaFiSDK {
   private config: AlphaFiSDKConfig;
-  private transactionManager: TransactionManager;
+  // private transactionManager: TransactionManager;
   private blockchain: Blockchain;
   private protocol: Protocol;
   private portfolio: Portfolio;
-  // private address: string;
+  private poolLabels: PoolLabel[];
 
   constructor(config: AlphaFiSDKConfig) {
     this.config = config;
 
+    // Parse and store pool labels from configuration
+    this.poolLabels = this.parsePoolLabels(poolsConfig);
+
     // Initialize core components
-    this.blockchain = new Blockchain(config.client, config.network);
+    this.blockchain = new Blockchain(config.network);
     this.protocol = new Protocol(config.client, config.network);
     this.portfolio = new Portfolio(this.protocol, this.blockchain, config.client, config.address);
 
     // Initialize the transaction facade
-    this.transactionManager = new TransactionManager(config.address, this.blockchain);
+    // this.transactionManager = new TransactionManager(config.address, this.blockchain);
   }
 
   /**
@@ -139,7 +142,7 @@ export class AlphaFiSDK {
 
     if (poolInfo.assetTypes.length === 1) {
       if(poolInfo.poolName === "ALPHA"){
-        return await new AlphaTransactions(this.config.address, this.blockchain, new TransactionUtils(this.blockchain)).depositAlphaTx(options.amount.toString())
+        return await new AlphaTransactions(this.config.address, this.blockchain).depositAlphaTx(options.amount.toString())
       }
       else{
         return await depositSingleAssetTxb(
@@ -196,24 +199,27 @@ export class AlphaFiSDK {
 
     let xTokens = '0';
     if (options.withdrawMax) {
-      const receipt = await this.blockchain.getReceipt(poolInfo.poolId, this.config.address);
+      const receipt = await getReceipts(poolInfo.poolName as PoolName, this.config.address, true);
       if (!receipt) {
         throw new Error(`Receipt with ID ${poolInfo.poolId} not found`);
       }
-      xTokens = receipt.xTokenBalance;
+      xTokens = receipt[0].content.fields.xTokenBalance;
     } else if (
       poolDetailsMap[options.poolId].strategyType === 'DOUBLE-ASSET-LOOPING' ||
       poolDetailsMap[options.poolId].strategyType === 'SINGLE-ASSET-LOOPING'
     ) {
       const decimals =
         poolDetailsMap[options.poolId].parentProtocolName === 'NAVI'
-          ? 9 - coinsList[loopingPoolCoinMap[options.poolId].supplyCoin].expo
+          ? 9 - coinsList[loopingPoolCoinMap[poolInfo.poolName].supplyCoin].expo
           : 0;
       let withdrawCoin2Tokens = new Decimal(options.amount).mul(10 ** decimals);
 
       if (poolDetailsMap[options.poolId].poolName === 'NAVI-LOOP-SUI-VSUI') {
         const voloExchRate = await fetchVoloExchangeRate(true);
         withdrawCoin2Tokens = withdrawCoin2Tokens.div(parseFloat(voloExchRate.data.exchangeRate));
+      } else if (poolDetailsMap[options.poolId].poolName === 'ALPHALEND-LOOP-SUI-STSUI') {
+        const suiTostSuiExchangeRate = await stSuiExchangeRate(getStSuiConf().LST_INFO, true);
+        withdrawCoin2Tokens = withdrawCoin2Tokens.div(suiTostSuiExchangeRate);
       }
 
       const investor_details = (await getInvestor(
@@ -235,7 +241,7 @@ export class AlphaFiSDK {
     } else if (poolInfo.assetTypes.length === 1) {
       const decimals =
         poolDetailsMap[options.poolId].parentProtocolName === 'NAVI'
-          ? 9 - coinsList[loopingPoolCoinMap[options.poolId].supplyCoin].expo
+          ? 9 - coinsListByType[poolInfo.assetTypes[0] as keyof typeof coinsList].expo
           : 0;
       options.amount = new Decimal(options.amount).mul(10 ** decimals).toString();
       xTokens = await coinAmountToXTokensSingleAsset(options.amount, poolInfo.poolName as PoolName);
@@ -256,9 +262,10 @@ export class AlphaFiSDK {
 
   async initiateWithdrawAlpha(options: WithdrawOptions): Promise<Transaction> {
     let xtokens = 0;
+    const alphaPool = await this.blockchain.getPool(conf[CONF_ENV].ALPHAFI_EMBER_POOL) as AlphaPoolType;
     if(options.withdrawMax) {
       const alphafiReceipts = await this.blockchain.getAlphaFiReceipt(this.config.address);
-      const receipt = await this.blockchain.getReceipt(
+      const receipt = await this.blockchain.getReceiptOld(
         poolDetailsMapByPoolName['ALPHA'].poolId,
         this.config.address,
       );
@@ -269,22 +276,22 @@ export class AlphaFiSDK {
         xtokens = Number(receipt.xTokenBalance);
       }
       else{
-        xtokens = Number(new AlphaFiReceipt(alphafiReceipts[0], this.blockchain).getTotalShares(conf[CONF_ENV].ALPHAFI_EMBER_POOL));
+        let positionUpdate = alphaPool.recently_updated_alphafi_receipts.find(item=>item.key===alphafiReceipts[0].id);
+        xtokens = Number(await new AlphaFiReceipt(alphafiReceipts[0], this.blockchain).getTotalShares(conf[CONF_ENV].ALPHAFI_EMBER_POOL)) - Number(positionUpdate?positionUpdate.value.xtokens_to_remove:0);
       }
     }
     else{
-      const alphaPool = await this.blockchain.getPool(conf[CONF_ENV].ALPHAFI_EMBER_POOL) as AlphaPoolType;
       xtokens = (new Decimal(options.amount).div(new Decimal(alphaPool.current_exchange_rate).div(1e18))).toNumber();
     }
-    return await new AlphaTransactions(this.config.address, this.blockchain, new TransactionUtils(this.blockchain)).initiateWithdrawAlphaTx(xtokens.toString())
+    return await new AlphaTransactions(this.config.address, this.blockchain).initiateWithdrawAlphaTx(xtokens.toString())
   }
 
   async claimWithdrawAlpha(ticketId: string):Promise<Transaction>{
-    return await new AlphaTransactions(this.config.address, this.blockchain, new TransactionUtils(this.blockchain)).claimWithdrawAlphaTx(ticketId)
+    return await new AlphaTransactions(this.config.address, this.blockchain).claimWithdrawAlphaTx(ticketId)
   }
 
   async claimAirdrop():Promise<Transaction>{
-    return await new AlphaTransactions(this.config.address, this.blockchain, new TransactionUtils(this.blockchain)).claimAirdropTx()
+    return await new AlphaTransactions(this.config.address, this.blockchain).claimAirdropTx()
   }
 
   /**
@@ -332,8 +339,28 @@ export class AlphaFiSDK {
    * @returns Promise<TransactionResult> - Transaction result with gas estimate
    */
   async claim(options: ClaimOptions): Promise<Transaction> {
-    return this.transactionManager.claim({
-      poolId: options.poolId,
+    return await claimRewardTxb(this.config.address);
+    // return this.transactionManager.claim({
+    //   poolId: options.poolId,
+    // });
+  }
+
+  private parsePoolLabels(
+    poolsJson:
+      | readonly {
+          strategy_type: StrategyType;
+          data: any;
+        }[]
+      | {
+          strategy_type: StrategyType;
+          data: any;
+        }[],
+  ): PoolLabel[] {
+    return poolsJson.map((entry) => {
+      return {
+        ...entry.data,
+        strategy_type: entry.strategy_type as StrategyType,
+      };
     });
   }
 }

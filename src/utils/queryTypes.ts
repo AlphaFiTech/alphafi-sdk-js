@@ -172,6 +172,8 @@ export type AlphaPoolQueryType = {
         };
         xTokenSupply: string;
         tokensInvested: string;
+        unsupplied_balance: string;
+        claimable_balance: string;
         positions: ObjectTable;
         recently_updated_alphafi_receipts: VecMap<string, {
           fields: {
@@ -211,7 +213,6 @@ export type AlphaPoolQueryType = {
         fee_address: string;
         is_deposit_paused: boolean;
         is_withdraw_paused: boolean;
-        investor: AlphaPoolInvestor;
         alphafi_partner_cap: {
           type: string;
           fields: {

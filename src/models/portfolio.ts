@@ -1,13 +1,11 @@
-import { SuiClient } from '@mysten/sui/client/client.js';
+import { SuiClient } from '@mysten/sui/client';
 import { Blockchain } from './blockchain.js';
 import { Protocol } from './protocol.js';
-import { Receipt } from './receipt.js';
 import { Decimal } from 'decimal.js';
-import { poolDetailsMap, poolDetailsMapByPoolName } from '../common/maps.js';
-import { AlphaReceiptType } from '../utils/parsedTypes.js';
-import { coinsList, coinsListByType } from '../common/coinsList.js';
+import { poolDetailsMap } from '../common/maps.js';
+import { coinsListByType } from '../common/coinsList.js';
 import { Pool } from './pool.js';
-import { DynamicFieldInfo } from '@mysten/sui/client/index.js';
+import { DynamicFieldInfo } from '@mysten/sui/client';
 
 type LockedAlphaDynamicField = {
   dataType: 'moveObject';
@@ -54,106 +52,10 @@ export class Portfolio {
     this.userAddress = userAddress;
   }
 
-  async getPortfolioData(): Promise<PortfolioData> {
-    const priceMap = await this.protocol.getPriceMap();
-    const aprMap = await this.protocol.getAprMap();
-    const naviLoopingPoolDebt = await this.protocol.getNaviLoopingPoolDebt();
-    const voloExchangeRate = await this.protocol.getVoloExchangeRate();
-    const stsuiExchangeRate = await this.protocol.getStsuiExchangeRate();
-    const pools = await this.protocol.getAllPools();
-    const receiptsMap = await this.getAllReceipts(pools);
-    const walletCoins = await this.getWalletCoins();
-
-    const alphaReceipt = receiptsMap.get(poolDetailsMapByPoolName['ALPHA'].poolId);
-
-    receiptsMap.delete(poolDetailsMapByPoolName['ALPHA'].poolId);
-    const lockedBalances = alphaReceipt
-      ? await this.fetchUserLockedBalances(
-          (alphaReceipt.receipt as AlphaReceiptType).locked_balance.id,
-        )
-      : [];
-
-    const poolDeposits = new Map<string, Decimal[]>();
-    receiptsMap.forEach((receipt, poolId) => {
-      poolDeposits.set(
-        poolId,
-        receipt.getDepositedAmount(
-          priceMap,
-          naviLoopingPoolDebt,
-          voloExchangeRate,
-          stsuiExchangeRate,
-          walletCoins,
-        ),
-      );
-    });
-
-    const fungileDeposits = await this.getFungileDeposits(
-      pools,
-      walletCoins,
-      priceMap,
-      naviLoopingPoolDebt,
-    );
-    fungileDeposits.forEach((deposits, poolId) => {
-      poolDeposits.set(poolId, deposits);
-    });
-
-    const alphaDeposit = alphaReceipt
-      ? alphaReceipt.getAlphaDepositAmount(priceMap, naviLoopingPoolDebt, lockedBalances)
-      : { lockedAmount: new Decimal(0), totalAmount: new Decimal(0) };
-
-    let userDeposit = alphaDeposit.totalAmount.mul(
-      priceMap.get(coinsList['ALPHA'].type) ?? new Decimal(0),
-    );
-    let weightedAPYNumerator = userDeposit.mul(alphaReceipt?.pool.apy(aprMap) ?? new Decimal(0));
-    let weightedAPYDenominator = userDeposit;
-
-    poolDeposits.forEach((deposits, poolId) => {
-      const amount1 = deposits[0].mul(
-        priceMap.get(poolDetailsMap[poolId].assetTypes[0]) ?? new Decimal(0),
-      );
-      const amount2 =
-        poolDetailsMap[poolId].assetTypes.length === 2
-          ? deposits[1].mul(priceMap.get(poolDetailsMap[poolId].assetTypes[1]) ?? new Decimal(0))
-          : new Decimal(0);
-      const pool = pools.get(poolId);
-      if (!pool) return;
-
-      userDeposit = userDeposit.add(amount1).add(amount2);
-      weightedAPYNumerator = weightedAPYNumerator.add(
-        amount1.add(amount2).mul(pool.apy(aprMap) ?? new Decimal(0)),
-      );
-      console.log(
-        pool.poolDetails.poolName,
-        '----',
-        // pool.apy(aprMap),
-        // "----",
-        amount1.add(amount2).toString(),
-      );
-      weightedAPYDenominator = weightedAPYDenominator.add(amount1.add(amount2));
-    });
-
-    const portfolioData: PortfolioData = {
-      userDeposit,
-      userApy: weightedAPYNumerator.div(weightedAPYDenominator),
-      alphaReward: new Decimal(0),
-      alphaDeposit,
-      poolDeposits,
-    };
-
-    return portfolioData;
-  }
-
-  async getAllReceipts(pools: Map<string, Pool>): Promise<Map<string, Receipt>> {
-    const receipts = await this.blockchain.getMultiReceipt(this.userAddress);
-    const portfolio: Map<string, Receipt> = new Map();
-
-    receipts.forEach((receipt, poolId) => {
-      const pool = pools.get(poolId);
-      if (pool) {
-        portfolio.set(poolId, new Receipt(receipt[0], pool));
-      }
-    });
-    return portfolio;
+  async getAllReceipts(pools: Map<string, Pool>) {
+    const receiptTypes = Array.from(pools.values()).map((pool) => pool.poolDetails.receipt.type);
+    const receipts = await this.blockchain.multiGetReceipts(this.userAddress, receiptTypes);
+    return receipts;
   }
 
   async getWalletCoins(): Promise<Map<string, string>> {

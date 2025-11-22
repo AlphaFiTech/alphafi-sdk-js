@@ -270,7 +270,7 @@ export class ZapDepositTransactions {
 
     try {
       do {
-        const response = await this.blockchain.client.getCoins({
+        const response = await this.blockchain.suiClient.getCoins({
           owner: this.address,
           coinType,
           cursor: currentCursor,

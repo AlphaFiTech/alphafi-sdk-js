@@ -35,51 +35,7 @@ export type FungiblePoolType = {
   withdraw_fee_max_cap: string;
   withdrawal_fee: string;
 };
-
-export type AlphaPoolType = {
-  id: string;
-  xTokenSupply: string;
-  tokensInvested: string;
-  positions: {
-    id: string;
-    size?: string;
-  };
-  recently_updated_alphafi_receipts: {
-    key: string;
-    value: {
-      xtokens_to_add: string;
-      xtokens_to_remove: string;
-    };
-  }[];
-  withdraw_requests: {
-    key: string;
-    value: {
-      total_amount_to_withdraw: string;
-      leftover_amount: string;
-    };
-  }[];
-  fee_collected: string;
-  last_distribution_time: string;
-  last_autocompound_time: string;
-  locking_period: string;
-  time_from_locking_period_for_unstaking_to_start: string;
-  current_exchange_rate: string;
-  rewards: {
-    id: string;
-    size?: string;
-  };
-  acc_rewards_per_xtoken: {
-    key: string;
-    value: string;
-  }[];
-  deposit_fee: string;
-  deposit_fee_max_cap: string;
-  withdrawal_fee: string;
-  withdraw_fee_max_cap: string;
-  fee_address: string;
-  is_deposit_paused: boolean;
-  is_withdraw_paused: boolean;
-  investor: {
+export type AlphaEmberInvestor = {
     id: string;
     unsupplied_balance: string;
     claimable_balance: string;
@@ -124,7 +80,52 @@ export type AlphaPoolType = {
       id: string;
       size?: string;
     };
+  }
+export type AlphaPoolType = {
+  id: string;
+  xTokenSupply: string;
+  tokensInvested: string;
+  unsupplied_balance: string;
+  claimable_balance: string;
+  positions: {
+    id: string;
+    size?: string;
   };
+  recently_updated_alphafi_receipts: {
+    key: string;
+    value: {
+      xtokens_to_add: string;
+      xtokens_to_remove: string;
+    };
+  }[];
+  withdraw_requests: {
+    key: string;
+    value: {
+      total_amount_to_withdraw: string;
+      leftover_amount: string;
+    };
+  }[];
+  fee_collected: string;
+  last_distribution_time: string;
+  last_autocompound_time: string;
+  locking_period: string;
+  time_from_locking_period_for_unstaking_to_start: string;
+  current_exchange_rate: string;
+  rewards: {
+    id: string;
+    size?: string;
+  };
+  acc_rewards_per_xtoken: {
+    key: string;
+    value: string;
+  }[];
+  deposit_fee: string;
+  deposit_fee_max_cap: string;
+  withdrawal_fee: string;
+  withdraw_fee_max_cap: string;
+  fee_address: string;
+  is_deposit_paused: boolean;
+  is_withdraw_paused: boolean;
   alphafi_partner_cap: {
     id: string;
   };

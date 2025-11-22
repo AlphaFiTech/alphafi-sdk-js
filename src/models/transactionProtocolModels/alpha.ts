@@ -2,21 +2,20 @@ import { Transaction } from '@mysten/sui/transactions';
 import { getConf } from '../../common/constants.js';
 import { poolDetailsMapByPoolName } from '../../common/maps.js';
 import { Blockchain } from '../blockchain.js';
-import { TransactionUtils } from './utils.js';
 import { AlphalendClient } from '@alphafi/alphalend-sdk';
-import { coinsList } from '@alphafi/alphafi-sdk-upstream';
+// import { coinsList } from '@alphafi/alphafi-sdk-upstream';
+import { coinsListByType, coinsList } from 'src/common/coinsList.js';
+import { CoinStruct } from '@mysten/sui/client/index.js';
 
 export class AlphaTransactions {
   private alphalendClient: AlphalendClient;
   constructor(
     private address: string,
     private blockchain: Blockchain,
-    private transactionUtils: TransactionUtils,
   ) {
     this.address = address;
     this.blockchain = blockchain;
-    this.transactionUtils = transactionUtils;
-    this.alphalendClient = new AlphalendClient('mainnet', this.blockchain.client);
+    this.alphalendClient = new AlphalendClient('mainnet', this.blockchain.suiClient);
   }
 
   /**
@@ -54,21 +53,20 @@ export class AlphaTransactions {
     const poolinfo = poolDetailsMapByPoolName['ALPHA'];
 
     // Fetch ALPHA coins from the user's wallet
-    const coin = await this.transactionUtils.getCoinFromWallet(
+    const coin = await this.getCoinFromWallet(
       tx,
       this.address,
       poolinfo.assetTypes[0],
     );
     const [depositCoin] = tx.splitCoins(coin, [amount]);
 
-    // Transfer remaining coins back to user
+//     // Transfer remaining coins back to user
     tx.transferObjects([coin], this.address);
 
     // Get receipts
-    const receipt = await this.blockchain.getReceipt(poolinfo.poolId, this.address);
+    const receipt = await this.blockchain.getReceiptOld(poolinfo.poolId, this.address);
     const alphafiReceipt = await this.blockchain.getAlphaFiReceipt(this.address);
     await this.alphalendClient.updatePrices(tx, [coinsList["ALPHA"].type, coinsList["SUI"].type, coinsList["ESUI"].type]);
-
     if (alphafiReceipt.length === 0) {
       // Create new AlphaFi receipt
       const alphafiReceiptObj = this.createAlphaFiReceipt(tx);
@@ -76,7 +74,7 @@ export class AlphaTransactions {
       // Convert alpha receipt to ember position if alpha receipt exists
       if (receipt) {
         tx.moveCall({
-          target: `${getConf().ALPHA_EMBER_LATEST_PACKAGE_ID}::alphafi_ember_pool::convert_alpha_receipt_to_ember_position`,
+          target: `${getConf().ALPHA_EMBER_LATEST_PACKAGE_ID}::alphafi_ember_pool::migrate_alpha_receipt_to_new_alpha_strategy`,
           typeArguments: [getConf().ALPHA_COIN_TYPE],
           arguments: [
             tx.object(getConf().ALPHA_EMBER_VERSION),
@@ -95,7 +93,6 @@ export class AlphaTransactions {
         arguments: [
           tx.object(getConf().ALPHA_EMBER_VERSION),
           alphafiReceiptObj,
-          tx.object(getConf().LENDING_PROTOCOL_ID),
           tx.object(getConf().ALPHAFI_EMBER_POOL),
           depositCoin,
           tx.object(getConf().CLOCK_PACKAGE_ID),
@@ -122,7 +119,7 @@ export class AlphaTransactions {
 
         if (!isPositionPresent) {
           tx.moveCall({
-            target: `${getConf().ALPHA_EMBER_LATEST_PACKAGE_ID}::alphafi_ember_pool::convert_alpha_receipt_to_ember_position`,
+            target: `${getConf().ALPHA_EMBER_LATEST_PACKAGE_ID}::alphafi_ember_pool::migrate_alpha_receipt_to_new_alpha_strategy`,
             typeArguments: [getConf().ALPHA_COIN_TYPE],
             arguments: [
               tx.object(getConf().ALPHA_EMBER_VERSION),
@@ -142,7 +139,6 @@ export class AlphaTransactions {
         arguments: [
           tx.object(getConf().ALPHA_EMBER_VERSION),
           tx.object(existingReceipt.id),
-          tx.object(getConf().LENDING_PROTOCOL_ID),
           tx.object(getConf().ALPHAFI_EMBER_POOL),
           depositCoin,
           tx.object(getConf().CLOCK_PACKAGE_ID),
@@ -161,7 +157,7 @@ export class AlphaTransactions {
   async initiateWithdrawAlphaTx(xTokens: string): Promise<Transaction> {
     const tx = new Transaction();
 
-    const receipt = await this.blockchain.getReceipt(
+    const receipt = await this.blockchain.getReceiptOld(
       poolDetailsMapByPoolName['ALPHA'].poolId,
       this.address,
     );
@@ -177,7 +173,7 @@ export class AlphaTransactions {
 
       // Convert alpha receipt to ember position
       tx.moveCall({
-        target: `${getConf().ALPHA_EMBER_LATEST_PACKAGE_ID}::alphafi_ember_pool::convert_alpha_receipt_to_ember_position`,
+        target: `${getConf().ALPHA_EMBER_LATEST_PACKAGE_ID}::alphafi_ember_pool::migrate_alpha_receipt_to_new_alpha_strategy`,
         typeArguments: [getConf().ALPHA_COIN_TYPE],
         arguments: [
           tx.object(getConf().ALPHA_EMBER_VERSION),
@@ -195,7 +191,6 @@ export class AlphaTransactions {
         arguments: [
           tx.object(getConf().ALPHA_EMBER_VERSION),
           alphafiReceiptObj,
-          tx.object(getConf().LENDING_PROTOCOL_ID),
           tx.object(getConf().ALPHAFI_EMBER_POOL),
           tx.pure.u64(xTokens),
           tx.object(getConf().CLOCK_PACKAGE_ID),
@@ -224,7 +219,7 @@ export class AlphaTransactions {
       // Convert alpha receipt to ember position if needed
       if (!isPositionPresent && receipt) {
         tx.moveCall({
-          target: `${getConf().ALPHA_EMBER_LATEST_PACKAGE_ID}::alphafi_ember_pool::convert_alpha_receipt_to_ember_position`,
+          target: `${getConf().ALPHA_EMBER_LATEST_PACKAGE_ID}::alphafi_ember_pool::migrate_alpha_receipt_to_new_alpha_strategy`,
           typeArguments: [getConf().ALPHA_COIN_TYPE],
           arguments: [
             tx.object(getConf().ALPHA_EMBER_VERSION),
@@ -243,7 +238,6 @@ export class AlphaTransactions {
         arguments: [
           tx.object(getConf().ALPHA_EMBER_VERSION),
           tx.object(existingReceipt.id),
-          tx.object(getConf().LENDING_PROTOCOL_ID),
           tx.object(getConf().ALPHAFI_EMBER_POOL),
           tx.pure.u64(xTokens),
           tx.object(getConf().CLOCK_PACKAGE_ID),
@@ -274,7 +268,6 @@ export class AlphaTransactions {
       arguments: [
         tx.object(getConf().ALPHA_EMBER_VERSION),
         tx.object(alphafiReceipt[0].id),
-        tx.object(getConf().LENDING_PROTOCOL_ID),
         tx.object(getConf().ALPHAFI_EMBER_POOL),
         tx.pure.id(ticketId),
         tx.object(getConf().CLOCK_PACKAGE_ID),
@@ -291,7 +284,7 @@ export class AlphaTransactions {
   async claimAirdropTx(): Promise<Transaction> {
     const tx = new Transaction();
     let airdropCoin;
-    const receipt = await this.blockchain.getReceipt(
+    const receipt = await this.blockchain.getReceiptOld(
       poolDetailsMapByPoolName['ALPHA'].poolId,
       this.address,
     );
@@ -307,7 +300,7 @@ export class AlphaTransactions {
 
       // Convert alpha receipt to ember position
       tx.moveCall({
-        target: `${getConf().ALPHA_EMBER_LATEST_PACKAGE_ID}::alphafi_ember_pool::convert_alpha_receipt_to_ember_position`,
+        target: `${getConf().ALPHA_EMBER_LATEST_PACKAGE_ID}::alphafi_ember_pool::migrate_alpha_receipt_to_new_alpha_strategy`,
         typeArguments: [getConf().ALPHA_COIN_TYPE],
         arguments: [
           tx.object(getConf().ALPHA_EMBER_VERSION),
@@ -344,7 +337,7 @@ export class AlphaTransactions {
       // Convert alpha receipt to ember position if needed
       if (!isPositionPresent && receipt) {
         tx.moveCall({
-          target: `${getConf().ALPHA_EMBER_LATEST_PACKAGE_ID}::alphafi_ember_pool::convert_alpha_receipt_to_ember_position`,
+          target: `${getConf().ALPHA_EMBER_LATEST_PACKAGE_ID}::alphafi_ember_pool::migrate_alpha_receipt_to_new_alpha_strategy`,
           typeArguments: [getConf().ALPHA_COIN_TYPE],
           arguments: [
             tx.object(getConf().ALPHA_EMBER_VERSION),
@@ -370,6 +363,38 @@ export class AlphaTransactions {
     }
     tx.transferObjects([airdropCoin], this.address);
     return tx;
+  }
+  async getCoinFromWallet(tx: Transaction, address: string, coinType: string) {
+    if (coinsListByType[coinType].name === 'SUI') {
+      return tx.gas;
+    }
+    let coins: CoinStruct[] = [];
+    let currentCursor: string | null | undefined = null;
+    do {
+      const response = await this.blockchain.suiClient.getCoins({
+        owner: address,
+        coinType: coinType,
+        cursor: currentCursor,
+      });
+      coins = coins.concat(response.data);
+
+      // Check if there's a next page
+      if (response.hasNextPage && response.nextCursor) {
+        currentCursor = response.nextCursor;
+      } else {
+        // No more pages available
+        break;
+      }
+    } while (true);
+
+    let coin;
+    [coin] = tx.splitCoins(tx.object(coins[0].coinObjectId), [0]);
+    tx.mergeCoins(
+      coin,
+      coins.map((c) => c.coinObjectId),
+    );
+
+    return coin;
   }
 
 }
