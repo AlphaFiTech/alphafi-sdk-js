@@ -277,7 +277,7 @@ export class AlphaFiSDK {
       }
       else{
         let positionUpdate = alphaPool.recently_updated_alphafi_receipts.find(item=>item.key===alphafiReceipts[0].id);
-        xtokens = Number(await new AlphaFiReceipt(alphafiReceipts[0], this.blockchain).getTotalShares(conf[CONF_ENV].ALPHAFI_EMBER_POOL)) - Number(positionUpdate?positionUpdate.value.xtokens_to_remove:0);
+        xtokens = Number(await new AlphaFiReceipt(alphafiReceipts[0], this.blockchain).getTotalShares(conf[CONF_ENV].ALPHAFI_EMBER_POOL)) - (positionUpdate?(Number(positionUpdate.value.xtokens_to_remove) - Number(positionUpdate.value.xtokens_to_add)):0);
       }
     }
     else{
