@@ -206,6 +206,12 @@ export type AlphaPoolQueryType = {
           };
           type: string;
         }, string>;
+        total_distributed: VecMap<{
+          fields: {
+            name: string;
+          };
+          type: string;
+        }, string>;
         deposit_fee: string;
         deposit_fee_max_cap: string;
         withdrawal_fee: string;
@@ -865,6 +871,12 @@ export type AlphaPositionQueryType = {
         type: string;
       }, string>;
       pending_rewards: VecMap<{
+        fields: {
+          name: string;
+        };
+        type: string;
+      }, string>;
+      total_collected_rewards: VecMap<{
         fields: {
           name: string;
         };

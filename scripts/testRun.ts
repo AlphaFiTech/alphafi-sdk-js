@@ -153,7 +153,7 @@ async function deposit() {
   const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
   // let pool = await new Blockchain(suiClient, "mainnet").getPool(getConf().ALPHAFI_EMBER_POOL) as AlphaPoolType;
   // console.log(JSON.stringify(pool, null, 2));
-  let txb = await sdk.deposit({poolId: "0x3b325fa89cc3687290c3e2d3fb43b556b9ce11b214921420a8214108ab7d13cc", amount: 1000000n});
+  let txb = await sdk.deposit({poolId: getConf().ALPHAFI_EMBER_POOL, amount: 1000000n});
   
   // const tx = await sdk.deposit({
   //   poolId: '0x04378cf67d21b41399dc0b6653a5f73f8d3a03cc7643463e47e8d378f8b0bdfa', // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
@@ -166,12 +166,12 @@ async function deposit() {
 async function withdraw() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
-  // const tx = await sdk.initiateWithdrawAlpha({
-  //   poolId: '0x3b325fa89cc3687290c3e2d3fb43b556b9ce11b214921420a8214108ab7d13cc',
-  //   amount: "50000",
-  //   withdrawMax: false
-  // });
-  const tx = await sdk.claimWithdrawAlpha("0x2177bf8bec05bbbffd3e1c568cb2f4f89f2c4d9f8c12a29a54e13288a4547071");
+  const tx = await sdk.initiateWithdrawAlpha({
+    poolId: getConf().ALPHAFI_EMBER_POOL,
+    amount: "500000",
+    withdrawMax: true
+  });
+  // const tx = await sdk.claimWithdrawAlpha("0x2177bf8bec05bbbffd3e1c568cb2f4f89f2c4d9f8c12a29a54e13288a4547071");
   await dryRunTransactionBlock(tx);
   // await executeTransactionBlock(tx);
 }
@@ -179,7 +179,8 @@ async function claimAirdrop(){
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
   const tx = await sdk.claimAirdrop();
-  await dryRunTransactionBlock(tx);
+  // await dryRunTransactionBlock(tx);
+  await executeTransactionBlock(tx);
 }
 getPool();
 // deposit()

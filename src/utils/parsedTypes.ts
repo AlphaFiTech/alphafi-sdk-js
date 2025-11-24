@@ -119,6 +119,10 @@ export type AlphaPoolType = {
     key: string;
     value: string;
   }[];
+  total_distributed: {
+    key: string;
+    value: string;
+  }[];
   deposit_fee: string;
   deposit_fee_max_cap: string;
   withdrawal_fee: string;
@@ -445,6 +449,10 @@ export type AlphaPositionType = {
     value: string;
   }[];
   pending_rewards: {
+    key: string;
+    value: string;
+  }[];
+  total_collected_rewards: {
     key: string;
     value: string;
   }[];

@@ -173,6 +173,12 @@ export function parseAlphaPool(query: AlphaPoolQueryType): AlphaPoolType {
         value: item.fields.value,
       }),
     ),
+    total_distributed: query.content.fields.total_distributed.fields.contents.map(
+      (item: any) => ({
+        key: item.fields.key.fields.name,
+        value: item.fields.value,
+      }),
+    ),
     deposit_fee: fields.deposit_fee,
     deposit_fee_max_cap: fields.deposit_fee_max_cap,
     withdrawal_fee: fields.withdrawal_fee,
@@ -508,6 +514,12 @@ export function parseAlphaPosition(query: AlphaPositionQueryType): AlphaPosition
       }),
     ),
     pending_rewards: query.content.fields.pending_rewards.fields.contents.map(
+      (item: any) => ({
+        key: item.fields.key.fields.name,
+        value: item.fields.value,
+      }),
+    ),
+    total_collected_rewards: query.content.fields.total_collected_rewards.fields.contents.map(
       (item: any) => ({
         key: item.fields.key.fields.name,
         value: item.fields.value,
