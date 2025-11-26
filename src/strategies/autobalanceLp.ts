@@ -25,24 +25,25 @@ export class AutobalanceLpStrategy extends BaseStrategy<
   private poolLabel: AutobalanceLpPoolLabel;
   private poolObject: AutobalanceLpPoolObject;
   private investorObject: AutobalanceLpInvestorObject;
-  private parentPoolObject?: AutobalanceLpParentPoolObject;
+  private parentPoolObject: AutobalanceLpParentPoolObject;
+  private receiptObjects: AutobalanceLpReceiptObject[];
   private context: StrategyContext;
 
   constructor(
     poolLabel: AutobalanceLpPoolLabel,
     poolObject: any,
     investorObject: any,
+    parentPoolObject: any,
+    receiptObjects: any[],
     context: StrategyContext,
-    parentPoolObject?: any,
   ) {
     super();
     this.poolLabel = poolLabel;
     this.poolObject = this.parsePoolObject(poolObject);
     this.investorObject = this.parseInvestorObject(investorObject);
     this.context = context;
-    if (parentPoolObject) {
-      this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
-    }
+    this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
+    this.receiptObjects = this.parseReceiptObjects(receiptObjects);
   }
 
   // ===== Strategy Interface Implementation =====
@@ -103,13 +104,6 @@ export class AutobalanceLpStrategy extends BaseStrategy<
   }
 
   async getParentTvl(): Promise<DoubleTvl> {
-    if (!this.parentPoolObject) {
-      return {
-        tokenAmountA: new Decimal(0),
-        tokenAmountB: new Decimal(0),
-        usdValue: new Decimal(0),
-      };
-    }
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
     const decimalsA = await this.context.getCoinDecimals(coinTypeA);
@@ -147,13 +141,6 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     token2Amount: Decimal;
     totalLiquidity: Decimal;
   }> {
-    if (!this.parentPoolObject) {
-      return {
-        token1Amount: new Decimal(0),
-        token2Amount: new Decimal(0),
-        totalLiquidity: new Decimal(0),
-      };
-    }
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
     const decimalsA = await this.context.getCoinDecimals(coinTypeA);
@@ -169,9 +156,6 @@ export class AutobalanceLpStrategy extends BaseStrategy<
   }
 
   async getCurrentLPPoolPrice(): Promise<Decimal> {
-    if (!this.parentPoolObject) {
-      return new Decimal(0);
-    }
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
     const decimalsA = await this.context.getCoinDecimals(coinTypeA);
@@ -201,6 +185,40 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     return { lowerPrice: new Decimal(lower.toString()), upperPrice: new Decimal(upper.toString()) };
   }
 
+  /**
+   * Compute the user's current pool balance from stored receipt objects.
+   * Uses the first parsed receipt to derive xToken balance, converts via exchangeRate,
+   * estimates token amounts using getTokenAmounts, and returns USD value.
+   */
+  async getBalance(): Promise<{
+    tokenAAmount: Decimal;
+    tokenBAmount: Decimal;
+    totalUsdValue: Decimal;
+  }> {
+    if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
+      return {
+        tokenAAmount: new Decimal(0),
+        tokenBAmount: new Decimal(0),
+        totalUsdValue: new Decimal(0),
+      };
+    }
+    const xTokens = new Decimal(this.receiptObjects[0].xTokenBalance);
+
+    const exchangeRate = this.exchangeRate();
+    const coinTypeA = this.poolLabel.assetA.type;
+    const coinTypeB = this.poolLabel.assetB.type;
+    const [priceA, priceB] = await Promise.all([
+      this.context.getCoinPrice(coinTypeA),
+      this.context.getCoinPrice(coinTypeB),
+    ]);
+
+    const tokens = xTokens.mul(exchangeRate);
+    const { amountA, amountB } = await this.getTokenAmounts(tokens.floor().toString());
+
+    const totalUsdValue = amountA.mul(priceA).add(amountB.mul(priceB));
+    return { tokenAAmount: amountA, tokenBAmount: amountB, totalUsdValue };
+  }
+
   // ===== Helper Functions =====
 
   /**
@@ -209,9 +227,6 @@ export class AutobalanceLpStrategy extends BaseStrategy<
   private async getTokenAmounts(
     liquidity: string,
   ): Promise<{ amountA: Decimal; amountB: Decimal }> {
-    if (!this.parentPoolObject) {
-      return { amountA: new Decimal(0), amountB: new Decimal(0) };
-    }
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
     const scalingA = new Decimal(10).pow(await this.context.getCoinDecimals(coinTypeA));

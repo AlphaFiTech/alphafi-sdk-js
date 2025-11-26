@@ -23,6 +23,7 @@ import {
   getReceipts,
   claimRewardTxb,
   getDoubleAssetVaultBalance,
+  PoolData,
 } from '@alphafi/alphafi-sdk-upstream';
 import { Decimal } from 'decimal.js';
 import { PoolLabel, StrategyType } from '../strategies/index.js';
@@ -113,12 +114,17 @@ export class AlphaFiSDK {
     this.config = config;
     this.poolLabels = new Map<string, PoolLabel>();
 
-    const blockchain = new Blockchain(config.network);
+    const blockchain = new Blockchain(config.client, config.network);
     const coinInfoProvider = new CoinInfoProvider();
     this.strategyContext = new StrategyContext(blockchain, coinInfoProvider);
 
     // Initialize core components
-    this.protocol = new Protocol(config.client, config.network);
+    this.protocol = new Protocol(
+      config.client,
+      config.network,
+      this.strategyContext,
+      this.poolLabels,
+    );
     this.portfolio = new Portfolio(
       this.protocol,
       this.strategyContext.blockchain,
@@ -150,6 +156,11 @@ export class AlphaFiSDK {
     this.isInitialized = true;
   }
 
+  async getAllPoolsData(): Promise<PoolData[]> {
+    await this.ensureInitialized();
+    return await this.protocol.getAllPoolsData();
+  }
+
   /**
    * Deposit assets into a DeFi pool
    * @param options - Deposit configuration options
@@ -161,12 +172,23 @@ export class AlphaFiSDK {
       throw new Error(`Pool with ID ${options.poolId} not found`);
     }
 
-    if (
+    if (poolLabel.strategyType === 'Lyf') {
+      const tx = await zapDepositTxb(
+        options.amount,
+        false,
+        poolLabel.poolName as PoolName,
+        0.005,
+        this.config.address,
+      );
+      if (!tx) {
+        throw new Error(`Failed to create LYF SUI deposit transaction`);
+      }
+      return tx;
+    } else if (
       poolLabel.strategyType === 'AlphaVault' ||
       poolLabel.strategyType === 'Lending' ||
       poolLabel.strategyType === 'Looping' ||
-      poolLabel.strategyType === 'SingleAssetLooping' ||
-      poolLabel.strategyType === 'Lyf'
+      poolLabel.strategyType === 'SingleAssetLooping'
     ) {
       return await depositSingleAssetTxb(
         poolLabel.poolName as PoolName,
@@ -280,17 +302,27 @@ export class AlphaFiSDK {
         options.amount,
         poolLabel.poolName as PoolName,
       );
-    } else if (
-      poolLabel.strategyType === 'AlphaVault' ||
-      poolLabel.strategyType === 'Lending' ||
-      poolLabel.strategyType === 'Lyf'
-    ) {
+    } else if (poolLabel.strategyType === 'Lyf') {
+      const receipt = await getReceipts(poolLabel.poolName as PoolName, this.config.address, true);
+      const xTokenBalance = new Decimal(receipt[0].content.fields.xTokenBalance);
+      const exchangeRate = await stSuiExchangeRate(getStSuiConf().LST_INFO, true);
+      const balance = await getDoubleAssetVaultBalance(
+        this.config.address,
+        poolLabel.poolName as PoolName,
+      );
+      const totalSuiTokens = new Decimal(balance?.coinA ?? 0)
+        .mul(exchangeRate)
+        .add(new Decimal(balance?.coinB ?? 0));
+
+      xTokens = new Decimal(xTokenBalance)
+        .mul(options.amount)
+        .div(totalSuiTokens)
+        .floor()
+        .toString();
+    } else if (poolLabel.strategyType === 'AlphaVault' || poolLabel.strategyType === 'Lending') {
       const decimals =
         poolLabel.parentProtocol === 'Navi'
-          ? 9 -
-            (poolLabel.strategyType === 'Lyf'
-              ? await this.strategyContext.getCoinDecimals(poolLabel.assetA.type)
-              : await this.strategyContext.getCoinDecimals(poolLabel.asset.type))
+          ? 9 - (await this.strategyContext.getCoinDecimals(poolLabel.asset.type))
           : 0;
       options.amount = new Decimal(options.amount).mul(10 ** decimals).toString();
       xTokens = await coinAmountToXTokensSingleAsset(

@@ -22,13 +22,20 @@ export class AlphaStrategy extends BaseStrategy<
 > {
   private poolLabel: AlphaPoolLabel;
   private poolObject: AlphaPoolObject;
+  private receiptObjects: AlphaReceiptObject[];
   private context: StrategyContext;
 
-  constructor(poolLabel: AlphaPoolLabel, poolObject: any, context: StrategyContext) {
+  constructor(
+    poolLabel: AlphaPoolLabel,
+    poolObject: any,
+    receiptObjects: any[],
+    context: StrategyContext,
+  ) {
     super();
     this.poolLabel = poolLabel;
     this.poolObject = this.parsePoolObject(poolObject);
     this.context = context;
+    this.receiptObjects = this.parseReceiptObjects(receiptObjects);
   }
 
   // ===== Strategy Interface Implementation =====
@@ -80,6 +87,26 @@ export class AlphaStrategy extends BaseStrategy<
 
   async getParentTvl(): Promise<SingleTvl> {
     return { tokenAmount: new Decimal(0), usdValue: new Decimal(0) };
+  }
+
+  /**
+   * Compute user's current Alpha balance.
+   * Uses first stored receipt xTokenBalance and exchangeRate; scales by asset decimals.
+   * Note: Locked/unlocked breakdown requires dynamic field reads; here we return total only.
+   */
+  async getBalance(): Promise<{ tokenAmount: Decimal; usdValue: Decimal }> {
+    if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
+      return { tokenAmount: new Decimal(0), usdValue: new Decimal(0) };
+    }
+    const xTokens = new Decimal(this.receiptObjects[0].xTokenBalance);
+    const [decimals, price] = await Promise.all([
+      this.context.getCoinDecimals(this.poolLabel.asset.type),
+      this.context.getCoinPrice(this.poolLabel.asset.type),
+    ]);
+    const exchangeRate = this.exchangeRate();
+    const tokens = xTokens.mul(exchangeRate);
+    const tokenAmount = tokens.div(new Decimal(10).pow(decimals));
+    return { tokenAmount, usdValue: tokenAmount.mul(price) };
   }
 
   // ===== Parsing Functions (similar to Rust SDK) =====

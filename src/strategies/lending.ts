@@ -23,24 +23,25 @@ export class LendingStrategy extends BaseStrategy<
   private poolLabel: LendingPoolLabel;
   private poolObject: LendingPoolObject;
   private investorObject: LendingInvestorObject;
-  private parentPoolObject?: LendingParentPoolObject;
+  private parentPoolObject: LendingParentPoolObject;
+  private receiptObjects: LendingReceiptObject[];
   private context: StrategyContext;
 
   constructor(
     poolLabel: LendingPoolLabel,
     poolObject: any,
     investorObject: any,
+    parentPoolObject: any,
+    receiptObjects: any[],
     context: StrategyContext,
-    parentPoolObject?: any,
   ) {
     super();
     this.poolLabel = poolLabel;
     this.poolObject = this.parsePoolObject(poolObject);
     this.investorObject = this.parseInvestorObject(investorObject);
     this.context = context;
-    if (parentPoolObject) {
-      this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
-    }
+    this.receiptObjects = this.parseReceiptObjects(receiptObjects);
+    this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
   }
 
   // ===== Strategy Interface Implementation =====
@@ -100,6 +101,23 @@ export class LendingStrategy extends BaseStrategy<
       return { tokenAmount, usdValue: tokenAmount.mul(price) };
     }
     throw new Error(`Unsupported parent protocol: ${protocol}`);
+  }
+
+  /**
+   * Compute the user's current pool balance for Lending strategy.
+   * Mirrors lending.rs: xTokens -> tokens via exchangeRate, scaled by 1e9, priced by asset.
+   */
+  async getBalance(): Promise<{ tokenAmount: Decimal; usdValue: Decimal }> {
+    if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
+      return { tokenAmount: new Decimal(0), usdValue: new Decimal(0) };
+    }
+    const xTokens = new Decimal(this.receiptObjects[0].xTokenBalance);
+    const [price, exchangeRate] = await Promise.all([
+      this.context.getCoinPrice(this.poolLabel.asset.type),
+      Promise.resolve(this.exchangeRate()),
+    ]);
+    const tokens = xTokens.mul(exchangeRate).div(new Decimal(10).pow(9));
+    return { tokenAmount: tokens, usdValue: tokens.mul(price) };
   }
 
   // ===== Parsing Functions (similar to Rust SDK) =====

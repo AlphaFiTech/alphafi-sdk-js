@@ -23,12 +23,14 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
   private poolLabel: SingleAssetLoopingPoolLabel;
   private poolObject: SingleAssetLoopingPoolObject;
   private investorObject: SingleAssetLoopingInvestorObject;
+  private receiptObjects: SingleAssetLoopingReceiptObject[];
   private context: StrategyContext;
 
   constructor(
     poolLabel: SingleAssetLoopingPoolLabel,
     poolObject: any,
     investorObject: any,
+    receiptObjects: any[],
     context: StrategyContext,
   ) {
     super();
@@ -36,6 +38,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
     this.poolObject = this.parsePoolObject(poolObject);
     this.investorObject = this.parseInvestorObject(investorObject);
     this.context = context;
+    this.receiptObjects = this.parseReceiptObjects(receiptObjects);
   }
 
   // ===== Strategy Interface Implementation =====
@@ -185,6 +188,26 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
    */
   parseParentPoolObject(_response: any): never {
     throw new Error('SingleAssetLooping strategy does not have parent pool objects');
+  }
+
+  /**
+   * Compute user's current pool balance for SingleAssetLooping.
+   * Matches single_asset_looping.rs behavior.
+   */
+  async getBalance(): Promise<{ tokenAmount: Decimal; usdValue: Decimal }> {
+    if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
+      return { tokenAmount: new Decimal(0), usdValue: new Decimal(0) };
+    }
+
+    const xTokens = new Decimal(this.receiptObjects[0].xTokenBalance);
+    const [exchangeRate, tokenDecimals, tokenPrice] = await Promise.all([
+      Promise.resolve(this.exchangeRate()),
+      this.context.getCoinDecimals(this.poolLabel.asset.type),
+      this.context.getCoinPrice(this.poolLabel.asset.type),
+    ]);
+    const tokens = xTokens.mul(exchangeRate);
+    const amount = tokens.div(new Decimal(10).pow(tokenDecimals));
+    return { tokenAmount: amount, usdValue: amount.mul(tokenPrice) };
   }
 
   /**

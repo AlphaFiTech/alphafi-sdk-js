@@ -8,11 +8,9 @@ export class Blockchain {
   gqlClient: SuiGraphQLClient<any>;
   suiClient: SuiClient;
 
-  constructor(network: 'mainnet' | 'testnet' | 'devnet' | 'localnet') {
+  constructor(suiClient: SuiClient, network: 'mainnet' | 'testnet' | 'devnet' | 'localnet') {
     this.network = network;
-    this.suiClient = new SuiClient({
-      url: getFullnodeUrl(network),
-    });
+    this.suiClient = suiClient;
     this.gqlClient = new SuiGraphQLClient({
       url:
         network === 'testnet'
@@ -62,10 +60,11 @@ export class Blockchain {
     return result.data?.object?.asMoveObject?.contents?.json;
   }
 
-  async multiGetObjects(objectIds: string[]) {
+  async multiGetObjects(objectIds: string[]): Promise<Map<string, any>> {
     const query = graphql(`
       query multiGetObjects($objectIds: [ObjectKey!]!) {
         multiGetObjects(keys: $objectIds) {
+          address
           asMoveObject {
             contents {
               json
@@ -75,12 +74,30 @@ export class Blockchain {
       }
     `);
 
-    const result = await this.gqlClient.query({
-      query,
-      variables: { objectIds: objectIds.map((id) => ({ address: id })) },
+    const batches: string[][] = [];
+    for (let i = 0; i < objectIds.length; i += 50) {
+      batches.push(objectIds.slice(i, i + 50));
+    }
+
+    const resMap: Map<string, any> = new Map();
+    const results = await Promise.all(
+      batches.map((batch) =>
+        this.gqlClient.query({
+          query,
+          variables: { objectIds: batch.map((id) => ({ address: id })) },
+        }),
+      ),
+    );
+
+    results.forEach((result) => {
+      result.data?.multiGetObjects?.forEach((obj) => {
+        if (obj) {
+          resMap.set(obj.address, obj.asMoveObject?.contents?.json);
+        }
+      });
     });
 
-    return result.data?.multiGetObjects?.map((obj) => obj?.asMoveObject?.contents?.json);
+    return resMap;
   }
 
   async getReceipt(address: string, type: string) {

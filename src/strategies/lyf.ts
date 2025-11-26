@@ -25,24 +25,24 @@ export class LyfStrategy extends BaseStrategy<
   private poolLabel: LyfPoolLabel;
   private poolObject: LyfPoolObject;
   private investorObject: LyfInvestorObject;
-  private parentPoolObject?: LyfParentPoolObject;
+  private parentPoolObject: LyfParentPoolObject;
+  private receiptObjects: LyfReceiptObject[];
   private context: StrategyContext;
 
   constructor(
     poolLabel: LyfPoolLabel,
     poolObject: any,
-    investorObject: any,
+    parentPoolObject: any,
+    receiptObjects: any[],
     context: StrategyContext,
-    parentPoolObject?: any,
   ) {
     super();
     this.poolLabel = poolLabel;
     this.poolObject = this.parsePoolObject(poolObject);
-    this.investorObject = this.parseInvestorObject(investorObject);
+    this.investorObject = this.poolObject.investor;
     this.context = context;
-    if (parentPoolObject) {
-      this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
-    }
+    this.receiptObjects = this.parseReceiptObjects(receiptObjects);
+    this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
   }
 
   // ===== Strategy Interface Implementation =====
@@ -103,13 +103,6 @@ export class LyfStrategy extends BaseStrategy<
   }
 
   async getParentTvl(): Promise<DoubleTvl> {
-    if (!this.parentPoolObject) {
-      return {
-        tokenAmountA: new Decimal(0),
-        tokenAmountB: new Decimal(0),
-        usdValue: new Decimal(0),
-      };
-    }
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
     const decimalsA = await this.context.getCoinDecimals(coinTypeA);
@@ -146,13 +139,6 @@ export class LyfStrategy extends BaseStrategy<
     token2Amount: Decimal;
     totalLiquidity: Decimal;
   }> {
-    if (!this.parentPoolObject) {
-      return {
-        token1Amount: new Decimal(0),
-        token2Amount: new Decimal(0),
-        totalLiquidity: new Decimal(0),
-      };
-    }
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
     const decimalsA = await this.context.getCoinDecimals(coinTypeA);
@@ -168,9 +154,6 @@ export class LyfStrategy extends BaseStrategy<
   }
 
   async getCurrentLPPoolPrice(): Promise<Decimal> {
-    if (!this.parentPoolObject) {
-      return new Decimal(0);
-    }
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
     const decimalsA = await this.context.getCoinDecimals(coinTypeA);
@@ -200,6 +183,35 @@ export class LyfStrategy extends BaseStrategy<
     return { lowerPrice: new Decimal(lower.toString()), upperPrice: new Decimal(upper.toString()) };
   }
 
+  /**
+   * Compute the user's current pool balance for LYF strategy.
+   * Mirrors lyf.rs: convert xTokens to underlying amounts via exchange rate,
+   * get token A/B amounts, compute USD value, then convert to zap asset amount.
+   */
+  async getBalance(): Promise<{ tokenAmount: Decimal; usdValue: Decimal }> {
+    if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
+      return { tokenAmount: new Decimal(0), usdValue: new Decimal(0) };
+    }
+
+    const xTokens = new Decimal(this.receiptObjects[0].xTokenBalance);
+    const exchangeRate = this.exchangeRate();
+    const tokens = xTokens.mul(exchangeRate);
+
+    const coinTypeA = this.poolLabel.assetA.type;
+    const coinTypeB = this.poolLabel.assetB.type;
+    const [priceA, priceB] = await Promise.all([
+      this.context.getCoinPrice(coinTypeA),
+      this.context.getCoinPrice(coinTypeB),
+    ]);
+
+    const { amountA, amountB } = await this.getTokenAmounts(tokens.floor().toString());
+    const usdValue = amountA.mul(priceA).add(amountB.mul(priceB));
+
+    const zapPrice = await this.context.getCoinPrice(this.poolLabel.zapAsset.type);
+    const tokenAmount = usdValue.div(zapPrice);
+    return { tokenAmount, usdValue };
+  }
+
   // ===== Helper Functions =====
 
   private getLeverage(): Decimal {
@@ -218,9 +230,6 @@ export class LyfStrategy extends BaseStrategy<
   private async getTokenAmounts(
     liquidity: string,
   ): Promise<{ amountA: Decimal; amountB: Decimal }> {
-    if (!this.parentPoolObject) {
-      return { amountA: new Decimal(0), amountB: new Decimal(0) };
-    }
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
     const scalingA = new Decimal(10).pow(await this.context.getCoinDecimals(coinTypeA));
@@ -266,6 +275,7 @@ export class LyfStrategy extends BaseStrategy<
   parsePoolObject(response: any): LyfPoolObject {
     return this.safeParseObject(() => {
       const fields = this.extractFields(response);
+      const investor = this.parseInvestorFields(fields?.investor ?? {});
 
       return {
         accRewardsPerXtoken: this.parseVecMap(fields.acc_rewards_per_xtoken || {}),
@@ -290,6 +300,7 @@ export class LyfStrategy extends BaseStrategy<
         xTokenSupply:
           this.getStringField(fields, 'xtoken_supply') ||
           this.getStringField(fields, 'xTokenSupply'),
+        investor,
       };
     }, 'Failed to parse Lyf pool object');
   }
@@ -298,42 +309,10 @@ export class LyfStrategy extends BaseStrategy<
    * Parse investor object from blockchain response
    */
   parseInvestorObject(response: any): LyfInvestorObject {
-    return this.safeParseObject(() => {
-      const fields = this.extractFields(response);
-
-      return {
-        emergencyBalanceA: this.getStringField(fields, 'emergency_balance_a'),
-        emergencyBalanceB: this.getStringField(fields, 'emergency_balance_b'),
-        freeBalanceA: this.getStringField(fields, 'free_balance_a'),
-        freeBalanceB: this.getStringField(fields, 'free_balance_b'),
-        freeRewards: (() => {
-          const idVal =
-            (this.getNestedField(fields, 'free_rewards.fields.id.id') as string | undefined) || '';
-          const sizeVal =
-            (this.getNestedField(fields, 'free_rewards.fields.size') as string | undefined) || '';
-          return { id: String(idVal), size: String(sizeVal) };
-        })(),
-        id: this.getStringField(fields, 'id'),
-        isEmergency: this.getBooleanField(fields, 'is_emergency', false),
-        lowerTick: this.getNumberField(fields, 'lower_tick'),
-        minimumSwapAmount: this.getStringField(fields, 'minimum_swap_amount'),
-        performanceFee: this.getStringField(fields, 'performance_fee'),
-        performanceFeeMaxCap: this.getStringField(fields, 'performance_fee_max_cap'),
-        // Additional fields to match Rust model
-        currDebtA:
-          this.getStringField(fields, 'cur_debt_a') || this.getStringField(fields, 'curr_debt_a'),
-        currDebtB:
-          this.getStringField(fields, 'cur_debt_b') || this.getStringField(fields, 'curr_debt_b'),
-        marketIdA: this.getStringField(fields, 'market_id_a'),
-        marketIdB: this.getStringField(fields, 'market_id_b'),
-        currentDebtToSupplyRatio:
-          (this.getNestedField(fields, 'current_debt_to_supply_ratio.fields.value') as
-            | string
-            | undefined) || this.getStringField(fields, 'current_debt_to_supply_ratio'),
-        safeBorrowPercentage: this.getStringField(fields, 'safe_borrow_percentage'),
-        upperTick: this.getNumberField(fields, 'upper_tick'),
-      };
-    }, 'Failed to parse Lyf investor object');
+    return this.safeParseObject(
+      () => this.parseInvestorFields(response),
+      'Failed to parse Lyf investor object',
+    );
   }
 
   /**
@@ -380,6 +359,46 @@ export class LyfStrategy extends BaseStrategy<
       }, `Failed to parse Lyf receipt object at index ${index}`);
     });
   }
+
+  private parseInvestorFields(response: any): LyfInvestorObject {
+    const fields = this.extractFields(response ?? {});
+    const freeRewards = (() => {
+      const idVal =
+        (this.getNestedField(fields, 'free_rewards.fields.id.id') as string | undefined) || '';
+      const sizeVal =
+        (this.getNestedField(fields, 'free_rewards.fields.size') as string | undefined) || '';
+      return { id: String(idVal), size: String(sizeVal) };
+    })();
+    const investorId =
+      (this.getNestedField(fields, 'id.id') as string | undefined) ||
+      this.getStringField(fields, 'id');
+
+    return {
+      emergencyBalanceA: this.getStringField(fields, 'emergency_balance_a'),
+      emergencyBalanceB: this.getStringField(fields, 'emergency_balance_b'),
+      freeBalanceA: this.getStringField(fields, 'free_balance_a'),
+      freeBalanceB: this.getStringField(fields, 'free_balance_b'),
+      freeRewards,
+      id: String(investorId || ''),
+      isEmergency: this.getBooleanField(fields, 'is_emergency', false),
+      lowerTick: this.getNumberField(fields, 'lower_tick'),
+      minimumSwapAmount: this.getStringField(fields, 'minimum_swap_amount'),
+      performanceFee: this.getStringField(fields, 'performance_fee'),
+      performanceFeeMaxCap: this.getStringField(fields, 'performance_fee_max_cap'),
+      currDebtA:
+        this.getStringField(fields, 'cur_debt_a') || this.getStringField(fields, 'curr_debt_a'),
+      currDebtB:
+        this.getStringField(fields, 'cur_debt_b') || this.getStringField(fields, 'curr_debt_b'),
+      marketIdA: this.getStringField(fields, 'market_id_a'),
+      marketIdB: this.getStringField(fields, 'market_id_b'),
+      currentDebtToSupplyRatio:
+        (this.getNestedField(fields, 'current_debt_to_supply_ratio.fields.value') as
+          | string
+          | undefined) || this.getStringField(fields, 'current_debt_to_supply_ratio'),
+      safeBorrowPercentage: this.getStringField(fields, 'safe_borrow_percentage'),
+      upperTick: this.getNumberField(fields, 'upper_tick'),
+    };
+  }
 }
 
 // ===== Types =====
@@ -403,6 +422,7 @@ export interface LyfPoolObject {
   withdrawFeeMaxCap: string;
   withdrawalFee: string;
   xTokenSupply: string;
+  investor: LyfInvestorObject;
 }
 
 /**
@@ -471,8 +491,8 @@ export interface LyfPoolLabel {
   strategyType: 'Lyf';
   parentProtocol: ProtocolType;
   parentPoolId: string;
-  investorId: string;
   receipt: NameType;
+  zapAsset: NameType;
   assetA: NameType;
   assetB: NameType;
   events: {

@@ -25,24 +25,25 @@ export class FungibleLpStrategy extends BaseStrategy<
   private poolLabel: FungibleLpPoolLabel;
   private poolObject: FungibleLpPoolObject;
   private investorObject: FungibleLpInvestorObject;
-  private parentPoolObject?: FungibleLpParentPoolObject;
+  private parentPoolObject: FungibleLpParentPoolObject;
+  private xTokenBalance: Decimal;
   private context: StrategyContext;
 
   constructor(
     poolLabel: FungibleLpPoolLabel,
     poolObject: any,
     investorObject: any,
+    parentPoolObject: any,
+    xTokenBalance: string,
     context: StrategyContext,
-    parentPoolObject?: any,
   ) {
     super();
     this.poolLabel = poolLabel;
     this.poolObject = this.parsePoolObject(poolObject);
     this.investorObject = this.parseInvestorObject(investorObject);
     this.context = context;
-    if (parentPoolObject) {
-      this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
-    }
+    this.xTokenBalance = new Decimal(xTokenBalance);
+    this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
   }
 
   // ===== Strategy Interface Implementation =====
@@ -103,13 +104,6 @@ export class FungibleLpStrategy extends BaseStrategy<
   }
 
   async getParentTvl(): Promise<DoubleTvl> {
-    if (!this.parentPoolObject) {
-      return {
-        tokenAmountA: new Decimal(0),
-        tokenAmountB: new Decimal(0),
-        usdValue: new Decimal(0),
-      };
-    }
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
     const decimalsA = await this.context.getCoinDecimals(coinTypeA);
@@ -134,9 +128,6 @@ export class FungibleLpStrategy extends BaseStrategy<
   private async getTokenAmounts(
     liquidity: string,
   ): Promise<{ amountA: Decimal; amountB: Decimal }> {
-    if (!this.parentPoolObject) {
-      return { amountA: new Decimal(0), amountB: new Decimal(0) };
-    }
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
     const scalingA = new Decimal(10).pow(await this.context.getCoinDecimals(coinTypeA));
@@ -189,13 +180,6 @@ export class FungibleLpStrategy extends BaseStrategy<
     token2Amount: Decimal;
     totalLiquidity: Decimal;
   }> {
-    if (!this.parentPoolObject) {
-      return {
-        token1Amount: new Decimal(0),
-        token2Amount: new Decimal(0),
-        totalLiquidity: new Decimal(0),
-      };
-    }
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
     const decimalsA = await this.context.getCoinDecimals(coinTypeA);
@@ -211,9 +195,6 @@ export class FungibleLpStrategy extends BaseStrategy<
   }
 
   async getCurrentLPPoolPrice(): Promise<Decimal> {
-    if (!this.parentPoolObject) {
-      return new Decimal(0);
-    }
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
     const decimalsA = await this.context.getCoinDecimals(coinTypeA);
@@ -241,6 +222,38 @@ export class FungibleLpStrategy extends BaseStrategy<
     const lower = TickMath.tickIndexToPrice(lowerTick, decimalsA, decimalsB);
     const upper = TickMath.tickIndexToPrice(upperTick, decimalsA, decimalsB);
     return { lowerPrice: new Decimal(lower.toString()), upperPrice: new Decimal(upper.toString()) };
+  }
+
+  /**
+   * Compute the user's current pool balance based on fungible xToken balance.
+   * Mirrors fungible_lp.rs: uses wallet balance instead of receipts.
+   */
+  async getBalance(): Promise<{
+    tokenAAmount: Decimal;
+    tokenBAmount: Decimal;
+    totalUsdValue: Decimal;
+  }> {
+    if (this.xTokenBalance.isZero()) {
+      return {
+        tokenAAmount: new Decimal(0),
+        tokenBAmount: new Decimal(0),
+        totalUsdValue: new Decimal(0),
+      };
+    }
+
+    const exchangeRate = this.exchangeRate();
+    const tokens = this.xTokenBalance.mul(exchangeRate);
+
+    const coinTypeA = this.poolLabel.assetA.type;
+    const coinTypeB = this.poolLabel.assetB.type;
+    const [priceA, priceB] = await Promise.all([
+      this.context.getCoinPrice(coinTypeA),
+      this.context.getCoinPrice(coinTypeB),
+    ]);
+
+    const { amountA, amountB } = await this.getTokenAmounts(tokens.floor().toString());
+    const totalUsdValue = amountA.mul(priceA).add(amountB.mul(priceB));
+    return { tokenAAmount: amountA, tokenBAmount: amountB, totalUsdValue };
   }
 
   // ===== Parsing Functions (similar to Rust SDK) =====

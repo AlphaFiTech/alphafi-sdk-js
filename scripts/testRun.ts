@@ -4,7 +4,7 @@ import { fromB64, normalizeStructTag } from '@mysten/sui/utils';
 import { SuiClient } from '@mysten/sui/client';
 import { Protocol } from '../src/models/protocol.js';
 import { Portfolio } from '../src/models/portfolio.js';
-import { AlphaFiSDK } from '../src/index.js';
+import { AlphaFiSDK, StrategyContext } from '../src/index.js';
 import dotenv from 'dotenv';
 import { Transaction } from '@mysten/sui/transactions';
 
@@ -67,20 +67,11 @@ export async function dryRunTransactionBlock(txb: Transaction) {
   }
 }
 
-async function test() {
-  const { address, keypair, suiClient } = getExecStuff();
-  const blockchain = new Blockchain('mainnet');
-  const protocol = new Protocol(suiClient, 'mainnet');
-  const res = await protocol.getAprMap();
-  console.log(res);
-}
-test();
-
 async function main() {
   const { address, keypair, suiClient } = getExecStuff();
-  const blockchain = new Blockchain('mainnet');
-  const protocol = new Protocol(suiClient, 'mainnet');
-  const portfolio = new Portfolio(protocol, blockchain, suiClient, address);
+  const blockchain = new Blockchain(suiClient, 'mainnet');
+  const alphafiClient = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
+  const res = await alphafiClient.getAllPoolsData();
   // const res = await protocol.getAllPoolsData();
   // for (const pool of res) {
   //   console.log(poolDetailsMap[pool[0]].poolName, pool[1]);
@@ -89,10 +80,10 @@ async function main() {
   // const res = await blockchain.getObject(
   //   '0xcf994611fd4c48e277ce3ffd4d4364c914af2c3cbb05f7bf6facd371de688630',
   // );
-  const res = await blockchain.multiGetObjects([
-    '0x58c4a8c5d18c61156e1a5a82811fbf71963a4de3f5d52292504646611a308888',
-    '0x89793208211927a4d1458a59d34b775aaec17af8c98a59a1ba97f7b005c0e587',
-  ]);
+  // const res = await blockchain.multiGetObjects([
+  //   '0x58c4a8c5d18c61156e1a5a82811fbf71963a4de3f5d52292504646611a308888',
+  //   '0x89793208211927a4d1458a59d34b775aaec17af8c98a59a1ba97f7b005c0e587',
+  // ]);
   // const res = await blockchain.getReceipt(
   //   address,
   //   '0x45564ea956f9b25890a5c1c3a199c8d86aabd5291b34723fb662283419ee2f4d::alphafi_alphalend_single_loop_pool::Receipt',
@@ -108,7 +99,7 @@ async function main() {
   //   ),
   // );
 }
-// main();
+main();
 
 async function deposit() {
   const { address, keypair, suiClient } = getExecStuff();
@@ -149,4 +140,4 @@ async function withdraw() {
       console.error(error);
     });
 }
-withdraw();
+// withdraw();

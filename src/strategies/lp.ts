@@ -25,24 +25,25 @@ export class LpStrategy extends BaseStrategy<
   private poolLabel: LpPoolLabel;
   private poolObject: LpPoolObject;
   private investorObject: LpInvestorObject;
-  private parentPoolObject?: LpParentPoolObject;
+  private parentPoolObject: LpParentPoolObject;
+  private receiptObjects: LpReceiptObject[];
   private context: StrategyContext;
 
   constructor(
     poolLabel: LpPoolLabel,
     poolObject: any,
     investorObject: any,
+    parentPoolObject: any,
+    receiptObjects: any[],
     context: StrategyContext,
-    parentPoolObject?: any,
   ) {
     super();
     this.poolLabel = poolLabel;
     this.poolObject = this.parsePoolObject(poolObject);
     this.investorObject = this.parseInvestorObject(investorObject);
     this.context = context;
-    if (parentPoolObject) {
-      this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
-    }
+    this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
+    this.receiptObjects = this.parseReceiptObjects(receiptObjects);
   }
 
   // ===== Strategy Interface Implementation =====
@@ -103,13 +104,6 @@ export class LpStrategy extends BaseStrategy<
   }
 
   async getParentTvl(): Promise<DoubleTvl> {
-    if (!this.parentPoolObject) {
-      return {
-        tokenAmountA: new Decimal(0),
-        tokenAmountB: new Decimal(0),
-        usdValue: new Decimal(0),
-      };
-    }
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
     const decimalsA = await this.context.getCoinDecimals(coinTypeA);
@@ -146,13 +140,6 @@ export class LpStrategy extends BaseStrategy<
     token2Amount: Decimal;
     totalLiquidity: Decimal;
   }> {
-    if (!this.parentPoolObject) {
-      return {
-        token1Amount: new Decimal(0),
-        token2Amount: new Decimal(0),
-        totalLiquidity: new Decimal(0),
-      };
-    }
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
     const decimalsA = await this.context.getCoinDecimals(coinTypeA);
@@ -168,9 +155,6 @@ export class LpStrategy extends BaseStrategy<
   }
 
   async getCurrentLPPoolPrice(): Promise<Decimal> {
-    if (!this.parentPoolObject) {
-      return new Decimal(0);
-    }
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
     const decimalsA = await this.context.getCoinDecimals(coinTypeA);
@@ -200,6 +184,39 @@ export class LpStrategy extends BaseStrategy<
     return { lowerPrice: new Decimal(lower.toString()), upperPrice: new Decimal(upper.toString()) };
   }
 
+  /**
+   * Compute the user's current pool balance from a receipt object.
+   * Parses the receipt inline and returns token amounts and total USD value.
+   */
+  async getBalance(): Promise<{
+    tokenAAmount: Decimal;
+    tokenBAmount: Decimal;
+    totalUsdValue: Decimal;
+  }> {
+    if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
+      return {
+        tokenAAmount: new Decimal(0),
+        tokenBAmount: new Decimal(0),
+        totalUsdValue: new Decimal(0),
+      };
+    }
+    const xTokens = new Decimal(this.receiptObjects[0].xTokenBalance);
+
+    const exchangeRate = this.exchangeRate();
+    const coinTypeA = this.poolLabel.assetA.type;
+    const coinTypeB = this.poolLabel.assetB.type;
+    const [priceA, priceB] = await Promise.all([
+      this.context.getCoinPrice(coinTypeA),
+      this.context.getCoinPrice(coinTypeB),
+    ]);
+
+    const tokens = xTokens.mul(exchangeRate);
+    const { amountA, amountB } = await this.getTokenAmounts(tokens.floor().toString());
+
+    const totalUsdValue = amountA.mul(priceA).add(amountB.mul(priceB));
+    return { tokenAAmount: amountA, tokenBAmount: amountB, totalUsdValue };
+  }
+
   // ===== Helper Functions =====
 
   /**
@@ -208,9 +225,6 @@ export class LpStrategy extends BaseStrategy<
   private async getTokenAmounts(
     liquidity: string,
   ): Promise<{ amountA: Decimal; amountB: Decimal }> {
-    if (!this.parentPoolObject) {
-      return { amountA: new Decimal(0), amountB: new Decimal(0) };
-    }
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
     const scalingA = new Decimal(10).pow(await this.context.getCoinDecimals(coinTypeA));
@@ -276,7 +290,7 @@ export class LpStrategy extends BaseStrategy<
           this.getStringField(fields, 'xtoken_supply') ||
           this.getStringField(fields, 'xTokenSupply'),
       };
-    }, 'Failed to parse LP pool object');
+    }, `Failed to parse LP pool object (poolId=${this.poolLabel.poolId})`);
   }
 
   /**
@@ -306,7 +320,7 @@ export class LpStrategy extends BaseStrategy<
         performanceFeeMaxCap: this.getStringField(fields, 'performance_fee_max_cap'),
         upperTick: this.getNumberField(fields, 'upper_tick'),
       };
-    }, 'Failed to parse LP investor object');
+    }, `Failed to parse LP investor object (poolId=${this.poolLabel.poolId})`);
   }
 
   /**
@@ -326,7 +340,7 @@ export class LpStrategy extends BaseStrategy<
         id: this.getStringField(fields, 'id'),
         liquidity: this.getStringField(fields, 'liquidity'),
       };
-    }, 'Failed to parse LP parent pool object');
+    }, `Failed to parse LP parent pool object (poolId=${this.poolLabel.poolId})`);
   }
 
   /**

@@ -72,7 +72,7 @@ export class StrategyContext {
       throw new Error(`Failed to fetch apr data: ${resp.status} ${resp.statusText}`);
     }
     const dataArr = (await resp.json()) as Map<string, AprData>;
-    for (const [key, value] of dataArr) {
+    for (const [key, value] of Object.entries(dataArr)) {
       this.aprMap.set(key, value);
     }
   }
@@ -280,8 +280,8 @@ export class StrategyContext {
           strategyType: st,
           parentProtocol: d.parent_protocol,
           parentPoolId: d.parent_pool_id,
-          investorId: d.investor_id,
           receipt: d.receipt,
+          zapAsset: d.zap_asset,
           assetA: d.asset_a,
           assetB: d.asset_b,
           events: {
