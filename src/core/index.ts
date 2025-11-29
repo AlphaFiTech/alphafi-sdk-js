@@ -353,7 +353,7 @@ export class AlphaFiSDK {
    * @param options - Claim configuration options
    * @returns Promise<TransactionResult> - Transaction result with gas estimate
    */
-  async claim(options: ClaimOptions): Promise<Transaction> {
+  async claim(_: ClaimOptions): Promise<Transaction> {
     return await claimRewardTxb(this.config.address);
     // return this.transactionManager.claim({
     //   poolId: options.poolId,
