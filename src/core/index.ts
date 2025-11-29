@@ -26,6 +26,10 @@ import {
   getReceipts,
   claimRewardTxb,
   getDoubleAssetVaultBalance,
+  depositAlphaTx,
+  claimWithdrawAlphaTx,
+  claimAirdropTx,
+  initiateWithdrawAlpha,
 } from '@alphafi/alphafi-sdk-upstream';
 import { Decimal } from 'decimal.js';
 import { PoolLabel, StrategyType } from '../strategies/index.js';
@@ -149,11 +153,19 @@ export class AlphaFiSDK {
       }
       return tx;
     } else if (poolInfo.assetTypes.length === 1) {
-      return await depositSingleAssetTxb(
-        poolInfo.poolName as PoolName,
-        this.config.address,
-        options.amount.toString(),
-      );
+      if (poolInfo.poolName === 'ALPHA') {
+        return await depositAlphaTx(
+          options.amount.toString(),
+          this.config.address,
+          this.blockchain.suiClient,
+        );
+      } else {
+        return await depositSingleAssetTxb(
+          poolInfo.poolName as PoolName,
+          this.config.address,
+          options.amount.toString(),
+        );
+      }
     } else if (poolInfo.assetTypes.length === 2) {
       return await depositDoubleAssetTxb(
         poolInfo.poolName as PoolName,
@@ -280,6 +292,23 @@ export class AlphaFiSDK {
     );
   }
 
+  async initiateWithdrawAlpha(options: WithdrawOptions): Promise<Transaction> {
+    return await initiateWithdrawAlpha(
+      options.amount.toString(),
+      options.withdrawMax,
+      this.config.address,
+      this.blockchain.suiClient,
+    );
+  }
+
+  async claimWithdrawAlpha(ticketId: string): Promise<Transaction> {
+    return await claimWithdrawAlphaTx(ticketId, this.config.address, this.blockchain.suiClient);
+  }
+
+  async claimAirdrop(): Promise<Transaction> {
+    return await claimAirdropTx(this.config.address, this.blockchain.suiClient);
+  }
+
   /**
    * Get zap deposit quote for a DeFi pool
    * @param options - Zap deposit quote configuration options
@@ -324,7 +353,7 @@ export class AlphaFiSDK {
    * @param options - Claim configuration options
    * @returns Promise<TransactionResult> - Transaction result with gas estimate
    */
-  async claim(options: ClaimOptions): Promise<Transaction> {
+  async claim(_: ClaimOptions): Promise<Transaction> {
     return await claimRewardTxb(this.config.address);
     // return this.transactionManager.claim({
     //   poolId: options.poolId,

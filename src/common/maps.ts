@@ -84,15 +84,15 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     },
     retired: false,
   },
-  [conf[CONF_ENV].ALPHA_POOL]: {
+  [conf[CONF_ENV].ALPHAFI_EMBER_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LATEST_PACKAGE_ID,
     poolName: 'ALPHA',
     packageNumber: 1,
     strategyType: 'ALPHA-VAULT',
     parentProtocolName: 'ALPHAFI',
-    parentPoolId: conf[CONF_ENV].ALPHA_POOL,
-    poolId: conf[CONF_ENV].ALPHA_POOL,
-    investorId: conf[CONF_ENV].ALPHA_POOL,
+    parentPoolId: conf[CONF_ENV].ALPHAFI_EMBER_POOL,
+    poolId: conf[CONF_ENV].ALPHAFI_EMBER_POOL,
+    investorId: conf[CONF_ENV].ALPHAFI_EMBER_POOL,
     receipt: {
       name: conf[CONF_ENV].ALPHA_POOL_RECEIPT_NAME,
       type: conf[CONF_ENV].ALPHA_POOL_RECEIPT,
