@@ -30,6 +30,7 @@ import {
   claimWithdrawAlphaTx,
   claimAirdropTx,
   initiateWithdrawAlpha,
+  getSlushUserTotalXtokens,
 } from '@alphafi/alphafi-sdk-upstream';
 import { Decimal } from 'decimal.js';
 import { PoolLabel, StrategyType } from '../strategies/index.js';
@@ -214,11 +215,16 @@ export class AlphaFiSDK {
 
     let xTokens = '0';
     if (options.withdrawMax) {
-      const receipt = await getReceipts(poolInfo.poolName as PoolName, this.config.address, true);
-      if (!receipt) {
-        throw new Error(`Receipt with ID ${poolInfo.poolId} not found`);
+      if(poolDetailsMap[options.poolId].poolName.toString().includes("ALPHALEND-SLUSH")) {
+        xTokens = await getSlushUserTotalXtokens(poolDetailsMap[options.poolId].poolName as PoolName, this.config.address);
       }
-      xTokens = receipt[0].content.fields.xTokenBalance;
+      else{
+        const receipt = await getReceipts(poolInfo.poolName as PoolName, this.config.address, true);
+        if (!receipt) {
+          throw new Error(`Receipt with ID ${poolInfo.poolId} not found`);
+        }
+        xTokens = receipt[0].content.fields.xTokenBalance;
+      }
     } else if (
       poolDetailsMap[options.poolId].strategyType === 'DOUBLE-ASSET-LOOPING' ||
       poolDetailsMap[options.poolId].strategyType === 'SINGLE-ASSET-LOOPING'
