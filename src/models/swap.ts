@@ -1,7 +1,6 @@
-import { AggregatorClient, getAllProviders, RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
+import { AggregatorClient, RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 // import { getFullnodeUrl } from '@mysten/sui/client/network.js';
 import { Transaction } from '@mysten/sui/transactions';
-import BN from 'bn.js';
 
 // Re-export RouterDataV3 type for external use
 export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
@@ -35,33 +34,6 @@ export class CetusSwap {
       return router || undefined;
     } catch (error) {
       console.error('Error getting cetus swap quote', error);
-      throw error;
-    }
-  }
-
-  async cetusSwapTokensWithMaxAmountIn(
-    inputTokenType: string,
-    amount: string,
-    router: RouterDataV3,
-    yourAddress: string,
-  ): Promise<Transaction> {
-    try {
-      if (!router) {
-        throw new Error('No routers found');
-      }
-      const txb = new Transaction();
-      const inputCoin = txb.object(inputTokenType);
-      const targetCoin = await this.client.routerSwapWithMaxAmountIn({
-        router,
-        txb,
-        inputCoin,
-        slippage: 0.01, // 1% slippage
-        maxAmountIn: new BN(amount), // Maximum 1.5 SUI allowed
-      });
-      txb.transferObjects([targetCoin], yourAddress);
-      return txb;
-    } catch (error) {
-      console.error('Error swapping tokens in cetus swap', error);
       throw error;
     }
   }

@@ -39,7 +39,6 @@ import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
 import { coinsListByType } from '../common/coinsList.js';
 import { CetusSwap } from '../models/swap.js';
 import { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
-import { CoinDetails, Coins } from '../models/coins.js';
 
 // Re-export types for external use
 export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
@@ -403,10 +402,5 @@ export class AlphaFiSDK {
   async cetusSwapTokens(router: RouterDataV3, slippage: number): Promise<Transaction> {
     const swap = new CetusSwap(this.config.network);
     return await swap.cetusSwapTokens(router, slippage);
-  }
-
-  async getCoinDetails(): Promise<CoinDetails[]> {
-    const coins = new Coins(this.config.network);
-    return await coins.getCoinDetails();
   }
 }
