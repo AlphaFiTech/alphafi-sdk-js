@@ -37,7 +37,12 @@ import { PoolLabel, StrategyType } from '../strategies/index.js';
 import poolsConfig from '../config/poolsData.js';
 import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
 import { coinsListByType } from '../common/coinsList.js';
+import { CetusSwap } from '../models/swap.js';
+import { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
+import { CoinDetails, Coins } from '../models/coins.js';
 
+// Re-export types for external use
+export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 /**
  * Configuration options for the AlphaFi SDK
  */
@@ -114,7 +119,6 @@ export class AlphaFiSDK {
   private protocol: Protocol;
   private portfolio: Portfolio;
   private poolLabels: PoolLabel[];
-
   constructor(config: AlphaFiSDKConfig) {
     this.config = config;
 
@@ -215,10 +219,12 @@ export class AlphaFiSDK {
 
     let xTokens = '0';
     if (options.withdrawMax) {
-      if(poolDetailsMap[options.poolId].poolName.toString().includes("ALPHALEND-SLUSH")) {
-        xTokens = await getSlushUserTotalXtokens(poolDetailsMap[options.poolId].poolName as PoolName, this.config.address);
-      }
-      else{
+      if (poolDetailsMap[options.poolId].poolName.toString().includes('ALPHALEND-SLUSH')) {
+        xTokens = await getSlushUserTotalXtokens(
+          poolDetailsMap[options.poolId].poolName as PoolName,
+          this.config.address,
+        );
+      } else {
         const receipt = await getReceipts(poolInfo.poolName as PoolName, this.config.address, true);
         if (!receipt) {
           throw new Error(`Receipt with ID ${poolInfo.poolId} not found`);
@@ -383,5 +389,24 @@ export class AlphaFiSDK {
         strategy_type: entry.strategy_type as StrategyType,
       };
     });
+  }
+
+  async getCetusSwapQuote(
+    from: string,
+    target: string,
+    amount: string,
+  ): Promise<RouterDataV3 | undefined> {
+    const swap = new CetusSwap(this.config.network);
+    return await swap.getCetusSwapQuote(from, target, amount);
+  }
+
+  async cetusSwapTokens(router: RouterDataV3, slippage: number): Promise<Transaction> {
+    const swap = new CetusSwap(this.config.network);
+    return await swap.cetusSwapTokens(router, slippage);
+  }
+
+  async getCoinDetails(): Promise<CoinDetails[]> {
+    const coins = new Coins(this.config.network);
+    return await coins.getCoinDetails();
   }
 }
