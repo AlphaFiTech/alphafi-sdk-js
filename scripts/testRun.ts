@@ -7,6 +7,7 @@ import { Portfolio } from '../src/models/portfolio.js';
 import { AlphaFiSDK } from '../src/index.js';
 import dotenv from 'dotenv';
 import { Transaction } from '@mysten/sui/transactions';
+import { getConf } from '../src/common/constants.js';
 
 dotenv.config();
 
@@ -66,7 +67,27 @@ export async function dryRunTransactionBlock(txb: Transaction) {
     console.log(e);
   }
 }
+export async function executeTransactionBlock(txb: Transaction) {
+  const { keypair, suiClient } = getExecStuff();
 
+  await suiClient
+    .signAndExecuteTransaction({
+      signer: keypair,
+      transaction: txb,
+      requestType: 'WaitForLocalExecution',
+      options: {
+        showEffects: true,
+        showBalanceChanges: true,
+        showObjectChanges: true,
+      },
+    })
+    .then((res) => {
+      console.log(JSON.stringify(res, null, 2));
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+}
 // async function test() {
 //   const { address, keypair, suiClient } = getExecStuff();
 //   const lockedTableID = '0xe8474026c16bcb0581bc77169e1ee8d656d64c07ddfa02929ea536fe260e1a09';
@@ -114,9 +135,13 @@ async function main() {
 
 async function deposit() {
   const { address, keypair, suiClient } = getExecStuff();
-  const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
+  const sdk = new AlphaFiSDK({
+    client: suiClient,
+    network: 'mainnet',
+    address,
+  });
   const tx = await sdk.deposit({
-    poolId: '0x04378cf67d21b41399dc0b6653a5f73f8d3a03cc7643463e47e8d378f8b0bdfa', // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    poolId: getConf().ALPHA_SLUSH_WAL_POOL_ID, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
     amount: 100_000n,
   });
   dryRunTransactionBlock(tx);
@@ -127,11 +152,13 @@ async function withdraw() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
   const tx = await sdk.initiateWithdrawAlpha({
-    poolId: '0x06a4922346ae433e9a2fff4db900d760e0cbfdef748f48385f430ef4d042a6f8', // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
-    amount: '12000000000',
+    poolId: getConf().ALPHAFI_EMBER_POOL, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    amount: '200000',
     withdrawMax: false,
   });
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx);
+  // executeTransactionBlock(tx);
 }
 withdraw();
+// deposit();
