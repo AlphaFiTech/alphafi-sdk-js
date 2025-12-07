@@ -399,8 +399,8 @@ export class AlphaFiSDK {
     return await swap.getCetusSwapQuote(from, target, amount);
   }
 
-  async cetusSwapTokens(router: RouterDataV3, slippage: number): Promise<Transaction> {
+  async cetusSwapTokensTxb(router: RouterDataV3, slippage: number): Promise<Transaction> {
     const swap = new CetusSwap(this.config.network);
-    return await swap.cetusSwapTokens(router, slippage);
+    return await swap.cetusSwapTokensTxb(router, slippage);
   }
 }

@@ -38,7 +38,7 @@ export class CetusSwap {
     }
   }
 
-  async cetusSwapTokens(router: RouterDataV3, slippage: number): Promise<Transaction> {
+  async cetusSwapTokensTxb(router: RouterDataV3, slippage: number): Promise<Transaction> {
     try {
       if (!router) {
         throw new Error('No routers found');
