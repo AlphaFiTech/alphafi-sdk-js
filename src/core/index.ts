@@ -1,8 +1,6 @@
 /**
  * Core functionality for the AlphaFi SDK
  */
-
-import { SuiClient } from '@mysten/sui/client';
 import { Blockchain } from '../models/blockchain.js';
 import { Transaction } from '@mysten/sui/transactions';
 import { Protocol } from '../models/protocol.js';
@@ -35,74 +33,20 @@ import { PoolLabel, StrategyType } from '../strategies/index.js';
 import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
 import { StrategyContext } from '../models/strategy_context.js';
 import { CoinInfoProvider } from '../models/coinInfoProvider.js';
-import { CetusSwap, RouterDataV3 } from '../models/swap.js';
+import { CetusSwap } from '../models/swap.js';
+import {
+  AlphaFiSDKConfig,
+  ClaimOptions,
+  DepositOptions,
+  EstimateLpAmountsOptions,
+  WithdrawOptions,
+  ZapDepositOptions,
+  ZapDepositQuoteOptions,
+} from './types.js';
+import { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 
 // Re-export types for external use
 export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
-/**
- * Configuration options for the AlphaFi SDK
- */
-export interface AlphaFiSDKConfig {
-  suiClient: SuiClient;
-  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
-  address: string;
-}
-
-/**
- * Options for deposit operations
- */
-export interface DepositOptions {
-  poolId: string;
-  amount: bigint;
-  isAmountA?: boolean; // For double asset pools
-}
-
-/**
- * Options for estimate lp amounts operations
- */
-export interface EstimateLpAmountsOptions {
-  poolId: string;
-  amount: string;
-  isAmountA: boolean;
-}
-
-/**
- * Options for withdraw operations
- */
-export interface WithdrawOptions {
-  poolId: string;
-  amount: string;
-  isAmountA?: boolean;
-  withdrawMax: boolean;
-}
-
-/**
- * Options for zap deposit operations
- */
-export interface ZapDepositOptions {
-  poolId: string;
-  inputCoinAmount: bigint;
-  isInputA: boolean;
-  address: string;
-  slippage: number;
-}
-
-/**
- * Options for zap deposit quote operations
- */
-export interface ZapDepositQuoteOptions {
-  poolId: string;
-  inputCoinAmount: bigint;
-  isInputA: boolean;
-  slippage: number;
-}
-
-/**
- * Options for claim operations
- */
-export interface ClaimOptions {
-  poolId?: string;
-}
 
 /**
  * Main AlphaFi SDK class providing a simple facade for DeFi operations

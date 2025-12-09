@@ -8,6 +8,7 @@ import { AutobalanceLpPoolLabel, AutobalanceLpStrategy } from '../strategies/aut
 import { FungibleLpPoolLabel, FungibleLpStrategy } from '../strategies/fungibleLp.js';
 import { AlphaStrategy } from '../strategies/alpha.js';
 import { LendingPoolLabel, LendingStrategy } from '../strategies/lending.js';
+import { SlushLendingStrategy } from '../strategies/slushLending.js';
 import { LoopingPoolLabel, LoopingStrategy } from '../strategies/looping.js';
 import {
   SingleAssetLoopingPoolLabel,
@@ -119,6 +120,17 @@ export class Protocol {
               poolObjects.get(poolLabel.poolId),
               investorObjects.get((poolLabel as LendingPoolLabel).investorId),
               parentPoolObjects.get((poolLabel as LendingPoolLabel).parentPoolId),
+              [],
+              this.strategyContext,
+            ),
+          );
+          break;
+        case 'SlushLending':
+          resMap.set(
+            poolLabel.poolId,
+            new SlushLendingStrategy(
+              poolLabel,
+              poolObjects.get(poolLabel.poolId),
               [],
               this.strategyContext,
             ),

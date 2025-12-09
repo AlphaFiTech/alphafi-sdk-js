@@ -19,6 +19,7 @@ export type StrategyType =
   | 'FungibleLp'
   | 'AutobalanceLp'
   | 'Lending'
+  | 'SlushLending'
   | 'Looping'
   | 'SingleAssetLooping'
   | 'Lyf';
@@ -36,6 +37,7 @@ export type AlphaPoolLabel = import('./alpha.js').AlphaPoolLabel;
 export type AutobalanceLpPoolLabel = import('./autobalanceLp.js').AutobalanceLpPoolLabel;
 export type FungibleLpPoolLabel = import('./fungibleLp.js').FungibleLpPoolLabel;
 export type LendingPoolLabel = import('./lending.js').LendingPoolLabel;
+export type SlushLendingPoolLabel = import('./slushLending.js').SlushLendingPoolLabel;
 export type LoopingPoolLabel = import('./looping.js').LoopingPoolLabel;
 export type SingleAssetLoopingPoolLabel =
   import('./singleAssetLooping.js').SingleAssetLoopingPoolLabel;
@@ -51,6 +53,7 @@ export type PoolLabel =
   | AutobalanceLpPoolLabel
   | FungibleLpPoolLabel
   | LendingPoolLabel
+  | SlushLendingPoolLabel
   | LoopingPoolLabel
   | SingleAssetLoopingPoolLabel
   | LyfPoolLabel;

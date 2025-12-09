@@ -1,9 +1,5 @@
 import { AggregatorClient, RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
-// import { getFullnodeUrl } from '@mysten/sui/client/network.js';
 import { Transaction } from '@mysten/sui/transactions';
-
-// Re-export RouterDataV3 type for external use
-export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 
 export class CetusSwap {
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';

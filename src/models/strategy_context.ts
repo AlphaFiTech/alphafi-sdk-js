@@ -11,6 +11,16 @@ import { Decimal } from 'decimal.js';
 import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import { AprData } from './types.js';
 
+interface SlushPositionCap {
+  id: string;
+  position_pool_map: Map<string, string>;
+  client_address: string;
+  image_url: string;
+}
+
+const SLUSH_POSITION_CAP_TYPE =
+  '0x41b1def47b6259cd7306e049d6500eabb1a984e25558b56eefa9b6c000a038c3::alphalend_slush_pool::PositionCap';
+
 export class StrategyContext {
   blockchain: Blockchain;
   coinInfoProvider: CoinInfoProvider;
@@ -19,6 +29,7 @@ export class StrategyContext {
   alphalendTvl: Map<string, Decimal>;
   naviTvl: Map<string, Decimal>;
   bucketTvl: Decimal;
+  private slushPositionCapsCache: Map<string, SlushPositionCap[]>;
 
   constructor(blockchain: Blockchain, coinInfoProvider: CoinInfoProvider) {
     this.blockchain = blockchain;
@@ -28,6 +39,7 @@ export class StrategyContext {
     this.alphalendTvl = new Map<string, Decimal>();
     this.naviTvl = new Map<string, Decimal>();
     this.bucketTvl = new Decimal(0);
+    this.slushPositionCapsCache = new Map<string, SlushPositionCap[]>();
   }
 
   async init() {
@@ -115,6 +127,94 @@ export class StrategyContext {
     return this.bucketTvl;
   }
 
+  /**
+   * Get slush positions for a user and pool.
+   */
+  async getSlushPosition(userAddress: string, poolId: string): Promise<any[]> {
+    const caps = await this.getSlushPositionCaps(userAddress);
+    if (!caps.length) {
+      return [];
+    }
+
+    const positionIds: string[] = [];
+    for (const cap of caps) {
+      for (const [posId, pid] of cap.position_pool_map.entries()) {
+        if (pid === poolId) {
+          positionIds.push(posId);
+        }
+      }
+    }
+
+    if (positionIds.length === 0) {
+      return [];
+    }
+
+    const positionMap = await this.blockchain.multiGetObjects(positionIds);
+    return Array.from(positionMap.values()).filter(Boolean);
+  }
+
+  /**
+   * Fetch and parse slush position caps for a user.
+   */
+  private async getSlushPositionCaps(userAddress: string): Promise<SlushPositionCap[]> {
+    const cached = this.slushPositionCapsCache.get(userAddress);
+    if (cached) {
+      return cached;
+    }
+
+    const caps = await this.blockchain.getReceipt(userAddress, SLUSH_POSITION_CAP_TYPE);
+    if (!caps || caps.length === 0) {
+      this.slushPositionCapsCache.set(userAddress, []);
+      return [];
+    }
+
+    const parsed: SlushPositionCap[] = [];
+    for (const cap of caps) {
+      const parsedCap = this.parseSlushPositionCap(cap);
+      if (parsedCap) {
+        parsed.push(parsedCap);
+      }
+    }
+
+    this.slushPositionCapsCache.set(userAddress, parsed);
+    return parsed;
+  }
+
+  /**
+   * Parse a slush position cap object response into a structured shape.
+   */
+  private parseSlushPositionCap(response: any): SlushPositionCap | null {
+    const fields = response?.fields ?? response;
+    if (!fields) return null;
+
+    const id = typeof fields.id?.id === 'string' ? fields.id.id : fields.id;
+    if (typeof id !== 'string' || !id) return null;
+
+    const positionPoolMap = fields.position_pool_map;
+    const contents = positionPoolMap?.fields?.contents ?? positionPoolMap?.contents;
+    if (!Array.isArray(contents)) return null;
+
+    const map = new Map<string, string>();
+    for (const item of contents) {
+      const itemFields = item?.fields ?? item;
+      const key = itemFields?.key;
+      const value = itemFields?.value;
+      if (typeof key === 'string' && typeof value === 'string') {
+        map.set(key, value);
+      }
+    }
+
+    const client_address = typeof fields.client_address === 'string' ? fields.client_address : '';
+    const image_url = typeof fields.image_url === 'string' ? fields.image_url : '';
+
+    return {
+      id,
+      position_pool_map: map,
+      client_address,
+      image_url,
+    };
+  }
+
   private async cacheBucketTvl() {
     const FOUNTAIN = '0xbdf91f558c2b61662e5839db600198eda66d502e4c10c4fc5c683f9caca13359';
     const FLASK = '0xc6ecc9731e15d182bc0a46ebe1754a779a4bfb165c201102ad51a36838a1a7b8';
@@ -159,6 +259,7 @@ export class StrategyContext {
           | 'Lp'
           | 'FungibleLp'
           | 'AutobalanceLp'
+          | 'SlushLending'
           | 'Lending'
           | 'Looping'
           | 'SingleAssetLooping'
@@ -207,6 +308,23 @@ export class StrategyContext {
           events: {
             autocompoundEventType: d.events?.autocompound_event_type,
             rebalanceEventType: d.events?.rebalance_event_type,
+            liquidityChangeEventType: d.events?.liquidity_change_event_type,
+          },
+          isActive: d.is_active,
+          poolName: d.pool_name,
+          isNative: d.is_native,
+        } as PoolLabel);
+      } else if (st === 'SlushLending') {
+        this.poolLabels.push({
+          poolId: d.pool_id,
+          packageId: d.package_id,
+          packageNumber: d.package_number,
+          strategyType: st,
+          parentProtocol: d.parent_protocol,
+          receipt: d.receipt,
+          asset: d.asset,
+          events: {
+            autocompoundEventType: d.events?.autocompound_event_type,
             liquidityChangeEventType: d.events?.liquidity_change_event_type,
           },
           isActive: d.is_active,
