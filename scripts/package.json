@@ -18,7 +18,7 @@
     "ts-node": "^10.9.2"
   },
   "dependencies": {
-    "@mysten/sui": "^1.38.0",
+    "@mysten/sui": "1.45.0",
     "@mysten/wallet-standard": "^0.17.0",
     "axios": "^1.12.2",
     "bn.js": "^5.2.1",

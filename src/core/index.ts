@@ -24,18 +24,26 @@ import {
   claimRewardTxb,
   getDoubleAssetVaultBalance,
   PoolData,
+  depositAlphaTx,
+  initiateWithdrawAlpha,
+  claimWithdrawAlphaTx,
+  claimAirdropTx,
+  getSlushUserTotalXtokens,
 } from '@alphafi/alphafi-sdk-upstream';
 import { Decimal } from 'decimal.js';
 import { PoolLabel, StrategyType } from '../strategies/index.js';
 import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
 import { StrategyContext } from '../models/strategy_context.js';
 import { CoinInfoProvider } from '../models/coinInfoProvider.js';
+import { CetusSwap, RouterDataV3 } from '../models/swap.js';
 
+// Re-export types for external use
+export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 /**
  * Configuration options for the AlphaFi SDK
  */
 export interface AlphaFiSDKConfig {
-  client: SuiClient;
+  suiClient: SuiClient;
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
   address: string;
 }
@@ -114,13 +122,13 @@ export class AlphaFiSDK {
     this.config = config;
     this.poolLabels = new Map<string, PoolLabel>();
 
-    const blockchain = new Blockchain(config.client, config.network);
+    const blockchain = new Blockchain(config.suiClient, config.network);
     const coinInfoProvider = new CoinInfoProvider();
     this.strategyContext = new StrategyContext(blockchain, coinInfoProvider);
 
     // Initialize core components
     this.protocol = new Protocol(
-      config.client,
+      config.suiClient,
       config.network,
       this.strategyContext,
       this.poolLabels,
@@ -128,7 +136,7 @@ export class AlphaFiSDK {
     this.portfolio = new Portfolio(
       this.protocol,
       this.strategyContext.blockchain,
-      config.client,
+      config.suiClient,
       config.address,
     );
 
@@ -184,8 +192,13 @@ export class AlphaFiSDK {
         throw new Error(`Failed to create LYF SUI deposit transaction`);
       }
       return tx;
+    } else if (poolLabel.strategyType === 'AlphaVault') {
+      return await depositAlphaTx(
+        options.amount.toString(),
+        this.config.address,
+        this.config.suiClient,
+      );
     } else if (
-      poolLabel.strategyType === 'AlphaVault' ||
       poolLabel.strategyType === 'Lending' ||
       poolLabel.strategyType === 'Looping' ||
       poolLabel.strategyType === 'SingleAssetLooping'
@@ -257,11 +270,22 @@ export class AlphaFiSDK {
 
     let xTokens = '0';
     if (options.withdrawMax) {
-      const receipt = await getReceipts(poolLabel.poolName as PoolName, this.config.address, true);
-      if (!receipt) {
-        throw new Error(`Receipt with ID ${poolLabel.poolId} not found`);
+      if (poolLabel.poolName.toString().includes('ALPHALEND-SLUSH')) {
+        xTokens = await getSlushUserTotalXtokens(
+          poolLabel.poolName as PoolName,
+          this.config.address,
+        );
+      } else {
+        const receipt = await getReceipts(
+          poolLabel.poolName as PoolName,
+          this.config.address,
+          true,
+        );
+        if (!receipt) {
+          throw new Error(`Receipt with ID ${poolLabel.poolId} not found`);
+        }
+        xTokens = receipt[0].content.fields.xTokenBalance;
       }
-      xTokens = receipt[0].content.fields.xTokenBalance;
     } else if (
       poolLabel.strategyType === 'Looping' ||
       poolLabel.strategyType === 'SingleAssetLooping'
@@ -348,6 +372,23 @@ export class AlphaFiSDK {
     );
   }
 
+  async initiateWithdrawAlpha(options: WithdrawOptions): Promise<Transaction> {
+    return await initiateWithdrawAlpha(
+      options.amount.toString(),
+      options.withdrawMax,
+      this.config.address,
+      this.config.suiClient,
+    );
+  }
+
+  async claimWithdrawAlpha(ticketId: string): Promise<Transaction> {
+    return await claimWithdrawAlphaTx(ticketId, this.config.address, this.config.suiClient);
+  }
+
+  async claimAirdrop(): Promise<Transaction> {
+    return await claimAirdropTx(this.config.address, this.config.suiClient);
+  }
+
   /**
    * Get zap deposit quote for a DeFi pool
    * @param options - Zap deposit quote configuration options
@@ -392,7 +433,7 @@ export class AlphaFiSDK {
    * @param options - Claim configuration options
    * @returns Promise<TransactionResult> - Transaction result with gas estimate
    */
-  async claim(options: ClaimOptions): Promise<Transaction> {
+  async claim(_: ClaimOptions): Promise<Transaction> {
     return await claimRewardTxb(this.config.address);
     // return this.transactionManager.claim({
     //   poolId: options.poolId,
@@ -416,5 +457,19 @@ export class AlphaFiSDK {
         strategy_type: entry.strategy_type as StrategyType,
       };
     });
+  }
+
+  async getCetusSwapQuote(
+    from: string,
+    target: string,
+    amount: string,
+  ): Promise<RouterDataV3 | undefined> {
+    const swap = new CetusSwap(this.config.network);
+    return await swap.getCetusSwapQuote(from, target, amount);
+  }
+
+  async cetusSwapTokensTxb(router: RouterDataV3, slippage: number): Promise<Transaction> {
+    const swap = new CetusSwap(this.config.network);
+    return await swap.cetusSwapTokensTxb(router, slippage);
   }
 }
