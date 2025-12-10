@@ -1,12 +1,12 @@
 import { Blockchain } from './blockchain.js';
 import { SuiClient } from '@mysten/sui/client';
-import { StrategyContext } from './strategy_context.js';
+import { StrategyContext } from './strategyContext.js';
 import { PoolLabel } from '../strategies/strategy.js';
 import { LpPoolLabel, LpStrategy } from '../strategies/lp.js';
 import { LyfPoolLabel, LyfStrategy } from '../strategies/lyf.js';
 import { AutobalanceLpPoolLabel, AutobalanceLpStrategy } from '../strategies/autobalanceLp.js';
 import { FungibleLpPoolLabel, FungibleLpStrategy } from '../strategies/fungibleLp.js';
-import { AlphaStrategy } from '../strategies/alpha.js';
+import { AlphaVaultPoolLabel, AlphaVaultStrategy } from '../strategies/alphaVault.js';
 import { LendingPoolLabel, LendingStrategy } from '../strategies/lending.js';
 import { SlushLendingStrategy } from '../strategies/slushLending.js';
 import { LoopingPoolLabel, LoopingStrategy } from '../strategies/looping.js';
@@ -104,9 +104,11 @@ export class Protocol {
         case 'AlphaVault':
           resMap.set(
             poolLabel.poolId,
-            new AlphaStrategy(
+            new AlphaVaultStrategy(
               poolLabel,
               poolObjects.get(poolLabel.poolId),
+              investorObjects.get((poolLabel as AlphaVaultPoolLabel).investorId),
+              [],
               [],
               this.strategyContext,
             ),

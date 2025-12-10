@@ -8,7 +8,7 @@ export * from './strategy.js';
 
 // Strategy implementations
 export * from './lp.js';
-export * from './alpha.js';
+export * from './alphaVault.js';
 export * from './autobalanceLp.js';
 export * from './fungibleLp.js';
 export * from './lending.js';
@@ -30,7 +30,7 @@ export { BaseStrategy } from './strategy.js';
 
 // Re-export pool label types
 export type { LpPoolLabel } from './lp.js';
-export type { AlphaPoolLabel } from './alpha.js';
+export type { AlphaVaultPoolLabel } from './alphaVault.js';
 export type { AutobalanceLpPoolLabel } from './autobalanceLp.js';
 export type { FungibleLpPoolLabel } from './fungibleLp.js';
 export type { LendingPoolLabel } from './lending.js';

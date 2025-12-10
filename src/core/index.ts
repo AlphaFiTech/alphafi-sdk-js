@@ -31,7 +31,7 @@ import {
 import { Decimal } from 'decimal.js';
 import { PoolLabel, StrategyType } from '../strategies/index.js';
 import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
-import { StrategyContext } from '../models/strategy_context.js';
+import { StrategyContext } from '../models/strategyContext.js';
 import { CoinInfoProvider } from '../models/coinInfoProvider.js';
 import { CetusSwap } from '../models/swap.js';
 import {
@@ -101,8 +101,8 @@ export class AlphaFiSDK {
   }
 
   private async init() {
-    await this.strategyContext.init();
-    this.strategyContext.poolLabels.forEach((poolLabel) => {
+    await this.strategyContext.init(this.config.address);
+    this.strategyContext.poolLabels.forEach((poolLabel: PoolLabel) => {
       this.poolLabels.set(poolLabel.poolId, poolLabel);
     });
     this.isInitialized = true;

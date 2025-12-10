@@ -18,8 +18,23 @@ interface SlushPositionCap {
   image_url: string;
 }
 
+interface AlphaFiReceipt {
+  id: string;
+  positionPoolMap: Array<{
+    key: string;
+    value: {
+      poolId: string;
+      partnerCapId: string;
+    };
+  }>;
+  clientAddress: string;
+  imageUrl: string;
+}
+
 const SLUSH_POSITION_CAP_TYPE =
   '0x41b1def47b6259cd7306e049d6500eabb1a984e25558b56eefa9b6c000a038c3::alphalend_slush_pool::PositionCap';
+const ALPHAFI_RECEIPT_TYPE =
+  '0x18533807391b15db5f1f530f54b32553372e5c204d179928d8da0a1753cbb63c::alphafi_receipt::AlphaFiReceipt';
 
 export class StrategyContext {
   blockchain: Blockchain;
@@ -30,6 +45,7 @@ export class StrategyContext {
   naviTvl: Map<string, Decimal>;
   bucketTvl: Decimal;
   private slushPositionCapsCache: Map<string, SlushPositionCap[]>;
+  private alphaFiReceiptsCache: Map<string, AlphaFiReceipt[]>;
 
   constructor(blockchain: Blockchain, coinInfoProvider: CoinInfoProvider) {
     this.blockchain = blockchain;
@@ -40,15 +56,18 @@ export class StrategyContext {
     this.naviTvl = new Map<string, Decimal>();
     this.bucketTvl = new Decimal(0);
     this.slushPositionCapsCache = new Map<string, SlushPositionCap[]>();
+    this.alphaFiReceiptsCache = new Map<string, AlphaFiReceipt[]>();
   }
 
-  async init() {
+  async init(userAddress: string) {
     await Promise.all([
       this.cacheAprData(),
       this.cacheAlphaLendMarkets(),
       this.cacheNaviTvlByPoolId(),
       this.cacheBucketTvl(),
       this.cachePoolLabelsFromConfig(),
+      this.getAlphaFiReceipts(userAddress),
+      this.getSlushPositionCaps(userAddress),
     ]);
   }
 
@@ -154,6 +173,26 @@ export class StrategyContext {
   }
 
   /**
+   * Get AlphaFi receipts for a user (parsed and cached).
+   */
+  async getAlphaFiReceipts(userAddress: string): Promise<AlphaFiReceipt[]> {
+    const cached = this.alphaFiReceiptsCache.get(userAddress);
+    if (cached) {
+      return cached;
+    }
+
+    const receipts = await this.blockchain.getReceipt(userAddress, ALPHAFI_RECEIPT_TYPE);
+    if (!receipts || receipts.length === 0) {
+      this.alphaFiReceiptsCache.set(userAddress, []);
+      return [];
+    }
+
+    const parsed = this.parseAlphaFiReceipts(receipts);
+    this.alphaFiReceiptsCache.set(userAddress, parsed);
+    return parsed;
+  }
+
+  /**
    * Fetch and parse slush position caps for a user.
    */
   private async getSlushPositionCaps(userAddress: string): Promise<SlushPositionCap[]> {
@@ -213,6 +252,80 @@ export class StrategyContext {
       client_address,
       image_url,
     };
+  }
+
+  /**
+   * Parse AlphaFi receipts from object responses.
+   */
+  private parseAlphaFiReceipts(responses: any[]): AlphaFiReceipt[] {
+    const results: AlphaFiReceipt[] = [];
+
+    for (const response of responses) {
+      const data = (response as any)?.data ?? response;
+      const content = data?.content ?? data;
+      const fields = content?.fields ?? content;
+
+      const positionPoolMap: AlphaFiReceipt['positionPoolMap'] = [];
+      const ppm = fields?.position_pool_map;
+      const contents = ppm?.fields?.contents ?? ppm?.contents;
+      if (Array.isArray(contents)) {
+        for (const entry of contents) {
+          const entryFields = entry?.fields ?? entry;
+          const key = typeof entryFields?.key === 'string' ? entryFields.key : '';
+          const valueFields = entryFields?.value?.fields ?? entryFields?.value ?? {};
+          const poolId = typeof valueFields.pool_id === 'string' ? valueFields.pool_id : '';
+          const partnerCapId =
+            typeof valueFields.partner_cap_id === 'string' ? valueFields.partner_cap_id : '';
+          if (key) {
+            positionPoolMap.push({
+              key,
+              value: { poolId, partnerCapId },
+            });
+          }
+        }
+      }
+
+      const imageUrlRaw = fields?.image_url;
+      let imageUrl = '';
+      if (Array.isArray(imageUrlRaw)) {
+        imageUrl = this.asciiToString(imageUrlRaw);
+      } else if (typeof imageUrlRaw === 'string') {
+        imageUrl = imageUrlRaw;
+      }
+
+      const id =
+        typeof data?.objectId === 'string'
+          ? data.objectId
+          : typeof data?.object_id === 'string'
+            ? data.object_id
+            : typeof fields?.id === 'string'
+              ? fields.id
+              : '';
+
+      results.push({
+        id,
+        positionPoolMap,
+        clientAddress: typeof fields?.client_address === 'string' ? fields.client_address : '',
+        imageUrl,
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Convert ASCII array (if present) to string.
+   */
+  private asciiToString(asciiArray: any): string {
+    if (!Array.isArray(asciiArray)) return '';
+    try {
+      const bytes = asciiArray
+        .map((v) => (typeof v === 'number' ? v : Number(v)))
+        .filter((n) => Number.isFinite(n) && n >= 0 && n <= 255);
+      return String.fromCharCode(...bytes);
+    } catch {
+      return '';
+    }
   }
 
   private async cacheBucketTvl() {
@@ -415,6 +528,7 @@ export class StrategyContext {
       } else if (st === 'AlphaVault') {
         this.poolLabels.push({
           poolId: d.pool_id,
+          investorId: d.investor_id,
           packageId: d.package_id,
           packageNumber: d.package_number,
           strategyType: st,
@@ -426,6 +540,7 @@ export class StrategyContext {
             liquidityChangeEventType: d.events?.liquidity_change_event_type,
             withdrawV2EventType: d.events?.withdraw_v2_event_type,
             afterTransactionEventType: d.events?.after_transaction_event_type,
+            airdropAddEventType: d.events?.airdrop_add_event_type,
           },
           isActive: d.is_active,
           poolName: d.pool_name,

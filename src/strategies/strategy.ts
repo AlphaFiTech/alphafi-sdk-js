@@ -33,7 +33,7 @@ export interface NameType {
 
 // Forward declarations for pool label types (will be imported from individual strategy files)
 export type LpPoolLabel = import('./lp.js').LpPoolLabel;
-export type AlphaPoolLabel = import('./alpha.js').AlphaPoolLabel;
+export type AlphaVaultPoolLabel = import('./alphaVault.js').AlphaVaultPoolLabel;
 export type AutobalanceLpPoolLabel = import('./autobalanceLp.js').AutobalanceLpPoolLabel;
 export type FungibleLpPoolLabel = import('./fungibleLp.js').FungibleLpPoolLabel;
 export type LendingPoolLabel = import('./lending.js').LendingPoolLabel;
@@ -49,7 +49,7 @@ export type LyfPoolLabel = import('./lyf.js').LyfPoolLabel;
  */
 export type PoolLabel =
   | LpPoolLabel
-  | AlphaPoolLabel
+  | AlphaVaultPoolLabel
   | AutobalanceLpPoolLabel
   | FungibleLpPoolLabel
   | LendingPoolLabel

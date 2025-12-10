@@ -7,7 +7,7 @@
 import { Decimal } from 'decimal.js';
 import { BaseStrategy, ProtocolType, NameType } from './strategy.js';
 import { PoolData, SingleTvl } from '../models/types.js';
-import { StrategyContext } from '../models/strategy_context.js';
+import { StrategyContext } from '../models/strategyContext.js';
 
 // ===== Slush Lending Strategy Class =====
 
