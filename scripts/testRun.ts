@@ -70,7 +70,7 @@ export async function dryRunTransactionBlock(txb: Transaction) {
 async function main() {
   const { address, keypair, suiClient } = getExecStuff();
   const blockchain = new Blockchain(suiClient, 'mainnet');
-  const alphafiClient = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
+  const alphafiClient = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet', address });
   const res = await alphafiClient.getAllPoolsData();
   // const res = await protocol.getAllPoolsData();
   // for (const pool of res) {
@@ -103,7 +103,7 @@ main();
 
 async function deposit() {
   const { address, keypair, suiClient } = getExecStuff();
-  const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
+  const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet', address });
   const tx = await sdk.deposit({
     poolId: '0x04378cf67d21b41399dc0b6653a5f73f8d3a03cc7643463e47e8d378f8b0bdfa', // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
     amount: 100_000n,
@@ -114,7 +114,7 @@ async function deposit() {
 
 async function withdraw() {
   const { address, keypair, suiClient } = getExecStuff();
-  const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
+  const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet', address });
   const tx = await sdk.withdraw({
     poolId: '0x139d3ed6292b4ac8978b31adb3415bfa5cdb1d1a6b8f364adbe3317158792413', // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
     amount: '100000000',

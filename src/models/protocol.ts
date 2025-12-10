@@ -169,6 +169,6 @@ export class Protocol {
 
   async getAllPoolsData() {
     const strategies = await this.getAllPoolStrategies();
-    return Promise.all(Object.values(strategies).map((strategy) => strategy.getData()));
+    return Promise.all(Array.from(strategies.values()).map((strategy) => strategy.getData()));
   }
 }

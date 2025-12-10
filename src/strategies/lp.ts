@@ -78,6 +78,7 @@ export class LpStrategy extends BaseStrategy<
       ]);
     return {
       poolId: this.poolLabel.poolId,
+      poolName: this.poolLabel.poolName,
       apr: this.context.getAprData(this.poolLabel.poolId),
       tvl: {
         alphafi,

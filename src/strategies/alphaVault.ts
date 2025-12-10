@@ -68,6 +68,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
     const alphafi = await this.getTvl();
     return {
       poolId: this.poolLabel.poolId,
+      poolName: this.poolLabel.poolName,
       apr: this.context.getAprData(this.poolLabel.poolId),
       tvl: {
         alphafi,

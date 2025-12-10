@@ -31,6 +31,23 @@ export class CoinInfoProvider {
     this.lastFetchedAt = null;
   }
 
+  async init(): Promise<void> {
+    await this.ensureInitialized();
+  }
+
+  private async ensureInitialized(): Promise<void> {
+    const now = Date.now();
+    const isStale = this.lastFetchedAt == null || now - this.lastFetchedAt > this.maxAgeMs;
+    if (isStale) {
+      const coins = await this.fetchFromApi();
+      this.coinInfoByType.clear();
+      Array.from(coins.values()).forEach((coin) => {
+        this.coinInfoByType.set(coin.coinType, coin);
+      });
+      this.lastFetchedAt = now;
+    }
+  }
+
   async getAllCoins(): Promise<Map<string, CoinInfo>> {
     await this.ensureInitialized();
     return this.coinInfoByType;
@@ -48,19 +65,6 @@ export class CoinInfoProvider {
     const price = coin.pythPrice ?? coin.coingeckoPrice;
     if (!price) throw new Error(`No price available for: ${coinType}`);
     return price;
-  }
-
-  private async ensureInitialized(): Promise<void> {
-    const now = Date.now();
-    const isStale = this.lastFetchedAt == null || now - this.lastFetchedAt > this.maxAgeMs;
-    if (isStale) {
-      const coins = await this.fetchFromApi();
-      this.coinInfoByType.clear();
-      Array.from(coins.values()).forEach((coin) => {
-        this.coinInfoByType.set(coin.coinType, coin);
-      });
-      this.lastFetchedAt = now;
-    }
   }
 
   private async fetchFromApi(): Promise<Map<string, CoinInfo>> {
@@ -113,6 +117,15 @@ export class CoinInfoProvider {
         });
       },
     );
+
+    // Add special SUI mapping
+    const suiCoin = coins.get('0x2::sui::SUI');
+    if (suiCoin) {
+      coins.set('0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI', {
+        ...suiCoin,
+        coinType: '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
+      });
+    }
     return coins;
   }
 }

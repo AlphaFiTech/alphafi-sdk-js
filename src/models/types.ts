@@ -31,6 +31,7 @@ export type TvlData =
 export type PoolData =
   | {
       poolId: string;
+      poolName: string;
       apr: AprData;
       tvl: TvlData;
       lpBreakdown: {
@@ -48,6 +49,7 @@ export type PoolData =
     }
   | {
       poolId: string;
+      poolName: string;
       apr: AprData;
       tvl: TvlData;
     };

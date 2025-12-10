@@ -65,6 +65,7 @@ export class LoopingStrategy extends BaseStrategy<
     const [alphafi, parent] = await Promise.all([this.getTvl(), this.getParentTvl()]);
     return {
       poolId: this.poolLabel.poolId,
+      poolName: this.poolLabel.poolName,
       apr: this.context.getAprData(this.poolLabel.poolId),
       tvl: {
         alphafi,
@@ -162,7 +163,10 @@ export class LoopingStrategy extends BaseStrategy<
       const fields = this.extractFields(response);
 
       return {
-        currentDebtToSupplyRatio: this.getStringField(fields, 'current_debt_to_supply_ratio'),
+        currentDebtToSupplyRatio:
+          (fields.current_debt_to_supply_ratio?.fields?.value as string) ||
+          this.getStringField(fields.current_debt_to_supply_ratio?.fields ?? {}, 'value') ||
+          '0',
         freeRewards: (() => {
           const idVal =
             (this.getNestedField(fields, 'free_rewards.fields.id.id') as string | undefined) || '';

@@ -68,6 +68,7 @@ export class LendingStrategy extends BaseStrategy<
     const [alphafi, parent] = await Promise.all([this.getTvl(), this.getParentTvl()]);
     return {
       poolId: this.poolLabel.poolId,
+      poolName: this.poolLabel.poolName,
       apr: this.context.getAprData(this.poolLabel.poolId),
       tvl: {
         alphafi,

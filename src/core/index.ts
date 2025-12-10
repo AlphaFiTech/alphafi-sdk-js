@@ -384,25 +384,6 @@ export class AlphaFiSDK {
     // });
   }
 
-  private parsePoolLabels(
-    poolsJson:
-      | readonly {
-          strategy_type: StrategyType;
-          data: any;
-        }[]
-      | {
-          strategy_type: StrategyType;
-          data: any;
-        }[],
-  ): PoolLabel[] {
-    return poolsJson.map((entry) => {
-      return {
-        ...entry.data,
-        strategy_type: entry.strategy_type as StrategyType,
-      };
-    });
-  }
-
   async getCetusSwapQuote(
     from: string,
     target: string,

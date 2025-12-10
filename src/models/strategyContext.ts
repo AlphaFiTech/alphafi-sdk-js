@@ -68,6 +68,7 @@ export class StrategyContext {
       this.cachePoolLabelsFromConfig(),
       this.getAlphaFiReceipts(userAddress),
       this.getSlushPositionCaps(userAddress),
+      this.coinInfoProvider.init(),
     ]);
   }
 

@@ -77,6 +77,7 @@ export class LyfStrategy extends BaseStrategy<
       ]);
     return {
       poolId: this.poolLabel.poolId,
+      poolName: this.poolLabel.poolName,
       apr: this.context.getAprData(this.poolLabel.poolId),
       tvl: {
         alphafi,
@@ -392,9 +393,9 @@ export class LyfStrategy extends BaseStrategy<
       marketIdA: this.getStringField(fields, 'market_id_a'),
       marketIdB: this.getStringField(fields, 'market_id_b'),
       currentDebtToSupplyRatio:
-        (this.getNestedField(fields, 'current_debt_to_supply_ratio.fields.value') as
-          | string
-          | undefined) || this.getStringField(fields, 'current_debt_to_supply_ratio'),
+        (fields.current_debt_to_supply_ratio?.fields?.value as string) ||
+        this.getStringField(fields.current_debt_to_supply_ratio?.fields ?? {}, 'value') ||
+        '0',
       safeBorrowPercentage: this.getStringField(fields, 'safe_borrow_percentage'),
       upperTick: this.getNumberField(fields, 'upper_tick'),
     };
