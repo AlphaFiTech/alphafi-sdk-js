@@ -160,5 +160,14 @@ async function withdraw() {
   dryRunTransactionBlock(tx);
   // executeTransactionBlock(tx);
 }
-withdraw();
+async function claimAirdrop() {
+  const { address, keypair, suiClient } = getExecStuff();
+  const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
+  const tx = await sdk.claimAirdrop();
+  tx.setGasBudget(2e8);
+  dryRunTransactionBlock(tx);
+  // executeTransactionBlock(tx);
+}
+// withdraw();
 // deposit();
+claimAirdrop();
