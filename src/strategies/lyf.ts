@@ -6,7 +6,7 @@
 
 import { Decimal } from 'decimal.js';
 import { BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
-import { PoolData, DoubleTvl } from '../models/types.js';
+import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
 import { ClmmPoolUtil, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
@@ -159,7 +159,11 @@ export class LyfStrategy extends BaseStrategy<
     const coinTypeB = this.poolLabel.assetB.type;
     const decimalsA = await this.context.getCoinDecimals(coinTypeA);
     const decimalsB = await this.context.getCoinDecimals(coinTypeB);
-    const currentTick = this.parentPoolObject.currentTickIndex;
+    let currentTick = this.parentPoolObject.currentTickIndex;
+    const upperBound = 443636;
+    if (currentTick > upperBound) {
+      currentTick = -~(currentTick - 1);
+    }
     const price = TickMath.tickIndexToPrice(currentTick, decimalsA, decimalsB);
     return new Decimal(price.toString());
   }
@@ -189,7 +193,7 @@ export class LyfStrategy extends BaseStrategy<
    * Mirrors lyf.rs: convert xTokens to underlying amounts via exchange rate,
    * get token A/B amounts, compute USD value, then convert to zap asset amount.
    */
-  async getBalance(): Promise<{ tokenAmount: Decimal; usdValue: Decimal }> {
+  async getBalance(_userAddress: string): Promise<PoolBalance> {
     if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
       return { tokenAmount: new Decimal(0), usdValue: new Decimal(0) };
     }
@@ -325,7 +329,7 @@ export class LyfStrategy extends BaseStrategy<
         coinB: this.getStringField(fields, 'coin_b'),
         currentSqrtPrice: this.getStringField(fields, 'current_sqrt_price'),
         currentTickIndex:
-          (this.getNestedField(fields, 'current_tick_index.fields.bits') as number | undefined) ||
+          (this.getNestedField(fields, 'current_tick_index.bits') as number | undefined) ||
           this.getNumberField(fields, 'current_tick_index'),
         id: this.getStringField(fields, 'id'),
         liquidity: this.getStringField(fields, 'liquidity'),

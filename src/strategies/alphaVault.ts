@@ -6,7 +6,7 @@
 
 import { Decimal } from 'decimal.js';
 import { BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
-import { PoolData, SingleTvl } from '../models/types.js';
+import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 
 // ===== Alpha Strategy Class =====
@@ -100,19 +100,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
    * Mirrors Rust's get_balance implementation with full breakdown.
    * @param userAddress - The user's wallet address
    */
-  async getBalance(userAddress: string): Promise<{
-    stakedAlphaAmount: Decimal;
-    stakedAlphaUsdValue: Decimal;
-    pendingDeposits: Decimal;
-    withdrawals: {
-      ticketId: string;
-      alphaAmount: string;
-      status: number; // 0 for pending, 1 for accepted, 2 for claimable
-      withdrawalEtaTimestamp: number;
-    }[];
-    claimableAirdrop: Decimal;
-    totalAirdropClaimed: Decimal;
-  }> {
+  async getBalance(userAddress: string): Promise<PoolBalance> {
     // Get all required data concurrently
     const [tokenDecimals, tokenPrice, pendingDepositsOption, withdrawalData, claimableAirdrop] =
       await Promise.all([

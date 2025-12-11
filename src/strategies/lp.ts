@@ -6,7 +6,7 @@
 
 import { Decimal } from 'decimal.js';
 import { BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
-import { PoolData, DoubleTvl } from '../models/types.js';
+import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
 import { ClmmPoolUtil, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
@@ -160,7 +160,11 @@ export class LpStrategy extends BaseStrategy<
     const coinTypeB = this.poolLabel.assetB.type;
     const decimalsA = await this.context.getCoinDecimals(coinTypeA);
     const decimalsB = await this.context.getCoinDecimals(coinTypeB);
-    const currentTick = this.parentPoolObject.currentTickIndex;
+    let currentTick = this.parentPoolObject.currentTickIndex;
+    const upperBound = 443636;
+    if (currentTick > upperBound) {
+      currentTick = -~(currentTick - 1);
+    }
     const price = TickMath.tickIndexToPrice(currentTick, decimalsA, decimalsB);
     return new Decimal(price.toString());
   }
@@ -189,16 +193,12 @@ export class LpStrategy extends BaseStrategy<
    * Compute the user's current pool balance from a receipt object.
    * Parses the receipt inline and returns token amounts and total USD value.
    */
-  async getBalance(): Promise<{
-    tokenAAmount: Decimal;
-    tokenBAmount: Decimal;
-    totalUsdValue: Decimal;
-  }> {
+  async getBalance(_userAddress: string): Promise<PoolBalance> {
     if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
       return {
         tokenAAmount: new Decimal(0),
         tokenBAmount: new Decimal(0),
-        totalUsdValue: new Decimal(0),
+        usdValue: new Decimal(0),
       };
     }
     const xTokens = new Decimal(this.receiptObjects[0].xTokenBalance);
@@ -214,8 +214,8 @@ export class LpStrategy extends BaseStrategy<
     const tokens = xTokens.mul(exchangeRate);
     const { amountA, amountB } = await this.getTokenAmounts(tokens.floor().toString());
 
-    const totalUsdValue = amountA.mul(priceA).add(amountB.mul(priceB));
-    return { tokenAAmount: amountA, tokenBAmount: amountB, totalUsdValue };
+    const usdValue = amountA.mul(priceA).add(amountB.mul(priceB));
+    return { tokenAAmount: amountA, tokenBAmount: amountB, usdValue };
   }
 
   // ===== Helper Functions =====
@@ -336,7 +336,7 @@ export class LpStrategy extends BaseStrategy<
         coinB: this.getStringField(fields, 'coin_b'),
         currentSqrtPrice: this.getStringField(fields, 'current_sqrt_price'),
         currentTickIndex:
-          (this.getNestedField(fields, 'current_tick_index.fields.bits') as number | undefined) ||
+          (this.getNestedField(fields, 'current_tick_index.bits') as number | undefined) ||
           this.getNumberField(fields, 'current_tick_index'),
         id: this.getStringField(fields, 'id'),
         liquidity: this.getStringField(fields, 'liquidity'),

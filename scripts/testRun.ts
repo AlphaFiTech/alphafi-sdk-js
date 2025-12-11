@@ -7,6 +7,7 @@ import { Portfolio } from '../src/models/portfolio.js';
 import { AlphaFiSDK, StrategyContext } from '../src/index.js';
 import dotenv from 'dotenv';
 import { Transaction } from '@mysten/sui/transactions';
+import * as fs from 'fs';
 
 dotenv.config();
 
@@ -70,7 +71,7 @@ export async function dryRunTransactionBlock(txb: Transaction) {
 async function main() {
   const { address, keypair, suiClient } = getExecStuff();
   const blockchain = new Blockchain(suiClient, 'mainnet');
-  const alphafiClient = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet', address });
+  const alphafiClient = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
   const res = await alphafiClient.getAllPoolsData();
   // const res = await protocol.getAllPoolsData();
   // for (const pool of res) {
@@ -92,7 +93,25 @@ async function main() {
   //   '0x45564ea956f9b25890a5c1c3a199c8d86aabd5291b34723fb662283419ee2f4d::alphafi_alphalend_single_loop_pool::Receipt',
   //   '0x8f7d2c35e19c65213bc2153086969a55ec207b5a25ebdee303a6d9edd9c053e3::alphafi_navi_pool::Receipt',
   // ]);
-  console.log(res);
+  // Write result to file (convert Decimals to strings for JSON serialization)
+  const serializedRes = JSON.stringify(
+    res,
+    (key, value) => {
+      // Convert Decimal objects to strings
+      if (value && typeof value === 'object' && value.constructor?.name === 'Decimal') {
+        return value.toString();
+      }
+      // Convert Date objects to ISO strings
+      if (value instanceof Date) {
+        return value.toISOString();
+      }
+      return value;
+    },
+    2,
+  );
+  fs.writeFileSync('scripts/poolsData.json', serializedRes);
+  console.log('Result written to scripts/poolsData.json');
+  // console.log(res);
   // console.log(
   //   normalizeStructTag(
   //     '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
@@ -103,10 +122,11 @@ main();
 
 async function deposit() {
   const { address, keypair, suiClient } = getExecStuff();
-  const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet', address });
+  const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
   const tx = await sdk.deposit({
     poolId: '0x04378cf67d21b41399dc0b6653a5f73f8d3a03cc7643463e47e8d378f8b0bdfa', // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
     amount: 100_000n,
+    address: address,
   });
   dryRunTransactionBlock(tx);
 }
@@ -114,11 +134,12 @@ async function deposit() {
 
 async function withdraw() {
   const { address, keypair, suiClient } = getExecStuff();
-  const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet', address });
+  const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
   const tx = await sdk.withdraw({
     poolId: '0x139d3ed6292b4ac8978b31adb3415bfa5cdb1d1a6b8f364adbe3317158792413', // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
     amount: '100000000',
     withdrawMax: false,
+    address: address,
   });
   tx.setGasBudget(2e8);
   // dryRunTransactionBlock(tx);

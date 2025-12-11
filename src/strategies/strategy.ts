@@ -4,7 +4,7 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { SingleTvl, DoubleTvl } from '../models/types.js';
+import { SingleTvl, DoubleTvl, PoolData, PoolBalance } from '../models/types.js';
 
 export interface KeyValuePair {
   key: string;
@@ -92,6 +92,13 @@ export interface Strategy<TPool = any, TInvestor = any, TParentPool = any, TRece
    */
   getTvl(): Promise<SingleTvl | DoubleTvl>;
   getParentTvl(): Promise<SingleTvl | DoubleTvl>;
+
+  getBalance(userAddress: string): Promise<PoolBalance>;
+
+  /**
+   * Get full pool data for this strategy (high-level summary used by the SDK).
+   */
+  getData(): Promise<PoolData>;
 }
 
 /**
@@ -108,6 +115,8 @@ export abstract class BaseStrategy<TPool = any, TInvestor = any, TParentPool = a
   abstract exchangeRate(): Decimal;
   abstract getTvl(): Promise<SingleTvl | DoubleTvl>;
   abstract getParentTvl(): Promise<SingleTvl | DoubleTvl>;
+  abstract getData(): Promise<PoolData>;
+  abstract getBalance(userAddress: string): Promise<PoolBalance>;
 
   // ===== Parsing Helper Methods =====
 

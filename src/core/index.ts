@@ -1,7 +1,6 @@
 /**
  * Core functionality for the AlphaFi SDK
  */
-import { Blockchain } from '../models/blockchain.js';
 import { Transaction } from '@mysten/sui/transactions';
 import { Protocol } from '../models/protocol.js';
 import { Portfolio } from '../models/portfolio.js';
@@ -21,7 +20,6 @@ import {
   getReceipts,
   claimRewardTxb,
   getDoubleAssetVaultBalance,
-  PoolData,
   depositAlphaTx,
   initiateWithdrawAlpha,
   claimWithdrawAlphaTx,
@@ -29,11 +27,10 @@ import {
   getSlushUserTotalXtokens,
 } from '@alphafi/alphafi-sdk-upstream';
 import { Decimal } from 'decimal.js';
-import { PoolLabel, StrategyType } from '../strategies/index.js';
 import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
 import { StrategyContext } from '../models/strategyContext.js';
-import { CoinInfoProvider } from '../models/coinInfoProvider.js';
 import { CetusSwap } from '../models/swap.js';
+import type { PoolData } from '../models/types.js';
 import {
   AlphaFiSDKConfig,
   ClaimOptions,
@@ -58,37 +55,22 @@ export class AlphaFiSDK {
   // private transactionManager: TransactionManager;
   private protocol: Protocol;
   private portfolio: Portfolio;
-  private poolLabels: Map<string, PoolLabel>;
   private isInitialized: boolean = false;
   private initializationPromise: Promise<void> | null = null;
 
   constructor(config: AlphaFiSDKConfig) {
     this.config = config;
-    this.poolLabels = new Map<string, PoolLabel>();
-
-    const blockchain = new Blockchain(config.suiClient, config.network);
-    const coinInfoProvider = new CoinInfoProvider();
-    this.strategyContext = new StrategyContext(blockchain, coinInfoProvider);
+    this.strategyContext = new StrategyContext(config.network, config.suiClient);
 
     // Initialize core components
-    this.protocol = new Protocol(
-      config.suiClient,
-      config.network,
-      this.strategyContext,
-      this.poolLabels,
-    );
-    this.portfolio = new Portfolio(
-      this.protocol,
-      this.strategyContext.blockchain,
-      config.suiClient,
-      config.address,
-    );
+    this.protocol = new Protocol(this.strategyContext);
+    this.portfolio = new Portfolio(this.protocol, this.strategyContext);
 
     // Initialize the transaction facade
     // this.transactionManager = new TransactionManager(config.address, this.blockchain);
   }
 
-  async ensureInitialized() {
+  async ensureInitialized(userAddress?: string) {
     if (this.isInitialized) {
       return;
     }
@@ -96,21 +78,18 @@ export class AlphaFiSDK {
       return this.initializationPromise;
     }
 
-    this.initializationPromise = this.init();
+    this.initializationPromise = this.init(userAddress);
     return this.initializationPromise;
   }
 
-  private async init() {
-    await this.strategyContext.init(this.config.address);
-    this.strategyContext.poolLabels.forEach((poolLabel: PoolLabel) => {
-      this.poolLabels.set(poolLabel.poolId, poolLabel);
-    });
+  private async init(userAddress?: string) {
+    await this.strategyContext.init(userAddress);
     this.isInitialized = true;
   }
 
-  async getAllPoolsData(): Promise<PoolData[]> {
-    await this.ensureInitialized();
-    return await this.protocol.getAllPoolsData();
+  async getAllPoolsData(address?: string): Promise<PoolData[]> {
+    await this.ensureInitialized(address);
+    return this.protocol.getAllPoolsData();
   }
 
   /**
@@ -119,7 +98,8 @@ export class AlphaFiSDK {
    * @returns Promise<TransactionResult> - Transaction result
    */
   async deposit(options: DepositOptions): Promise<Transaction> {
-    const poolLabel = this.poolLabels.get(options.poolId);
+    await this.ensureInitialized(options.address);
+    const poolLabel = this.strategyContext.poolLabels.get(options.poolId);
     if (!poolLabel) {
       throw new Error(`Pool with ID ${options.poolId} not found`);
     }
@@ -130,7 +110,7 @@ export class AlphaFiSDK {
         false,
         poolLabel.poolName as PoolName,
         0.005,
-        this.config.address,
+        options.address,
       );
       if (!tx) {
         throw new Error(`Failed to create LYF SUI deposit transaction`);
@@ -139,7 +119,7 @@ export class AlphaFiSDK {
     } else if (poolLabel.strategyType === 'AlphaVault') {
       return await depositAlphaTx(
         options.amount.toString(),
-        this.config.address,
+        options.address,
         this.config.suiClient,
       );
     } else if (
@@ -149,7 +129,7 @@ export class AlphaFiSDK {
     ) {
       return await depositSingleAssetTxb(
         poolLabel.poolName as PoolName,
-        this.config.address,
+        options.address,
         options.amount.toString(),
       );
     } else if (
@@ -159,7 +139,7 @@ export class AlphaFiSDK {
     ) {
       return await depositDoubleAssetTxb(
         poolLabel.poolName as PoolName,
-        this.config.address,
+        options.address,
         options.amount.toString(),
         options.isAmountA ?? false,
       );
@@ -173,7 +153,8 @@ export class AlphaFiSDK {
    * @returns Promise<[string, string]> - coin amounts
    */
   async estimateLpAmounts(options: EstimateLpAmountsOptions): Promise<[string, string]> {
-    const poolLabel = this.poolLabels.get(options.poolId);
+    await this.ensureInitialized();
+    const poolLabel = this.strategyContext.poolLabels.get(options.poolId);
     if (!poolLabel) {
       throw new Error(`Pool with ID ${options.poolId} not found`);
     }
@@ -207,7 +188,8 @@ export class AlphaFiSDK {
    * @returns Promise<TransactionResult> - Transaction result
    */
   async withdraw(options: WithdrawOptions): Promise<Transaction> {
-    const poolLabel = this.poolLabels.get(options.poolId);
+    await this.ensureInitialized(options.address);
+    const poolLabel = this.strategyContext.poolLabels.get(options.poolId);
     if (!poolLabel) {
       throw new Error(`Pool with ID ${options.poolId} not found`);
     }
@@ -215,16 +197,9 @@ export class AlphaFiSDK {
     let xTokens = '0';
     if (options.withdrawMax) {
       if (poolLabel.poolName.toString().includes('ALPHALEND-SLUSH')) {
-        xTokens = await getSlushUserTotalXtokens(
-          poolLabel.poolName as PoolName,
-          this.config.address,
-        );
+        xTokens = await getSlushUserTotalXtokens(poolLabel.poolName as PoolName, options.address);
       } else {
-        const receipt = await getReceipts(
-          poolLabel.poolName as PoolName,
-          this.config.address,
-          true,
-        );
+        const receipt = await getReceipts(poolLabel.poolName as PoolName, options.address, true);
         if (!receipt) {
           throw new Error(`Receipt with ID ${poolLabel.poolId} not found`);
         }
@@ -271,11 +246,11 @@ export class AlphaFiSDK {
         poolLabel.poolName as PoolName,
       );
     } else if (poolLabel.strategyType === 'Lyf') {
-      const receipt = await getReceipts(poolLabel.poolName as PoolName, this.config.address, true);
+      const receipt = await getReceipts(poolLabel.poolName as PoolName, options.address, true);
       const xTokenBalance = new Decimal(receipt[0].content.fields.xTokenBalance);
       const exchangeRate = await stSuiExchangeRate(getStSuiConf().LST_INFO, true);
       const balance = await getDoubleAssetVaultBalance(
-        this.config.address,
+        options.address,
         poolLabel.poolName as PoolName,
       );
       const totalSuiTokens = new Decimal(balance?.coinA ?? 0)
@@ -309,28 +284,24 @@ export class AlphaFiSDK {
       );
     }
 
-    return await withdrawTxb(
-      xTokens.toString(),
-      poolLabel.poolName as PoolName,
-      this.config.address,
-    );
+    return await withdrawTxb(xTokens.toString(), poolLabel.poolName as PoolName, options.address);
   }
 
   async initiateWithdrawAlpha(options: WithdrawOptions): Promise<Transaction> {
     return await initiateWithdrawAlpha(
       options.amount.toString(),
       options.withdrawMax,
-      this.config.address,
+      options.address,
       this.config.suiClient,
     );
   }
 
-  async claimWithdrawAlpha(ticketId: string): Promise<Transaction> {
-    return await claimWithdrawAlphaTx(ticketId, this.config.address, this.config.suiClient);
+  async claimWithdrawAlpha(ticketId: string, address: string): Promise<Transaction> {
+    return await claimWithdrawAlphaTx(ticketId, address, this.config.suiClient);
   }
 
-  async claimAirdrop(): Promise<Transaction> {
-    return await claimAirdropTx(this.config.address, this.config.suiClient);
+  async claimAirdrop(address: string): Promise<Transaction> {
+    return await claimAirdropTx(address, this.config.suiClient);
   }
 
   /**
@@ -339,7 +310,8 @@ export class AlphaFiSDK {
    * @returns Promise<[string, string] | undefined> - quote
    */
   async zapDepositQuote(options: ZapDepositQuoteOptions): Promise<[string, string] | undefined> {
-    const poolLabel = this.poolLabels.get(options.poolId);
+    await this.ensureInitialized();
+    const poolLabel = this.strategyContext.poolLabels.get(options.poolId);
     if (!poolLabel) {
       throw new Error(`Pool with ID ${options.poolId} not found`);
     }
@@ -358,7 +330,8 @@ export class AlphaFiSDK {
    * @returns Promise<Transaction | undefined> - transaction
    */
   async zapDeposit(options: ZapDepositOptions): Promise<Transaction | undefined> {
-    const poolLabel = this.poolLabels.get(options.poolId);
+    await this.ensureInitialized(options.address);
+    const poolLabel = this.strategyContext.poolLabels.get(options.poolId);
     if (!poolLabel) {
       throw new Error(`Pool with ID ${options.poolId} not found`);
     }
@@ -377,8 +350,8 @@ export class AlphaFiSDK {
    * @param options - Claim configuration options
    * @returns Promise<TransactionResult> - Transaction result with gas estimate
    */
-  async claim(_: ClaimOptions): Promise<Transaction> {
-    return await claimRewardTxb(this.config.address);
+  async claim(options: ClaimOptions): Promise<Transaction> {
+    return await claimRewardTxb(options.address);
     // return this.transactionManager.claim({
     //   poolId: options.poolId,
     // });

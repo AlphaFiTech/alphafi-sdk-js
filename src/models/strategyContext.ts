@@ -11,6 +11,7 @@ import { Decimal } from 'decimal.js';
 import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import { AprData } from './types.js';
 import { normalizeStructTag } from '@mysten/sui/utils/sui-types.js';
+import { SuiClient } from '@mysten/sui/client/index.js';
 
 interface SlushPositionCap {
   id: string;
@@ -40,7 +41,7 @@ const ALPHAFI_RECEIPT_TYPE =
 export class StrategyContext {
   blockchain: Blockchain;
   coinInfoProvider: CoinInfoProvider;
-  poolLabels: PoolLabel[];
+  poolLabels: Map<string, PoolLabel>;
   aprMap: Map<string, AprData>;
   alphalendTvl: Map<string, Decimal>;
   naviTvl: Map<string, Decimal>;
@@ -48,10 +49,12 @@ export class StrategyContext {
   private slushPositionCapsCache: Map<string, SlushPositionCap[]>;
   private alphaFiReceiptsCache: Map<string, AlphaFiReceipt[]>;
 
-  constructor(blockchain: Blockchain, coinInfoProvider: CoinInfoProvider) {
-    this.blockchain = blockchain;
-    this.coinInfoProvider = coinInfoProvider;
-    this.poolLabels = [];
+  constructor(network: 'mainnet' | 'testnet' | 'devnet' | 'localnet', suiClient: SuiClient) {
+    this.blockchain = new Blockchain(suiClient, network);
+    this.coinInfoProvider = new CoinInfoProvider();
+
+    // Initialize cache maps
+    this.poolLabels = new Map<string, PoolLabel>();
     this.aprMap = new Map<string, AprData>();
     this.alphalendTvl = new Map<string, Decimal>();
     this.naviTvl = new Map<string, Decimal>();
@@ -60,17 +63,19 @@ export class StrategyContext {
     this.alphaFiReceiptsCache = new Map<string, AlphaFiReceipt[]>();
   }
 
-  async init(userAddress: string) {
+  async init(userAddress?: string) {
     await Promise.all([
       this.cacheAprData(),
       this.cacheAlphaLendMarkets(),
       this.cacheNaviTvlByPoolId(),
       this.cacheBucketTvl(),
       this.cachePoolLabelsFromConfig(),
-      this.getAlphaFiReceipts(userAddress),
-      this.getSlushPositionCaps(userAddress),
       this.coinInfoProvider.init(),
     ]);
+    if (userAddress) {
+      await this.getAlphaFiReceipts(userAddress);
+      await this.getSlushPositionCaps(userAddress);
+    }
   }
 
   /**
@@ -386,8 +391,15 @@ export class StrategyContext {
     for (const [, entry] of Object.entries(json)) {
       const st = entry.strategy_type;
       const d = entry.data || {};
+
+      // Ensure we always have a pool_id to use as the map key
+      if (!d.pool_id) {
+        console.error('Pool ID is required for pool labels', d);
+        continue;
+      }
+
       if (st === 'Lp' || st === 'AutobalanceLp') {
-        this.poolLabels.push({
+        this.poolLabels.set(d.pool_id, {
           poolId: d.pool_id,
           packageId: d.package_id,
           packageNumber: d.package_number,
@@ -409,7 +421,7 @@ export class StrategyContext {
           isNative: d.is_native,
         } as PoolLabel);
       } else if (st === 'FungibleLp') {
-        this.poolLabels.push({
+        this.poolLabels.set(d.pool_id, {
           poolId: d.pool_id,
           packageId: d.package_id,
           packageNumber: d.package_number,
@@ -430,7 +442,7 @@ export class StrategyContext {
           isNative: d.is_native,
         } as PoolLabel);
       } else if (st === 'SlushLending') {
-        this.poolLabels.push({
+        this.poolLabels.set(d.pool_id, {
           poolId: d.pool_id,
           packageId: d.package_id,
           packageNumber: d.package_number,
@@ -447,7 +459,7 @@ export class StrategyContext {
           isNative: d.is_native,
         } as PoolLabel);
       } else if (st === 'Lending') {
-        this.poolLabels.push({
+        this.poolLabels.set(d.pool_id, {
           poolId: d.pool_id,
           packageId: d.package_id,
           packageNumber: d.package_number,
@@ -466,7 +478,7 @@ export class StrategyContext {
           isNative: d.is_native,
         } as PoolLabel);
       } else if (st === 'Looping') {
-        this.poolLabels.push({
+        this.poolLabels.set(d.pool_id, {
           poolId: d.pool_id,
           packageId: d.package_id,
           packageNumber: d.package_number,
@@ -488,7 +500,7 @@ export class StrategyContext {
           isNative: d.is_native,
         } as PoolLabel);
       } else if (st === 'SingleAssetLooping') {
-        this.poolLabels.push({
+        this.poolLabels.set(d.pool_id, {
           poolId: d.pool_id,
           packageId: d.package_id,
           packageNumber: d.package_number,
@@ -506,7 +518,7 @@ export class StrategyContext {
           isNative: d.is_native,
         } as PoolLabel);
       } else if (st === 'Lyf') {
-        this.poolLabels.push({
+        this.poolLabels.set(d.pool_id, {
           poolId: d.pool_id,
           packageId: d.package_id,
           packageNumber: d.package_number,
@@ -528,7 +540,7 @@ export class StrategyContext {
           poolName: d.pool_name,
         } as PoolLabel);
       } else if (st === 'AlphaVault') {
-        this.poolLabels.push({
+        this.poolLabels.set(d.pool_id, {
           poolId: d.pool_id,
           investorId: d.investor_id,
           packageId: d.package_id,

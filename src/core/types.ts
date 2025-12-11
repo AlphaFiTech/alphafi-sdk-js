@@ -6,7 +6,6 @@ import { SuiClient } from '@mysten/sui/client';
 export interface AlphaFiSDKConfig {
   suiClient: SuiClient;
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
-  address: string;
 }
 
 /**
@@ -14,6 +13,7 @@ export interface AlphaFiSDKConfig {
  */
 export interface DepositOptions {
   poolId: string;
+  address: string;
   amount: bigint;
   isAmountA?: boolean; // For double asset pools
 }
@@ -32,6 +32,7 @@ export interface EstimateLpAmountsOptions {
  */
 export interface WithdrawOptions {
   poolId: string;
+  address: string;
   amount: string;
   isAmountA?: boolean;
   withdrawMax: boolean;
@@ -63,4 +64,5 @@ export interface ZapDepositQuoteOptions {
  */
 export interface ClaimOptions {
   poolId?: string;
+  address: string;
 }

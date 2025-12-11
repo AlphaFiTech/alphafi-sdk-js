@@ -53,3 +53,24 @@ export type PoolData =
       apr: AprData;
       tvl: TvlData;
     };
+
+export type PoolBalance =
+  | {
+      tokenAAmount: Decimal;
+      tokenBAmount: Decimal;
+      usdValue: Decimal;
+    }
+  | { tokenAmount: Decimal; usdValue: Decimal }
+  | {
+      stakedAlphaAmount: Decimal;
+      stakedAlphaUsdValue: Decimal;
+      pendingDeposits: Decimal;
+      withdrawals: {
+        ticketId: string;
+        alphaAmount: string;
+        status: number; // 0 for pending, 1 for accepted, 2 for claimable
+        withdrawalEtaTimestamp: number;
+      }[];
+      claimableAirdrop: Decimal;
+      totalAirdropClaimed: Decimal;
+    };

@@ -6,7 +6,7 @@
 
 import { Decimal } from 'decimal.js';
 import { BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
-import { PoolData, SingleTvl } from '../models/types.js';
+import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 
 // ===== Lending Strategy Class =====
@@ -108,7 +108,7 @@ export class LendingStrategy extends BaseStrategy<
    * Compute the user's current pool balance for Lending strategy.
    * Mirrors lending.rs: xTokens -> tokens via exchangeRate, scaled by 1e9, priced by asset.
    */
-  async getBalance(): Promise<{ tokenAmount: Decimal; usdValue: Decimal }> {
+  async getBalance(_userAddress: string): Promise<PoolBalance> {
     if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
       return { tokenAmount: new Decimal(0), usdValue: new Decimal(0) };
     }

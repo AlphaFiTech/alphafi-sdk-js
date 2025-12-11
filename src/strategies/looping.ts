@@ -6,7 +6,7 @@
 
 import { Decimal } from 'decimal.js';
 import { BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
-import { PoolData, SingleTvl } from '../models/types.js';
+import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 
 // ===== Looping Strategy Class =====
@@ -121,6 +121,34 @@ export class LoopingStrategy extends BaseStrategy<
     throw new Error(`Unsupported parent protocol: ${protocol}`);
   }
 
+  /**
+   * Compute the user's current pool balance for Looping strategy.
+   * Matches looping.rs behavior.
+   */
+  async getBalance(_userAddress: string): Promise<PoolBalance> {
+    if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
+      return { tokenAmount: new Decimal(0), usdValue: new Decimal(0) };
+    }
+
+    const xTokens = new Decimal(this.receiptObjects[0].xTokenBalance);
+    const exchangeRate = this.exchangeRate();
+    let tokens = xTokens.mul(exchangeRate);
+
+    if (this.poolLabel.parentProtocol === 'Navi') {
+      tokens = tokens.div(new Decimal(10).pow(9));
+    } else {
+      const supplyDecimals = await this.context.getCoinDecimals(this.poolLabel.supplyAsset.type);
+      tokens = tokens.div(new Decimal(10).pow(supplyDecimals));
+    }
+
+    const [supplyPrice, userDepositPrice] = await Promise.all([
+      this.context.getCoinPrice(this.poolLabel.supplyAsset.type),
+      this.context.getCoinPrice(this.poolLabel.userDepositAsset.type),
+    ]);
+    const amount = tokens.mul(supplyPrice).div(userDepositPrice);
+    return { tokenAmount: amount, usdValue: amount.mul(userDepositPrice) };
+  }
+
   // ===== Parsing Functions (similar to Rust SDK) =====
 
   /**
@@ -200,34 +228,6 @@ export class LoopingStrategy extends BaseStrategy<
    */
   parseParentPoolObject(_response: any): never {
     throw new Error('Looping strategy does not have parent pool objects');
-  }
-
-  /**
-   * Compute the user's current pool balance for Looping strategy.
-   * Matches looping.rs behavior.
-   */
-  async getBalance(): Promise<{ tokenAmount: Decimal; usdValue: Decimal }> {
-    if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
-      return { tokenAmount: new Decimal(0), usdValue: new Decimal(0) };
-    }
-
-    const xTokens = new Decimal(this.receiptObjects[0].xTokenBalance);
-    const exchangeRate = this.exchangeRate();
-    let tokens = xTokens.mul(exchangeRate);
-
-    if (this.poolLabel.parentProtocol === 'Navi') {
-      tokens = tokens.div(new Decimal(10).pow(9));
-    } else {
-      const supplyDecimals = await this.context.getCoinDecimals(this.poolLabel.supplyAsset.type);
-      tokens = tokens.div(new Decimal(10).pow(supplyDecimals));
-    }
-
-    const [supplyPrice, userDepositPrice] = await Promise.all([
-      this.context.getCoinPrice(this.poolLabel.supplyAsset.type),
-      this.context.getCoinPrice(this.poolLabel.userDepositAsset.type),
-    ]);
-    const amount = tokens.mul(supplyPrice).div(userDepositPrice);
-    return { tokenAmount: amount, usdValue: amount.mul(userDepositPrice) };
   }
 
   /**

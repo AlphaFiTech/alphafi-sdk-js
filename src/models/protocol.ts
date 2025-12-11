@@ -1,7 +1,4 @@
-import { Blockchain } from './blockchain.js';
-import { SuiClient } from '@mysten/sui/client';
 import { StrategyContext } from './strategyContext.js';
-import { PoolLabel } from '../strategies/strategy.js';
 import { LpPoolLabel, LpStrategy } from '../strategies/lp.js';
 import { LyfPoolLabel, LyfStrategy } from '../strategies/lyf.js';
 import { AutobalanceLpPoolLabel, AutobalanceLpStrategy } from '../strategies/autobalanceLp.js';
@@ -14,41 +11,83 @@ import {
   SingleAssetLoopingPoolLabel,
   SingleAssetLoopingStrategy,
 } from '../strategies/singleAssetLooping.js';
+import { Strategy } from '../strategies/strategy.js';
+import { PoolData } from './types.ts';
 
 export class Protocol {
-  suiClient: SuiClient;
-  blockchain: Blockchain;
   strategyContext: StrategyContext;
-  poolLabels: Map<string, PoolLabel>;
+  strategies: Map<string, Strategy>;
+  private isInitialized: boolean = false;
+  private initializationPromise: Promise<void> | null = null;
+  private lastInitializedAt: number | null = null;
+  private static readonly STRATEGIES_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-  constructor(
-    suiClient: SuiClient,
-    network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
-    strategyContext: StrategyContext,
-    poolLabels: Map<string, PoolLabel>,
-  ) {
-    this.suiClient = suiClient;
-    this.blockchain = new Blockchain(suiClient, network);
+  constructor(strategyContext: StrategyContext) {
     this.strategyContext = strategyContext;
-    this.poolLabels = poolLabels;
+    this.strategies = new Map<string, Strategy>();
   }
 
-  async getAllPoolStrategies() {
-    const poolIds = Array.from(this.poolLabels.values()).map((poolLabel) => poolLabel.poolId);
-    const investorIds = Array.from(this.poolLabels.values())
+  /**
+   * Ensure strategies are initialized and refreshed at most every STRATEGIES_TTL_MS.
+   */
+  async ensureInitialized() {
+    const now = Date.now();
+    const isFresh =
+      this.isInitialized &&
+      this.lastInitializedAt !== null &&
+      now - this.lastInitializedAt < Protocol.STRATEGIES_TTL_MS;
+
+    if (isFresh) {
+      return;
+    }
+
+    if (this.initializationPromise) {
+      return this.initializationPromise;
+    }
+
+    this.initializationPromise = this.init().finally(() => {
+      this.initializationPromise = null;
+    });
+
+    return this.initializationPromise;
+  }
+
+  async getAllPoolsData(): Promise<PoolData[]> {
+    await this.ensureInitialized();
+    return Promise.all(Array.from(this.strategies.values()).map((strategy) => strategy.getData()));
+  }
+
+  /**
+   * Build and cache all strategies keyed by poolId.
+   */
+  private async init() {
+    this.strategies = await this.buildAllPoolStrategies();
+    this.isInitialized = true;
+    this.lastInitializedAt = Date.now();
+  }
+
+  /**
+   * Internal helper to construct strategies map from on-chain data.
+   */
+  private async buildAllPoolStrategies(): Promise<Map<string, Strategy>> {
+    const poolIds = Array.from(this.strategyContext.poolLabels.values()).map(
+      (poolLabel) => poolLabel.poolId,
+    );
+    const investorIds = Array.from(this.strategyContext.poolLabels.values())
       .filter((poolLabel) => 'investorId' in poolLabel && poolLabel.investorId)
       .map((poolLabel) => (poolLabel as any).investorId);
-    const parentPoolIds = Array.from(this.poolLabels.values())
+    const parentPoolIds = Array.from(this.strategyContext.poolLabels.values())
       .filter((poolLabel) => 'parentPoolId' in poolLabel && poolLabel.parentPoolId)
       .map((poolLabel) => (poolLabel as any).parentPoolId);
+
     const [poolObjects, investorObjects, parentPoolObjects] = await Promise.all([
-      this.blockchain.multiGetObjects(poolIds),
-      this.blockchain.multiGetObjects(investorIds),
-      this.blockchain.multiGetObjects(parentPoolIds),
+      this.strategyContext.blockchain.multiGetObjects(poolIds),
+      this.strategyContext.blockchain.multiGetObjects(investorIds),
+      this.strategyContext.blockchain.multiGetObjects(parentPoolIds),
     ]);
 
-    const resMap: Map<string, any> = new Map();
-    this.poolLabels.forEach((poolLabel) => {
+    const resMap: Map<string, Strategy> = new Map();
+    this.strategyContext.poolLabels.forEach((poolLabel) => {
       switch (poolLabel.strategyType) {
         case 'Lp':
           resMap.set(
@@ -165,10 +204,5 @@ export class Protocol {
       }
     });
     return resMap;
-  }
-
-  async getAllPoolsData() {
-    const strategies = await this.getAllPoolStrategies();
-    return Promise.all(Array.from(strategies.values()).map((strategy) => strategy.getData()));
   }
 }
