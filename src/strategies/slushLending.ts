@@ -62,7 +62,7 @@ export class SlushLendingStrategy extends BaseStrategy<
       poolName: this.poolLabel.poolName,
       apr: this.context.getAprData(this.poolLabel.poolId),
       tvl: {
-        alphafi,
+        alphafi: parent,
         parent,
       },
     };

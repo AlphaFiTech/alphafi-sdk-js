@@ -1,3 +1,4 @@
+import { normalizeStructTag } from '@mysten/sui/utils/sui-types.js';
 import { Decimal } from 'decimal.js';
 
 export type CoinInfo = {
@@ -55,12 +56,12 @@ export class CoinInfoProvider {
 
   async getCoinByType(coinType: string): Promise<CoinInfo | undefined> {
     await this.ensureInitialized();
-    return this.coinInfoByType.get(coinType);
+    return this.coinInfoByType.get(normalizeStructTag(coinType));
   }
 
   async getPriceByType(coinType: string): Promise<Decimal> {
     await this.ensureInitialized();
-    const coin = await this.getCoinByType(coinType);
+    const coin = await this.getCoinByType(normalizeStructTag(coinType));
     if (!coin) throw new Error(`Coin not found: ${coinType}`);
     const price = coin.pythPrice ?? coin.coingeckoPrice;
     if (!price) throw new Error(`No price available for: ${coinType}`);
@@ -102,8 +103,8 @@ export class CoinInfoProvider {
         coingeckoPrice?: number | null;
         pythPrice?: number | null;
       }) => {
-        coins.set(apiCoin.coinType, {
-          coinType: apiCoin.coinType,
+        coins.set(normalizeStructTag(apiCoin.coinType), {
+          coinType: normalizeStructTag(apiCoin.coinType),
           symbol: apiCoin.symbol,
           decimals: apiCoin.decimals,
           coingeckoPrice:
@@ -118,14 +119,6 @@ export class CoinInfoProvider {
       },
     );
 
-    // Add special SUI mapping
-    const suiCoin = coins.get('0x2::sui::SUI');
-    if (suiCoin) {
-      coins.set('0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI', {
-        ...suiCoin,
-        coinType: '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
-      });
-    }
     return coins;
   }
 }

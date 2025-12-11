@@ -219,9 +219,6 @@ export class LyfStrategy extends BaseStrategy<
     // leverage = 1 / (1 - debt_to_supply_ratio_scaled)
     const ratioScaled = new Decimal(this.investorObject.currentDebtToSupplyRatio);
     const ratio = ratioScaled.div(new Decimal(10).pow(18));
-    if (ratio.greaterThanOrEqualTo(1)) {
-      return new Decimal(1);
-    }
     return new Decimal(1).div(new Decimal(1).minus(ratio));
   }
 
@@ -374,6 +371,19 @@ export class LyfStrategy extends BaseStrategy<
       (this.getNestedField(fields, 'id.id') as string | undefined) ||
       this.getStringField(fields, 'id');
 
+    // current_debt_to_supply_ratio can be stored either as a flat string/number
+    // or as a nested Move struct with `fields.value`. Handle both cases robustly.
+    let currentDebtToSupplyRatio = '0';
+    const ratioField = (fields as any).current_debt_to_supply_ratio;
+    if (typeof ratioField === 'string' || typeof ratioField === 'number') {
+      currentDebtToSupplyRatio = String(ratioField);
+    } else if (ratioField && typeof ratioField === 'object') {
+      currentDebtToSupplyRatio =
+        (ratioField.fields?.value as string) ||
+        this.getStringField(ratioField.fields ?? ratioField, 'value') ||
+        '0';
+    }
+
     return {
       emergencyBalanceA: this.getStringField(fields, 'emergency_balance_a'),
       emergencyBalanceB: this.getStringField(fields, 'emergency_balance_b'),
@@ -392,10 +402,7 @@ export class LyfStrategy extends BaseStrategy<
         this.getStringField(fields, 'cur_debt_b') || this.getStringField(fields, 'curr_debt_b'),
       marketIdA: this.getStringField(fields, 'market_id_a'),
       marketIdB: this.getStringField(fields, 'market_id_b'),
-      currentDebtToSupplyRatio:
-        (fields.current_debt_to_supply_ratio?.fields?.value as string) ||
-        this.getStringField(fields.current_debt_to_supply_ratio?.fields ?? {}, 'value') ||
-        '0',
+      currentDebtToSupplyRatio,
       safeBorrowPercentage: this.getStringField(fields, 'safe_borrow_percentage'),
       upperTick: this.getNumberField(fields, 'upper_tick'),
     };

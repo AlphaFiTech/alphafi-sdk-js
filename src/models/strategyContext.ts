@@ -10,6 +10,7 @@ import { PoolLabel } from '../strategies/strategy.js';
 import { Decimal } from 'decimal.js';
 import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import { AprData } from './types.js';
+import { normalizeStructTag } from '@mysten/sui/utils/sui-types.js';
 
 interface SlushPositionCap {
   id: string;
@@ -110,7 +111,7 @@ export class StrategyContext {
   }
 
   getAlphaLendTvl(coinType: string): Decimal {
-    return this.alphalendTvl.get(coinType) || new Decimal(0);
+    return this.alphalendTvl.get(normalizeStructTag(coinType)) || new Decimal(0);
   }
 
   private async cacheAlphaLendMarkets() {
@@ -124,7 +125,7 @@ export class StrategyContext {
       throw new Error('Failed to get markets');
     }
     for (const market of markets) {
-      this.alphalendTvl.set(market.coinType, market.availableLiquidity);
+      this.alphalendTvl.set(normalizeStructTag(market.coinType), market.totalSupply);
     }
   }
 

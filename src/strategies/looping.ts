@@ -48,7 +48,10 @@ export class LoopingStrategy extends BaseStrategy<
    * Exchange rate = tokens_invested / xtoken_supply
    */
   exchangeRate(): Decimal {
-    const tokensInvested = new Decimal(this.poolObject.tokensInvested);
+    const currentDebtToSupplyRatio = new Decimal(this.investorObject.currentDebtToSupplyRatio);
+    const tokensInvested = new Decimal(this.investorObject.tokensDeposited).mul(
+      new Decimal(1).minus(currentDebtToSupplyRatio.div(new Decimal(10).pow(20))),
+    );
     const xtokenSupply = new Decimal(this.poolObject.xTokenSupply);
 
     if (xtokenSupply.isZero()) {
@@ -84,11 +87,10 @@ export class LoopingStrategy extends BaseStrategy<
     const supplyType = this.poolLabel.supplyAsset.type;
     const userDepositType = this.poolLabel.userDepositAsset.type;
     const cdsr = new Decimal(this.investorObject.currentDebtToSupplyRatio);
-    const adjusted = new Decimal(this.poolObject.tokensInvested).mul(
+    let tokensInvested = new Decimal(this.poolObject.tokensInvested).mul(
       new Decimal(1).minus(cdsr.div(new Decimal(10).pow(20))),
     );
 
-    let tokensInvested = adjusted;
     if (this.poolLabel.parentProtocol === 'Navi') {
       tokensInvested = tokensInvested.div(new Decimal(10).pow(9));
     } else {
@@ -110,8 +112,8 @@ export class LoopingStrategy extends BaseStrategy<
     const coinType = this.poolLabel.supplyAsset.type;
     const price = await this.context.getCoinPrice(coinType);
     if (protocol === 'Navi') {
-      const tokenAmount = this.context.getNaviTvlByPoolId(this.poolLabel.poolId);
-      return { tokenAmount, usdValue: tokenAmount.mul(price) };
+      const tokenAmountUsd = this.context.getNaviTvlByPoolId(this.poolLabel.poolId);
+      return { tokenAmount: tokenAmountUsd.div(price), usdValue: tokenAmountUsd };
     } else if (protocol === 'Alphalend') {
       const tokenAmount = this.context.getAlphaLendTvl(coinType);
       return { tokenAmount, usdValue: tokenAmount.mul(price) };
@@ -164,6 +166,7 @@ export class LoopingStrategy extends BaseStrategy<
 
       return {
         currentDebtToSupplyRatio:
+          this.getStringField(fields, 'current_debt_to_supply_ratio') ||
           (fields.current_debt_to_supply_ratio?.fields?.value as string) ||
           this.getStringField(fields.current_debt_to_supply_ratio?.fields ?? {}, 'value') ||
           '0',

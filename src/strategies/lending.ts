@@ -95,8 +95,8 @@ export class LendingStrategy extends BaseStrategy<
       const tokenAmount = this.context.getBucketTvl();
       return { tokenAmount, usdValue: tokenAmount.mul(price) };
     } else if (protocol === 'Navi') {
-      const tokenAmount = this.context.getNaviTvlByPoolId(this.poolLabel.poolId);
-      return { tokenAmount, usdValue: tokenAmount.mul(price) };
+      const tokenAmountUsd = this.context.getNaviTvlByPoolId(this.poolLabel.poolId);
+      return { tokenAmount: tokenAmountUsd.div(price), usdValue: tokenAmountUsd };
     } else if (protocol === 'Alphalend') {
       const tokenAmount = this.context.getAlphaLendTvl(this.poolLabel.asset.type);
       return { tokenAmount, usdValue: tokenAmount.mul(price) };

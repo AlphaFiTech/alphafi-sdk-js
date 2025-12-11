@@ -101,10 +101,30 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
       const tokenAmount = this.context.getAlphaLendTvl(coinType);
       return { tokenAmount, usdValue: tokenAmount.mul(price) };
     } else if (protocol === 'Navi') {
-      const tokenAmount = this.context.getNaviTvlByPoolId(this.poolLabel.poolId);
-      return { tokenAmount, usdValue: tokenAmount.mul(price) };
+      const tokenAmountUsd = this.context.getNaviTvlByPoolId(this.poolLabel.poolId);
+      return { tokenAmount: tokenAmountUsd.div(price), usdValue: tokenAmountUsd };
     }
     throw new Error(`Unsupported parent protocol: ${protocol}`);
+  }
+
+  /**
+   * Compute user's current pool balance for SingleAssetLooping.
+   * Matches single_asset_looping.rs behavior.
+   */
+  async getBalance(): Promise<{ tokenAmount: Decimal; usdValue: Decimal }> {
+    if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
+      return { tokenAmount: new Decimal(0), usdValue: new Decimal(0) };
+    }
+
+    const xTokens = new Decimal(this.receiptObjects[0].xTokenBalance);
+    const [exchangeRate, tokenDecimals, tokenPrice] = await Promise.all([
+      Promise.resolve(this.exchangeRate()),
+      this.context.getCoinDecimals(this.poolLabel.asset.type),
+      this.context.getCoinPrice(this.poolLabel.asset.type),
+    ]);
+    const tokens = xTokens.mul(exchangeRate);
+    const amount = tokens.div(new Decimal(10).pow(tokenDecimals));
+    return { tokenAmount: amount, usdValue: amount.mul(tokenPrice) };
   }
 
   // ===== Parsing Functions (similar to Rust SDK) =====
@@ -157,6 +177,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
         assetLtv: this.getStringField(fields, 'asset_ltv'),
         curDebt: this.getStringField(fields, 'cur_debt'),
         currentDebtToSupplyRatio:
+          this.getStringField(fields, 'current_debt_to_supply_ratio') ||
           (fields.current_debt_to_supply_ratio?.fields?.value as string) ||
           this.getStringField(fields.current_debt_to_supply_ratio?.fields ?? {}, 'value') ||
           '0',
@@ -192,26 +213,6 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
    */
   parseParentPoolObject(_response: any): never {
     throw new Error('SingleAssetLooping strategy does not have parent pool objects');
-  }
-
-  /**
-   * Compute user's current pool balance for SingleAssetLooping.
-   * Matches single_asset_looping.rs behavior.
-   */
-  async getBalance(): Promise<{ tokenAmount: Decimal; usdValue: Decimal }> {
-    if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
-      return { tokenAmount: new Decimal(0), usdValue: new Decimal(0) };
-    }
-
-    const xTokens = new Decimal(this.receiptObjects[0].xTokenBalance);
-    const [exchangeRate, tokenDecimals, tokenPrice] = await Promise.all([
-      Promise.resolve(this.exchangeRate()),
-      this.context.getCoinDecimals(this.poolLabel.asset.type),
-      this.context.getCoinPrice(this.poolLabel.asset.type),
-    ]);
-    const tokens = xTokens.mul(exchangeRate);
-    const amount = tokens.div(new Decimal(10).pow(tokenDecimals));
-    return { tokenAmount: amount, usdValue: amount.mul(tokenPrice) };
   }
 
   /**
