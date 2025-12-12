@@ -58,7 +58,7 @@ export async function dryRunTransactionBlock(txb: Transaction) {
       })
       .then((res) => {
         // console.log(JSON.stringify(res, null, 2));
-        console.log(res.effects.status, res.balanceChanges, res.events[res.events.length - 1]);
+        console.log(res.effects.status, res.balanceChanges);
       })
       .catch((error) => {
         console.error(error);
@@ -163,11 +163,10 @@ async function withdraw() {
 async function claimAirdrop() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
-  const tx = await sdk.claimAirdrop();
+  const tx = await sdk.claimAirdrop(false);
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx);
   // executeTransactionBlock(tx);
 }
-// withdraw();
-// deposit();
 claimAirdrop();
+// withdraw();

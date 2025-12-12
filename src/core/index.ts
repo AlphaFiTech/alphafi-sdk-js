@@ -316,8 +316,8 @@ export class AlphaFiSDK {
     return await claimWithdrawAlphaTx(ticketId, this.config.address, this.blockchain.suiClient);
   }
 
-  async claimAirdrop(): Promise<Transaction> {
-    return await claimAirdropTx(this.config.address, this.blockchain.suiClient);
+  async claimAirdrop(transferToWallet: boolean): Promise<Transaction> {
+    return await claimAirdropTx(this.config.address, this.blockchain.suiClient, transferToWallet);
   }
 
   /**
