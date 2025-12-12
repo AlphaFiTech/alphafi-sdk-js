@@ -1,7 +1,7 @@
 import {
   AggregatorClient,
   RouterDataV3,
-  getAllProviders,
+  // getAllProviders,
   getProvidersExcluding,
 } from '@cetusprotocol/aggregator-sdk';
 import { Transaction } from '@mysten/sui/transactions';
@@ -26,7 +26,7 @@ export class CetusSwap {
     amount: string,
   ): Promise<RouterDataV3 | undefined> {
     try {
-      const providers = getAllProviders();
+      // const providers = getAllProviders();
 
       const providersExcept = getProvidersExcluding([
         'STEAMM_OMM_V2',
