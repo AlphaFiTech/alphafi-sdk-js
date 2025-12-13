@@ -740,7 +740,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
     packageNumber: 4,
     strategyType: 'DOUBLE-ASSET-POOL',
     parentProtocolName: 'BLUEFIN',
-    parentPoolId: conf[CONF_ENV].BLUEFIN_SUIUSDT_USDC_POOL,
+    parentPoolId: conf[CONF_ENV].BLUEFIN_SUIUSDT_USDC_ZERO_ZERO_POOL,
     poolId: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUIUSDT_USDC_POOL,
     investorId: conf[CONF_ENV].ALPHAFI_BLUEFIN_SUIUSDT_USDC_INVESTOR,
     receipt: {
