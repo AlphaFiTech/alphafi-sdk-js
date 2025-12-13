@@ -23,16 +23,14 @@ export class AlphaVaultStrategy extends BaseStrategy<
   private poolLabel: AlphaVaultPoolLabel;
   private poolObject: AlphaVaultPoolObject;
   private investorObject: AlphaVaultInvestorObject;
-  private legacyReceiptObjects: AlphaVaultLegacyReceiptObject[];
-  private receiptObjects: AlphaVaultReceiptObject[];
+  private legacyReceiptObjects: AlphaVaultLegacyReceiptObject[] = [];
+  private receiptObjects: AlphaVaultReceiptObject[] = [];
   private context: StrategyContext;
 
   constructor(
     poolLabel: AlphaVaultPoolLabel,
     poolObject: any,
     investorObject: any,
-    legacyReceiptObjects: any[],
-    receiptObjects: any[],
     context: StrategyContext,
   ) {
     super();
@@ -40,8 +38,15 @@ export class AlphaVaultStrategy extends BaseStrategy<
     this.poolObject = this.parsePoolObject(poolObject);
     this.investorObject = this.parseInvestorObject(investorObject);
     this.context = context;
-    this.legacyReceiptObjects = this.parseLegacyReceiptObjects(legacyReceiptObjects);
-    this.receiptObjects = this.parseReceiptObjects(receiptObjects);
+  }
+
+  getPoolLabel(): AlphaVaultPoolLabel {
+    return this.poolLabel;
+  }
+
+  updateReceipts(legacyReceipts: any[], receipts: any[]): void {
+    this.legacyReceiptObjects = this.parseLegacyReceiptObjects(legacyReceipts);
+    this.receiptObjects = this.parseReceiptObjects(receipts);
   }
 
   // ===== Strategy Interface Implementation =====
@@ -411,50 +416,41 @@ export class AlphaVaultStrategy extends BaseStrategy<
     return this.safeParseObject(() => {
       const fields = this.extractFields(response);
 
-      const parseTableInfo = (tableField: any, fallbackId: string): TableInfo => {
-        const tf = tableField?.fields ?? tableField ?? {};
-        return {
-          id: this.getStringField(tf, 'id') || fallbackId,
-          size: this.getStringField(tf, 'size') || '0',
-        };
-      };
-
       return {
         id: this.getStringField(fields, 'id'),
-        xTokenSupply:
-          this.getStringField(fields, 'x_token_supply') ||
-          this.getStringField(fields, 'xtoken_supply') ||
-          this.getStringField(fields, 'xTokenSupply'),
-        tokensInvested:
-          this.getStringField(fields, 'tokens_invested') ||
-          this.getStringField(fields, 'tokensInvested'),
-        unsuppliedBalance: this.getStringField(fields, 'unsupplied_balance') || '0',
-        claimableBalance: this.getStringField(fields, 'claimable_balance') || '0',
-        positions: parseTableInfo(fields.positions, 'positions_unknown'),
+        xTokenSupply: this.getStringField(fields, 'xTokenSupply'),
+        tokensInvested: this.getStringField(fields, 'tokensInvested'),
+        unsuppliedBalance: this.getStringField(fields, 'unsupplied_balance'),
+        claimableBalance: this.getStringField(fields, 'claimable_balance'),
+        positions: (() => {
+          const idVal = this.getNestedField(fields, 'positions.id');
+          const sizeVal = this.getNestedField(fields, 'positions.size');
+          return { id: String(idVal), size: String(sizeVal) };
+        })(),
         recentlyUpdatedAlphafiReceipts: this.parsePositionUpdateVecMap(
           fields.recently_updated_alphafi_receipts || {},
         ),
-        withdrawRequests: this.parseVecMap(fields.withdraw_requests || {}),
-        feeCollected: this.getStringField(fields, 'fee_collected') || '0',
-        lastDistributionTime: this.getStringField(fields, 'last_distribution_time') || '0',
-        lastAutocompoundTime: this.getStringField(fields, 'last_autocompound_time') || '0',
-        lockingPeriod: this.getStringField(fields, 'locking_period') || '0',
-        timeFromLockingPeriodForUnstakingToStart:
-          this.getStringField(fields, 'time_from_locking_period_for_unstaking_to_start') || '0',
-        currentExchangeRate:
-          (fields.current_exchange_rate?.fields?.value as string) ||
-          this.getStringField(fields.current_exchange_rate, 'value') ||
-          this.getStringField(fields, 'current_exchange_rate') ||
-          '0',
+        withdrawRequests: fields.withdraw_requests?.contents?.map((entry: any) => ({
+          timestamp: entry.key,
+          leftoverAmount: this.getNestedField(entry, 'value.leftover_amount'),
+          totalAmountToWithdraw: this.getNestedField(entry, 'value.total_amount_to_withdraw'),
+        })),
+        feeCollected: this.getStringField(fields, 'fee_collected'),
+        lastDistributionTime: this.getStringField(fields, 'last_distribution_time'),
+        lastAutocompoundTime: this.getStringField(fields, 'last_autocompound_time'),
+        lockingPeriod: this.getStringField(fields, 'locking_period'),
+        timeFromLockingPeriodForUnstakingToStart: this.getStringField(
+          fields,
+          'time_from_locking_period_for_unstaking_to_start',
+        ),
+        currentExchangeRate: this.getNestedField(fields, 'current_exchange_rate.value'),
         rewards: (() => {
-          const rfields = fields.rewards?.fields ?? fields.rewards ?? {};
-          return {
-            id: this.getStringField(rfields?.id ?? rfields, 'id'),
-            size: this.getStringField(rfields, 'size'),
-          };
+          const idVal = this.getNestedField(fields, 'rewards.id');
+          const sizeVal = this.getNestedField(fields, 'rewards.size');
+          return { id: String(idVal), size: String(sizeVal) };
         })(),
         accRewardsPerXtoken: this.parseVecMap(fields.acc_rewards_per_xtoken || {}),
-        totalDistributed: this.getStringField(fields, 'total_distributed') || '0',
+        totalDistributed: this.parseVecMap(fields.total_distributed || {}),
         depositFee: this.getStringField(fields, 'deposit_fee') || '0',
         depositFeeMaxCap: this.getStringField(fields, 'deposit_fee_max_cap') || '0',
         withdrawalFee: this.getStringField(fields, 'withdrawal_fee') || '0',
@@ -462,9 +458,13 @@ export class AlphaVaultStrategy extends BaseStrategy<
         feeAddress: this.getStringField(fields, 'fee_address'),
         isDepositPaused: this.getBooleanField(fields, 'is_deposit_paused', false),
         isWithdrawPaused: this.getBooleanField(fields, 'is_withdraw_paused', false),
-        alphafiPartnerCap: this.getStringField(fields, 'alphafi_partner_cap'),
+        alphafiPartnerCap: this.getNestedField(fields, 'alphafi_partner_cap.id'),
         activeInvestorId: this.getStringField(fields, 'active_investor_id'),
-        additionalFields: parseTableInfo(fields.additional_fields, 'additional_fields_unknown'),
+        additionalFields: (() => {
+          const idVal = this.getNestedField(fields, 'additional_fields.id');
+          const sizeVal = this.getNestedField(fields, 'additional_fields.size');
+          return { id: String(idVal), size: String(sizeVal) };
+        })(),
       };
     }, 'Failed to parse AlphaVault pool object');
   }
@@ -475,22 +475,8 @@ export class AlphaVaultStrategy extends BaseStrategy<
   parseInvestorObject(response: any): AlphaVaultInvestorObject {
     return this.safeParseObject(() => {
       const fields = this.extractFields(response);
-
-      const alphalendPositionCapFields = fields.alphalend_position_cap?.fields ?? {};
-      const allowedCoinTypesArray =
-        fields.allowed_coin_types_for_swap?.fields?.contents ??
-        fields.allowed_coin_types_for_swap?.contents ??
-        [];
-      const withdrawTicketsArray =
-        fields.withdraw_tickets?.fields?.contents ?? fields.withdraw_tickets?.contents ?? [];
-
-      const parseAdditionalFields = (obj: any): TableInfo => {
-        const o = obj?.fields ?? obj ?? {};
-        return {
-          id: this.getStringField(o?.id ?? o, 'id'),
-          size: this.getStringField(o, 'size') || '0',
-        };
-      };
+      const allowedCoinTypesArray = fields.allowed_coin_types_for_swap?.contents;
+      const withdrawTicketsArray = fields.withdraw_tickets?.contents;
 
       const parseWithdrawTicketInner = (val: any): WithdrawalRequest | null => {
         const vf = val?.fields ?? val ?? {};
@@ -504,46 +490,37 @@ export class AlphaVaultStrategy extends BaseStrategy<
         };
       };
 
-      const withdrawTickets = Array.isArray(withdrawTicketsArray)
-        ? withdrawTicketsArray
-            .map((entry: any) => {
-              const ef = entry?.fields ?? entry ?? {};
-              const key = this.getStringField(ef, 'key');
-              const innerContents = ef.value?.fields?.contents ?? ef.value?.contents ?? [];
-              const value: WithdrawalRequest[] = Array.isArray(innerContents)
-                ? innerContents
-                    .map((inner: any) => {
-                      const inf = inner?.fields ?? inner ?? {};
-                      const innerVal = parseWithdrawTicketInner(inf.value);
-                      return innerVal || null;
-                    })
-                    .filter((v: WithdrawalRequest | null): v is WithdrawalRequest => v !== null)
-                : [];
-              if (!key) return null;
-              return { key, value };
+      const withdrawTickets = withdrawTicketsArray
+        .map((entry: any) => {
+          const key = this.getNestedField(entry, 'key.@variant');
+          const innerContents = entry.value?.contents;
+          const value: WithdrawalRequest[] = innerContents
+            .map((inner: any) => {
+              const innerVal = parseWithdrawTicketInner(inner.value);
+              return innerVal;
             })
-            .filter(
-              (
-                v: { key: string; value: WithdrawalRequest[] } | null,
-              ): v is {
-                key: string;
-                value: WithdrawalRequest[];
-              } => v !== null,
-            )
-        : [];
+            .filter((v: WithdrawalRequest | null): v is WithdrawalRequest => v !== null);
+          return { key, value };
+        })
+        .filter(
+          (
+            v: { key: string; value: WithdrawalRequest[] } | null,
+          ): v is {
+            key: string;
+            value: WithdrawalRequest[];
+          } => v !== null,
+        );
 
       return {
         id: this.getStringField(fields, 'id'),
         unsuppliedBalance: this.getStringField(fields, 'unsupplied_balance'),
         claimableBalance: this.getStringField(fields, 'claimable_balance'),
         alphalendPositionCap: {
-          positionId: this.getStringField(alphalendPositionCapFields, 'position_id'),
+          positionId: this.getNestedField(fields, 'alphalend_position_cap.id'),
         },
         curDebt: this.getStringField(fields, 'cur_debt'),
-        currentDebtToSupplyRatio:
-          this.getStringField(fields?.current_debt_to_supply_ratio?.fields ?? {}, 'value') || '0',
-        borrowTokenToTokenRatio:
-          this.getStringField(fields?.borrow_token_to_token_ratio?.fields ?? {}, 'value') || '0',
+        currentDebtToSupplyRatio: this.getNestedField(fields, 'current_debt_to_supply_ratio.value'),
+        borrowTokenToTokenRatio: this.getNestedField(fields, 'borrow_token_to_token_ratio.value'),
         safeBorrowPercentage: this.getStringField(fields, 'safe_borrow_percentage'),
         allowedCoinTypesForSwap: Array.isArray(allowedCoinTypesArray)
           ? allowedCoinTypesArray
@@ -561,22 +538,20 @@ export class AlphaVaultStrategy extends BaseStrategy<
         borrowMarketId: this.getStringField(fields, 'borrow_market_id'),
         resupplyMarketId: this.getStringField(fields, 'resupply_market_id'),
         freeRewards: (() => {
-          const fr = fields.free_rewards?.fields ?? fields.free_rewards ?? {};
-          const id = this.getStringField(fr?.id ?? fr, 'id');
-          const sizeRaw = fr.size ?? this.getStringField(fr, 'size');
-          return {
-            id,
-            size: typeof sizeRaw === 'string' ? sizeRaw : sizeRaw ? String(sizeRaw) : '',
-          };
+          const idVal = this.getNestedField(fields, 'free_rewards.id');
+          const sizeVal = this.getNestedField(fields, 'free_rewards.size');
+          return { id: String(idVal), size: String(sizeVal) };
         })(),
         withdrawReceiversAddress: this.getStringField(fields, 'withdraw_receivers_address'),
         withdrawTickets,
         totalPendingWithdrawals: this.getStringField(fields, 'total_pending_withdrawals'),
         performanceFee: this.getStringField(fields, 'performance_fee'),
         performanceFeeCap: this.getStringField(fields, 'performance_fee_cap'),
-        additionalFields: parseAdditionalFields(
-          fields.additional_fields?.fields ?? fields.additional_fields ?? {},
-        ),
+        additionalFields: (() => {
+          const idVal = this.getNestedField(fields, 'additional_fields.id');
+          const sizeVal = this.getNestedField(fields, 'additional_fields.size');
+          return { id: String(idVal), size: String(sizeVal) };
+        })(),
       };
     }, 'Failed to parse AlphaVault investor object');
   }
@@ -600,28 +575,18 @@ export class AlphaVaultStrategy extends BaseStrategy<
           id: this.getStringField(fields, 'id'),
           imageUrl: this.getStringField(fields, 'image_url'),
           lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
-          lockedBalance: (() => {
-            const lb = fields.locked_balance?.fields ?? fields.locked_balance ?? {};
-            const idVal = lb.id?.id ?? lb.id ?? '';
-            const sizeVal = lb.size ?? '';
-            const headVal = lb.head ?? '';
-            const tailVal = lb.tail ?? '';
-            return {
-              id: String(idVal),
-              size: String(sizeVal),
-              head: String(headVal),
-              tail: String(tailVal),
-            };
-          })(),
+          lockedBalance: {
+            id: this.getNestedField(fields, 'locked_balance.id'),
+            size: this.getNestedField(fields, 'locked_balance.size'),
+            head: this.getNestedField(fields, 'locked_balance.head'),
+            tail: this.getNestedField(fields, 'locked_balance.tail'),
+          },
           name: this.getStringField(fields, 'name'),
           owner: this.getStringField(fields, 'owner'),
           pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
           poolId: this.getStringField(fields, 'pool_id'),
           unlockedXtokens: this.getStringField(fields, 'unlocked_xtokens'),
-          xTokenBalance:
-            this.getStringField(fields, 'xtoken_balance') ||
-            this.getStringField(fields, 'xTokenBalance'),
-          type: this.getStringField(fields, 'type'),
+          xTokenBalance: this.getStringField(fields, 'xTokenBalance'),
         };
       }, `Failed to parse AlphaVault receipt object at index ${index}`);
     });
@@ -635,11 +600,10 @@ export class AlphaVaultStrategy extends BaseStrategy<
       return this.safeParseObject(() => {
         const fields = this.extractFields(response);
 
-        const parseTableInfo = (tableField: any, fallbackId: string): TableInfo => {
-          const tf = tableField?.fields ?? tableField ?? {};
+        const parseTableInfo = (tableField: any): TableInfo => {
           return {
-            id: this.getStringField(tf?.id ?? tf, 'id') || fallbackId,
-            size: this.getStringField(tf, 'size') || '0',
+            id: this.getStringField(tableField, 'id'),
+            size: this.getStringField(tableField, 'size'),
           };
         };
 
@@ -652,44 +616,34 @@ export class AlphaVaultStrategy extends BaseStrategy<
           key: string;
           value: UserWithdrawRequest;
         } | null => {
-          const f = kv?.fields ?? kv ?? {};
-          const key = this.getStringField(f, 'key');
-          const valFields = f.value?.fields ?? f.value ?? {};
+          const key = this.getStringField(kv, 'key');
+          const valFields = kv.value;
           const value: UserWithdrawRequest = {
-            id:
-              this.getStringField(valFields?.id?.fields ?? valFields?.id ?? {}, 'id') ||
-              this.getStringField(valFields, 'id') ||
-              '',
-            timeOfRequest: this.getStringField(valFields, 'time_of_request') || '0',
-            timeOfAcceptance: this.getStringField(valFields, 'time_of_acceptance') || '0',
-            timeOfClaim: this.getStringField(valFields, 'time_of_claim') || '0',
-            timeOfUnlock: this.getStringField(valFields, 'time_of_unlock') || '0',
-            status: this.getStringField(valFields, 'status') || '0',
-            tokenAmount: this.getStringField(valFields, 'token_amount') || '0',
+            id: this.getStringField(valFields, 'id'),
+            timeOfRequest: this.getStringField(valFields, 'time_of_request'),
+            timeOfAcceptance: this.getStringField(valFields, 'time_of_acceptance'),
+            timeOfClaim: this.getStringField(valFields, 'time_of_claim'),
+            timeOfUnlock: this.getStringField(valFields, 'time_of_unlock'),
+            status: this.getStringField(valFields, 'status'),
+            tokenAmount: this.getStringField(valFields, 'token_amount'),
           };
-          return key ? { key, value } : null;
+          return { key, value };
         };
 
-        const withdrawRequestsKV = Array.isArray(
-          fields.withdraw_requests?.fields?.contents ?? fields.withdraw_requests?.contents,
-        )
-          ? (fields.withdraw_requests.fields?.contents ?? fields.withdraw_requests.contents)
-              .map(parseWithdrawRequestKV)
-              .filter(Boolean)
-          : [];
+        const withdrawRequestsKV = fields.withdraw_requests.contents.map(parseWithdrawRequestKV);
 
         return {
           id: this.getStringField(fields, 'id'),
           alphafiReceiptId: this.getStringField(fields, 'alphafi_receipt_id'),
           poolId: this.getStringField(fields, 'pool_id'),
-          coinType: this.getStringField(fields, 'coin_type'),
+          coinType: this.getNestedField(fields, 'coin_type.name'),
           xTokens: this.getStringField(fields, 'xtokens'),
           withdrawRequests: withdrawRequestsKV as {
             key: string;
             value: UserWithdrawRequest;
           }[],
-          allWithdrawals: parseTableInfo(fields.all_withdrawals, 'all_withdrawals_unknown'),
-          allDeposits: parseTableInfo(fields.all_deposits, 'all_deposits_unknown'),
+          allWithdrawals: parseTableInfo(fields.all_withdrawals),
+          allDeposits: parseTableInfo(fields.all_deposits),
           lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
           pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
           totalCollectedRewards,
@@ -726,7 +680,11 @@ export interface AlphaVaultPoolObject {
   claimableBalance: string;
   positions: TableInfo;
   recentlyUpdatedAlphafiReceipts: PositionUpdateEntry[];
-  withdrawRequests: KeyValuePair[];
+  withdrawRequests: {
+    timestamp: string;
+    leftoverAmount: string;
+    totalAmountToWithdraw: string;
+  }[];
   feeCollected: string;
   lastDistributionTime: string;
   lastAutocompoundTime: string;
@@ -738,7 +696,7 @@ export interface AlphaVaultPoolObject {
     size: string;
   };
   accRewardsPerXtoken: KeyValuePair[];
-  totalDistributed: string;
+  totalDistributed: KeyValuePair[];
   depositFee: string;
   depositFeeMaxCap: string;
   withdrawalFee: string;
@@ -827,7 +785,6 @@ export interface AlphaVaultLegacyReceiptObject {
   poolId: string;
   unlockedXtokens: string;
   xTokenBalance: string;
-  type: string;
 }
 
 /**

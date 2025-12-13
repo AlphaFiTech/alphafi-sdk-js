@@ -26,7 +26,7 @@ export class LpStrategy extends BaseStrategy<
   private poolObject: LpPoolObject;
   private investorObject: LpInvestorObject;
   private parentPoolObject: LpParentPoolObject;
-  private receiptObjects: LpReceiptObject[];
+  private receiptObjects: LpReceiptObject[] = [];
   private context: StrategyContext;
 
   constructor(
@@ -34,7 +34,6 @@ export class LpStrategy extends BaseStrategy<
     poolObject: any,
     investorObject: any,
     parentPoolObject: any,
-    receiptObjects: any[],
     context: StrategyContext,
   ) {
     super();
@@ -43,7 +42,14 @@ export class LpStrategy extends BaseStrategy<
     this.investorObject = this.parseInvestorObject(investorObject);
     this.context = context;
     this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
-    this.receiptObjects = this.parseReceiptObjects(receiptObjects);
+  }
+
+  getPoolLabel(): LpPoolLabel {
+    return this.poolLabel;
+  }
+
+  updateReceipts(receipts: any[]): void {
+    this.receiptObjects = this.parseReceiptObjects(receipts);
   }
 
   // ===== Strategy Interface Implementation =====
@@ -276,20 +282,14 @@ export class LpStrategy extends BaseStrategy<
         name: this.getStringField(fields, 'name'),
         paused: this.getBooleanField(fields, 'paused', false),
         rewards: (() => {
-          const idVal =
-            (this.getNestedField(fields, 'rewards.fields.id.id') as string | undefined) || '';
-          const sizeVal =
-            (this.getNestedField(fields, 'rewards.fields.size') as string | undefined) || '';
+          const idVal = this.getNestedField(fields, 'rewards.id');
+          const sizeVal = this.getNestedField(fields, 'rewards.size');
           return { id: String(idVal), size: String(sizeVal) };
         })(),
-        tokensInvested:
-          this.getStringField(fields, 'tokens_invested') ||
-          this.getStringField(fields, 'tokensInvested'),
+        tokensInvested: this.getStringField(fields, 'tokensInvested'),
         withdrawFeeMaxCap: this.getStringField(fields, 'withdraw_fee_max_cap'),
         withdrawalFee: this.getStringField(fields, 'withdrawal_fee'),
-        xTokenSupply:
-          this.getStringField(fields, 'xtoken_supply') ||
-          this.getStringField(fields, 'xTokenSupply'),
+        xTokenSupply: this.getStringField(fields, 'xTokenSupply'),
       };
     }, `Failed to parse LP pool object (poolId=${this.poolLabel.poolId})`);
   }
@@ -307,10 +307,8 @@ export class LpStrategy extends BaseStrategy<
         freeBalanceA: this.getStringField(fields, 'free_balance_a'),
         freeBalanceB: this.getStringField(fields, 'free_balance_b'),
         freeRewards: (() => {
-          const idVal =
-            (this.getNestedField(fields, 'free_rewards.fields.id.id') as string | undefined) || '';
-          const sizeVal =
-            (this.getNestedField(fields, 'free_rewards.fields.size') as string | undefined) || '';
+          const idVal = this.getNestedField(fields, 'free_rewards.id');
+          const sizeVal = this.getNestedField(fields, 'free_rewards.size');
           return { id: String(idVal), size: String(sizeVal) };
         })(),
         id: this.getStringField(fields, 'id'),
@@ -335,9 +333,7 @@ export class LpStrategy extends BaseStrategy<
         coinA: this.getStringField(fields, 'coin_a'),
         coinB: this.getStringField(fields, 'coin_b'),
         currentSqrtPrice: this.getStringField(fields, 'current_sqrt_price'),
-        currentTickIndex:
-          (this.getNestedField(fields, 'current_tick_index.bits') as number | undefined) ||
-          this.getNumberField(fields, 'current_tick_index'),
+        currentTickIndex: this.getNestedField(fields, 'current_tick_index.bits'),
         id: this.getStringField(fields, 'id'),
         liquidity: this.getStringField(fields, 'liquidity'),
       };
@@ -348,25 +344,24 @@ export class LpStrategy extends BaseStrategy<
    * Parse receipt objects from blockchain responses
    */
   parseReceiptObjects(responses: any[]): LpReceiptObject[] {
-    return responses.map((response, index) => {
-      return this.safeParseObject(() => {
-        const fields = this.extractFields(response);
+    return responses
+      .map((response, index) => {
+        return this.safeParseObject(() => {
+          const fields = this.extractFields(response);
 
-        return {
-          id: this.getStringField(fields, 'id'),
-          imageUrl: this.getStringField(fields, 'image_url'),
-          lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
-          owner: this.getStringField(fields, 'owner'),
-          name: this.getStringField(fields, 'name'),
-          pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
-          poolId: this.getStringField(fields, 'pool_id'),
-          xTokenBalance:
-            this.getStringField(fields, 'xtoken_balance') ||
-            this.getStringField(fields, 'xTokenBalance'),
-          type: this.getStringField(fields, 'type'),
-        };
-      }, `Failed to parse LP receipt object at index ${index}`);
-    });
+          return {
+            id: this.getStringField(fields, 'id'),
+            imageUrl: this.getStringField(fields, 'image_url'),
+            lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
+            owner: this.getStringField(fields, 'owner'),
+            name: this.getStringField(fields, 'name'),
+            pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
+            poolId: this.getStringField(fields, 'pool_id'),
+            xTokenBalance: this.getStringField(fields, 'xTokenBalance'),
+          };
+        }, `Failed to parse LP receipt object at index ${index}`);
+      })
+      .filter((receipt) => receipt.poolId === this.poolLabel.poolId);
   }
 }
 
@@ -438,7 +433,6 @@ export interface LpReceiptObject {
   pendingRewards: KeyValuePair[];
   poolId: string;
   xTokenBalance: string;
-  type: string;
 }
 
 // ===== Pool Label =====

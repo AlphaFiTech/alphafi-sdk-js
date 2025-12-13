@@ -1,5 +1,12 @@
 import { Decimal } from 'decimal.js';
 
+export type UserPortfolioData = {
+  netWorth: Decimal;
+  aggregatedApy: Decimal;
+  alphaRewardsToClaim: Decimal;
+  poolBalances: Map<string, PoolBalance>;
+};
+
 export type AprData = {
   baseApr: Decimal;
   alphaMiningApr: Decimal;

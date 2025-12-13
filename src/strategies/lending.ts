@@ -24,7 +24,7 @@ export class LendingStrategy extends BaseStrategy<
   private poolObject: LendingPoolObject;
   private investorObject: LendingInvestorObject;
   private parentPoolObject: LendingParentPoolObject;
-  private receiptObjects: LendingReceiptObject[];
+  private receiptObjects: LendingReceiptObject[] = [];
   private context: StrategyContext;
 
   constructor(
@@ -32,7 +32,6 @@ export class LendingStrategy extends BaseStrategy<
     poolObject: any,
     investorObject: any,
     parentPoolObject: any,
-    receiptObjects: any[],
     context: StrategyContext,
   ) {
     super();
@@ -40,8 +39,15 @@ export class LendingStrategy extends BaseStrategy<
     this.poolObject = this.parsePoolObject(poolObject);
     this.investorObject = this.parseInvestorObject(investorObject);
     this.context = context;
-    this.receiptObjects = this.parseReceiptObjects(receiptObjects);
     this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
+  }
+
+  getPoolLabel(): LendingPoolLabel {
+    return this.poolLabel;
+  }
+
+  updateReceipts(receipts: any[]): void {
+    this.receiptObjects = this.parseReceiptObjects(receipts);
   }
 
   // ===== Strategy Interface Implementation =====
@@ -139,20 +145,14 @@ export class LendingStrategy extends BaseStrategy<
         name: this.getStringField(fields, 'name'),
         paused: this.getBooleanField(fields, 'paused', false),
         rewards: (() => {
-          const idVal =
-            (this.getNestedField(fields, 'rewards.fields.id.id') as string | undefined) || '';
-          const sizeVal =
-            (this.getNestedField(fields, 'rewards.fields.size') as string | undefined) || '';
+          const idVal = this.getNestedField(fields, 'rewards.id');
+          const sizeVal = this.getNestedField(fields, 'rewards.size');
           return { id: String(idVal), size: String(sizeVal) };
         })(),
-        tokensInvested:
-          this.getStringField(fields, 'tokens_invested') ||
-          this.getStringField(fields, 'tokensInvested'),
+        tokensInvested: this.getStringField(fields, 'tokensInvested'),
         withdrawFeeMaxCap: this.getStringField(fields, 'withdraw_fee_max_cap'),
         withdrawalFee: this.getStringField(fields, 'withdrawal_fee'),
-        xTokenSupply:
-          this.getStringField(fields, 'xtoken_supply') ||
-          this.getStringField(fields, 'xTokenSupply'),
+        xTokenSupply: this.getStringField(fields, 'xTokenSupply'),
       };
     }, 'Failed to parse Lending pool object');
   }
@@ -166,25 +166,20 @@ export class LendingStrategy extends BaseStrategy<
 
       return {
         freeRewards: (() => {
-          const idVal =
-            (this.getNestedField(fields, 'free_rewards.fields.id.id') as string | undefined) || '';
-          const sizeVal =
-            (this.getNestedField(fields, 'free_rewards.fields.size') as string | undefined) || '';
+          const idVal = this.getNestedField(fields, 'free_rewards.id');
+          const sizeVal = this.getNestedField(fields, 'free_rewards.size');
           return { id: String(idVal), size: String(sizeVal) };
         })(),
         id: this.getStringField(fields, 'id'),
         maxCapPerformanceFee: this.getStringField(fields, 'max_cap_performance_fee'),
         minimumSwapAmount: this.getStringField(fields, 'minimum_swap_amount'),
         naviAccCap: (() => {
-          const capFields = this.getNestedField(fields, 'navi_acc_cap.fields') || {};
-          const idVal = (capFields?.id?.id as string | undefined) || '';
-          const ownerVal = (capFields?.owner as string | undefined) || '';
+          const idVal = this.getNestedField(fields, 'navi_acc_cap.id');
+          const ownerVal = this.getNestedField(fields, 'navi_acc_cap.owner');
           return { id: String(idVal), owner: String(ownerVal) };
         })(),
         performanceFee: this.getStringField(fields, 'performance_fee'),
-        tokensDeposited:
-          this.getStringField(fields, 'tokens_deposited') ||
-          this.getStringField(fields, 'tokensDeposited'),
+        tokensDeposited: this.getStringField(fields, 'tokensDeposited'),
       };
     }, 'Failed to parse Lending investor object');
   }
@@ -209,25 +204,24 @@ export class LendingStrategy extends BaseStrategy<
    * Parse receipt objects from blockchain responses
    */
   parseReceiptObjects(responses: any[]): LendingReceiptObject[] {
-    return responses.map((response, index) => {
-      return this.safeParseObject(() => {
-        const fields = this.extractFields(response);
+    return responses
+      .map((response, index) => {
+        return this.safeParseObject(() => {
+          const fields = this.extractFields(response);
 
-        return {
-          id: this.getStringField(fields, 'id'),
-          imageUrl: this.getStringField(fields, 'image_url'),
-          lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
-          name: this.getStringField(fields, 'name'),
-          owner: this.getStringField(fields, 'owner'),
-          pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
-          poolId: this.getStringField(fields, 'pool_id'),
-          xTokenBalance:
-            this.getStringField(fields, 'xtoken_balance') ||
-            this.getStringField(fields, 'xTokenBalance'),
-          type: this.getStringField(fields, 'type'),
-        };
-      }, `Failed to parse Lending receipt object at index ${index}`);
-    });
+          return {
+            id: this.getStringField(fields, 'id'),
+            imageUrl: this.getStringField(fields, 'image_url'),
+            lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
+            name: this.getStringField(fields, 'name'),
+            owner: this.getStringField(fields, 'owner'),
+            pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
+            poolId: this.getStringField(fields, 'pool_id'),
+            xTokenBalance: this.getStringField(fields, 'xTokenBalance'),
+          };
+        }, `Failed to parse Lending receipt object at index ${index}`);
+      })
+      .filter((receipt) => receipt.poolId === this.poolLabel.poolId);
   }
 }
 
@@ -295,7 +289,6 @@ export interface LendingReceiptObject {
   pendingRewards: KeyValuePair[];
   poolId: string;
   xTokenBalance: string;
-  type: string;
 }
 
 // ===== Pool Label =====

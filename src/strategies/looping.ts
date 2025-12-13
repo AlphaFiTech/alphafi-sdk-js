@@ -23,14 +23,13 @@ export class LoopingStrategy extends BaseStrategy<
   private poolLabel: LoopingPoolLabel;
   private poolObject: LoopingPoolObject;
   private investorObject: LoopingInvestorObject;
-  private receiptObjects: LoopingReceiptObject[];
+  private receiptObjects: LoopingReceiptObject[] = [];
   private context: StrategyContext;
 
   constructor(
     poolLabel: LoopingPoolLabel,
     poolObject: any,
     investorObject: any,
-    receiptObjects: any[],
     context: StrategyContext,
   ) {
     super();
@@ -38,7 +37,14 @@ export class LoopingStrategy extends BaseStrategy<
     this.poolObject = this.parsePoolObject(poolObject);
     this.investorObject = this.parseInvestorObject(investorObject);
     this.context = context;
-    this.receiptObjects = this.parseReceiptObjects(receiptObjects);
+  }
+
+  getPoolLabel(): LoopingPoolLabel {
+    return this.poolLabel;
+  }
+
+  updateReceipts(receipts: any[]): void {
+    this.receiptObjects = this.parseReceiptObjects(receipts);
   }
 
   // ===== Strategy Interface Implementation =====
@@ -167,20 +173,14 @@ export class LoopingStrategy extends BaseStrategy<
         name: this.getStringField(fields, 'name'),
         paused: this.getBooleanField(fields, 'paused', false),
         rewards: (() => {
-          const idVal =
-            (this.getNestedField(fields, 'rewards.fields.id.id') as string | undefined) || '';
-          const sizeVal =
-            (this.getNestedField(fields, 'rewards.fields.size') as string | undefined) || '';
+          const idVal = this.getNestedField(fields, 'rewards.id');
+          const sizeVal = this.getNestedField(fields, 'rewards.size');
           return { id: String(idVal), size: String(sizeVal) };
         })(),
-        tokensInvested:
-          this.getStringField(fields, 'tokens_invested') ||
-          this.getStringField(fields, 'tokensInvested'),
+        tokensInvested: this.getStringField(fields, 'tokensInvested'),
         withdrawFeeMaxCap: this.getStringField(fields, 'withdraw_fee_max_cap'),
         withdrawalFee: this.getStringField(fields, 'withdrawal_fee'),
-        xTokenSupply:
-          this.getStringField(fields, 'xtoken_supply') ||
-          this.getStringField(fields, 'xTokenSupply'),
+        xTokenSupply: this.getStringField(fields, 'xTokenSupply'),
       };
     }, 'Failed to parse Looping pool object');
   }
@@ -193,16 +193,10 @@ export class LoopingStrategy extends BaseStrategy<
       const fields = this.extractFields(response);
 
       return {
-        currentDebtToSupplyRatio:
-          this.getStringField(fields, 'current_debt_to_supply_ratio') ||
-          (fields.current_debt_to_supply_ratio?.fields?.value as string) ||
-          this.getStringField(fields.current_debt_to_supply_ratio?.fields ?? {}, 'value') ||
-          '0',
+        currentDebtToSupplyRatio: this.getStringField(fields, 'current_debt_to_supply_ratio'),
         freeRewards: (() => {
-          const idVal =
-            (this.getNestedField(fields, 'free_rewards.fields.id.id') as string | undefined) || '';
-          const sizeVal =
-            (this.getNestedField(fields, 'free_rewards.fields.size') as string | undefined) || '';
+          const idVal = this.getNestedField(fields, 'free_rewards.id');
+          const sizeVal = this.getNestedField(fields, 'free_rewards.size');
           return { id: String(idVal), size: String(sizeVal) };
         })(),
         id: this.getStringField(fields, 'id'),
@@ -210,9 +204,8 @@ export class LoopingStrategy extends BaseStrategy<
         maxCapPerformanceFee: this.getStringField(fields, 'max_cap_performance_fee'),
         minimumSwapAmount: this.getStringField(fields, 'minimum_swap_amount'),
         naviAccCap: {
-          id:
-            (this.getNestedField(fields, 'navi_acc_cap.fields.id.id') as string | undefined) || '',
-          owner: this.getNestedField(fields, 'navi_acc_cap.fields.owner') || '',
+          id: this.getNestedField(fields, 'navi_acc_cap.id'),
+          owner: this.getNestedField(fields, 'navi_acc_cap.owner'),
         },
         performanceFee: this.getStringField(fields, 'performance_fee'),
         safeBorrowPercentage: this.getStringField(fields, 'safe_borrow_percentage'),
@@ -234,23 +227,24 @@ export class LoopingStrategy extends BaseStrategy<
    * Parse receipt objects from blockchain responses
    */
   parseReceiptObjects(responses: any[]): LoopingReceiptObject[] {
-    return responses.map((response, index) => {
-      return this.safeParseObject(() => {
-        const fields = this.extractFields(response);
+    return responses
+      .map((response, index) => {
+        return this.safeParseObject(() => {
+          const fields = this.extractFields(response);
 
-        return {
-          id: this.getStringField(fields, 'id'),
-          imageUrl: this.getStringField(fields, 'image_url'),
-          lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
-          name: this.getStringField(fields, 'name'),
-          owner: this.getStringField(fields, 'owner'),
-          pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
-          poolId: this.getStringField(fields, 'pool_id'),
-          xTokenBalance: this.getStringField(fields, 'xtoken_balance'),
-          type: this.getStringField(fields, 'type'),
-        };
-      }, `Failed to parse Looping receipt object at index ${index}`);
-    });
+          return {
+            id: this.getStringField(fields, 'id'),
+            imageUrl: this.getStringField(fields, 'image_url'),
+            lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
+            name: this.getStringField(fields, 'name'),
+            owner: this.getStringField(fields, 'owner'),
+            pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
+            poolId: this.getStringField(fields, 'pool_id'),
+            xTokenBalance: this.getStringField(fields, 'xTokenBalance'),
+          };
+        }, `Failed to parse Looping receipt object at index ${index}`);
+      })
+      .filter((receipt) => receipt.poolId === this.poolLabel.poolId);
   }
 }
 
@@ -311,7 +305,6 @@ export interface LoopingReceiptObject {
   pendingRewards: KeyValuePair[];
   poolId: string;
   xTokenBalance: string;
-  type: string;
 }
 
 // ===== Pool Label =====

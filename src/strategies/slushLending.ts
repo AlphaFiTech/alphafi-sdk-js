@@ -19,20 +19,22 @@ export class SlushLendingStrategy extends BaseStrategy<
 > {
   private poolLabel: SlushLendingPoolLabel;
   private poolObject: SlushLendingPoolObject;
-  private receiptObjects: SlushLendingReceiptObject[];
+  private receiptObjects: SlushLendingReceiptObject[] = [];
   private context: StrategyContext;
 
-  constructor(
-    poolLabel: SlushLendingPoolLabel,
-    poolObject: any,
-    receiptObjects: any[],
-    context: StrategyContext,
-  ) {
+  constructor(poolLabel: SlushLendingPoolLabel, poolObject: any, context: StrategyContext) {
     super();
     this.poolLabel = poolLabel;
     this.poolObject = this.parsePoolObject(poolObject);
-    this.receiptObjects = this.parseReceiptObjects(receiptObjects);
     this.context = context;
+  }
+
+  getPoolLabel(): SlushLendingPoolLabel {
+    return this.poolLabel;
+  }
+
+  updateReceipts(receipts: any[]): void {
+    this.receiptObjects = this.parseReceiptObjects(receipts);
   }
 
   // ===== Strategy Interface Implementation =====
@@ -125,59 +127,39 @@ export class SlushLendingStrategy extends BaseStrategy<
 
       return {
         id: this.getStringField(fields, 'id'),
-        xTokenSupply:
-          this.getStringField(fields, 'x_token_supply') ||
-          this.getStringField(fields, 'xtoken_supply') ||
-          this.getStringField(fields, 'xTokenSupply'),
-        tokensInvested:
-          this.getStringField(fields, 'tokens_invested') ||
-          this.getStringField(fields, 'tokensInvested'),
+        xTokenSupply: this.getNestedField(fields, 'xTokenSupply.value'),
+        tokensInvested: this.getStringField(fields, 'tokensInvested'),
         interestBasedRewardsData: {
-          rewardBalance: this.getStringField(
-            fields?.interest_based_rewards_data?.fields ?? fields.interest_based_rewards_data,
-            'reward_balance',
-          ),
+          rewardBalance: this.getStringField(fields.interest_based_rewards_data, 'reward_balance'),
           lastUpdatedTimestamp: this.getStringField(
-            fields?.interest_based_rewards_data?.fields ?? fields.interest_based_rewards_data,
+            fields.interest_based_rewards_data,
             'last_updated_timestamp',
           ),
-          rewardShareFromInterestBps: this.getStringField(
-            fields?.interest_based_rewards_data?.fields ?? fields.interest_based_rewards_data,
-            'reward_share_from_interest_bps',
+          rewardShareFromInterestBps: this.getNestedField(
+            fields.interest_based_rewards_data,
+            'reward_share_from_interest_bps.value',
           ),
         },
         timeBasedRewardsData: {
-          rewardBalance: this.getStringField(
-            fields?.time_based_rewards_data?.fields ?? fields.time_based_rewards_data,
-            'reward_balance',
-          ),
-          startTime: this.getStringField(
-            fields?.time_based_rewards_data?.fields ?? fields.time_based_rewards_data,
-            'start_time',
-          ),
-          endTime: this.getStringField(
-            fields?.time_based_rewards_data?.fields ?? fields.time_based_rewards_data,
-            'end_time',
-          ),
-          rewardPerMs: this.getStringField(
-            fields?.time_based_rewards_data?.fields ?? fields.time_based_rewards_data,
-            'reward_per_ms',
-          ),
+          rewardBalance: this.getStringField(fields.time_based_rewards_data, 'reward_balance'),
+          startTime: this.getStringField(fields.time_based_rewards_data, 'start_time'),
+          endTime: this.getStringField(fields.time_based_rewards_data, 'end_time'),
+          rewardPerMs: this.getNestedField(fields.time_based_rewards_data, 'reward_per_ms.value'),
           lastUpdatedTimestamp: this.getStringField(
-            fields?.time_based_rewards_data?.fields ?? fields.time_based_rewards_data,
+            fields.time_based_rewards_data,
             'last_updated_timestamp',
           ),
         },
-        positionCount: this.getStringField(fields, 'position_count'),
-        positionsTableId: this.getStringField(fields, 'positions_table_id'),
+        positionCount: this.getNestedField(fields, 'positions.size'),
+        positionsTableId: this.getNestedField(fields, 'positions.id'),
         feeCollected: this.getStringField(fields, 'fee_collected'),
         depositFee: this.getStringField(fields, 'deposit_fee'),
         depositFeeMaxCap: this.getStringField(fields, 'deposit_fee_max_cap'),
         withdrawalFee: this.getStringField(fields, 'withdrawal_fee'),
         withdrawFeeMaxCap: this.getStringField(fields, 'withdraw_fee_max_cap'),
         investor: {
-          id: this.getStringField(fields?.investor?.fields ?? fields.investor, 'id'),
-          marketId: this.getStringField(fields?.investor?.fields ?? fields.investor, 'market_id'),
+          id: this.getStringField(fields.investor, 'id'),
+          marketId: this.getStringField(fields.investor, 'market_id'),
         },
         paused: this.getBooleanField(fields, 'paused', false),
       };
@@ -201,7 +183,7 @@ export class SlushLendingStrategy extends BaseStrategy<
           id: this.getStringField(fields, 'id'),
           positionCapId: this.getStringField(fields, 'position_cap_id'),
           poolId: this.getStringField(fields, 'pool_id'),
-          coinType: this.getStringField(fields, 'coin_type'),
+          coinType: this.getNestedField(fields, 'coin_type.name'),
           principal: this.getStringField(fields, 'principal'),
           xTokens:
             this.getStringField(fields, 'xtokens') ||

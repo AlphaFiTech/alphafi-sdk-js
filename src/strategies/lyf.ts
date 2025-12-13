@@ -26,14 +26,13 @@ export class LyfStrategy extends BaseStrategy<
   private poolObject: LyfPoolObject;
   private investorObject: LyfInvestorObject;
   private parentPoolObject: LyfParentPoolObject;
-  private receiptObjects: LyfReceiptObject[];
+  private receiptObjects: LyfReceiptObject[] = [];
   private context: StrategyContext;
 
   constructor(
     poolLabel: LyfPoolLabel,
     poolObject: any,
     parentPoolObject: any,
-    receiptObjects: any[],
     context: StrategyContext,
   ) {
     super();
@@ -41,8 +40,15 @@ export class LyfStrategy extends BaseStrategy<
     this.poolObject = this.parsePoolObject(poolObject);
     this.investorObject = this.poolObject.investor;
     this.context = context;
-    this.receiptObjects = this.parseReceiptObjects(receiptObjects);
     this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
+  }
+
+  getPoolLabel(): LyfPoolLabel {
+    return this.poolLabel;
+  }
+
+  updateReceipts(receipts: any[]): void {
+    this.receiptObjects = this.parseReceiptObjects(receipts);
   }
 
   // ===== Strategy Interface Implementation =====
@@ -280,28 +286,23 @@ export class LyfStrategy extends BaseStrategy<
       const investor = this.parseInvestorFields(fields?.investor ?? {});
 
       return {
-        accRewardsPerXtoken: this.parseVecMap(fields.acc_rewards_per_xtoken || {}),
+        accRewardsPerXtoken: this.parseVecMap(fields.acc_rewards_per_xtoken || {}).map(
+          (item: any) => ({ key: item.key, value: item.value.value }) as KeyValuePair,
+        ),
         depositFee: this.getStringField(fields, 'deposit_fee'),
         depositFeeMaxCap: this.getStringField(fields, 'deposit_fee_max_cap'),
         id: this.getStringField(fields, 'id'),
         imageUrl: this.getStringField(fields, 'image_url'),
         name: this.getStringField(fields, 'name'),
-        paused: this.getBooleanField(fields, 'paused', false),
         rewards: (() => {
-          const idVal =
-            (this.getNestedField(fields, 'rewards.fields.id.id') as string | undefined) || '';
-          const sizeVal =
-            (this.getNestedField(fields, 'rewards.fields.size') as string | undefined) || '';
+          const idVal = this.getNestedField(fields, 'rewards.id');
+          const sizeVal = this.getNestedField(fields, 'rewards.size');
           return { id: String(idVal), size: String(sizeVal) };
         })(),
-        tokensInvested:
-          this.getStringField(fields, 'tokens_invested') ||
-          this.getStringField(fields, 'tokensInvested'),
+        tokensInvested: this.getStringField(fields, 'tokensInvested'),
         withdrawFeeMaxCap: this.getStringField(fields, 'withdraw_fee_max_cap'),
         withdrawalFee: this.getStringField(fields, 'withdrawal_fee'),
-        xTokenSupply:
-          this.getStringField(fields, 'xtoken_supply') ||
-          this.getStringField(fields, 'xTokenSupply'),
+        xTokenSupply: this.getStringField(fields, 'xTokenSupply'),
         investor,
       };
     }, 'Failed to parse Lyf pool object');
@@ -328,9 +329,7 @@ export class LyfStrategy extends BaseStrategy<
         coinA: this.getStringField(fields, 'coin_a'),
         coinB: this.getStringField(fields, 'coin_b'),
         currentSqrtPrice: this.getStringField(fields, 'current_sqrt_price'),
-        currentTickIndex:
-          (this.getNestedField(fields, 'current_tick_index.bits') as number | undefined) ||
-          this.getNumberField(fields, 'current_tick_index'),
+        currentTickIndex: this.getNestedField(fields, 'current_tick_index.bits'),
         id: this.getStringField(fields, 'id'),
         liquidity: this.getStringField(fields, 'liquidity'),
       };
@@ -341,52 +340,35 @@ export class LyfStrategy extends BaseStrategy<
    * Parse receipt objects from blockchain responses
    */
   parseReceiptObjects(responses: any[]): LyfReceiptObject[] {
-    return responses.map((response, index) => {
-      return this.safeParseObject(() => {
-        const fields = this.extractFields(response);
+    return responses
+      .map((response, index) => {
+        return this.safeParseObject(() => {
+          const fields = this.extractFields(response);
 
-        return {
-          id: this.getStringField(fields, 'id'),
-          imageUrl: this.getStringField(fields, 'image_url'),
-          lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
-          owner: this.getStringField(fields, 'owner'),
-          name: this.getStringField(fields, 'name'),
-          pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
-          poolId: this.getStringField(fields, 'pool_id'),
-          xTokenBalance:
-            this.getStringField(fields, 'xtoken_balance') ||
-            this.getStringField(fields, 'xTokenBalance'),
-          type: this.getStringField(fields, 'type'),
-        };
-      }, `Failed to parse Lyf receipt object at index ${index}`);
-    });
+          return {
+            id: this.getStringField(fields, 'id'),
+            imageUrl: this.getStringField(fields, 'image_url'),
+            lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
+            owner: this.getStringField(fields, 'owner'),
+            name: this.getStringField(fields, 'name'),
+            pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
+            poolId: this.getStringField(fields, 'pool_id'),
+            xTokenBalance:
+              this.getStringField(fields, 'xtoken_balance') ||
+              this.getStringField(fields, 'xTokenBalance'),
+          };
+        }, `Failed to parse Lyf receipt object at index ${index}`);
+      })
+      .filter((receipt) => receipt.poolId === this.poolLabel.poolId);
   }
 
   private parseInvestorFields(response: any): LyfInvestorObject {
     const fields = this.extractFields(response ?? {});
     const freeRewards = (() => {
-      const idVal =
-        (this.getNestedField(fields, 'free_rewards.fields.id.id') as string | undefined) || '';
-      const sizeVal =
-        (this.getNestedField(fields, 'free_rewards.fields.size') as string | undefined) || '';
+      const idVal = this.getNestedField(fields, 'free_rewards.id');
+      const sizeVal = this.getNestedField(fields, 'free_rewards.size');
       return { id: String(idVal), size: String(sizeVal) };
     })();
-    const investorId =
-      (this.getNestedField(fields, 'id.id') as string | undefined) ||
-      this.getStringField(fields, 'id');
-
-    // current_debt_to_supply_ratio can be stored either as a flat string/number
-    // or as a nested Move struct with `fields.value`. Handle both cases robustly.
-    let currentDebtToSupplyRatio = '0';
-    const ratioField = (fields as any).current_debt_to_supply_ratio;
-    if (typeof ratioField === 'string' || typeof ratioField === 'number') {
-      currentDebtToSupplyRatio = String(ratioField);
-    } else if (ratioField && typeof ratioField === 'object') {
-      currentDebtToSupplyRatio =
-        (ratioField.fields?.value as string) ||
-        this.getStringField(ratioField.fields ?? ratioField, 'value') ||
-        '0';
-    }
 
     return {
       emergencyBalanceA: this.getStringField(fields, 'emergency_balance_a'),
@@ -394,19 +376,17 @@ export class LyfStrategy extends BaseStrategy<
       freeBalanceA: this.getStringField(fields, 'free_balance_a'),
       freeBalanceB: this.getStringField(fields, 'free_balance_b'),
       freeRewards,
-      id: String(investorId || ''),
+      id: this.getStringField(fields, 'id'),
       isEmergency: this.getBooleanField(fields, 'is_emergency', false),
       lowerTick: this.getNumberField(fields, 'lower_tick'),
       minimumSwapAmount: this.getStringField(fields, 'minimum_swap_amount'),
       performanceFee: this.getStringField(fields, 'performance_fee'),
       performanceFeeMaxCap: this.getStringField(fields, 'performance_fee_max_cap'),
-      currDebtA:
-        this.getStringField(fields, 'cur_debt_a') || this.getStringField(fields, 'curr_debt_a'),
-      currDebtB:
-        this.getStringField(fields, 'cur_debt_b') || this.getStringField(fields, 'curr_debt_b'),
+      currDebtA: this.getStringField(fields, 'cur_debt_a'),
+      currDebtB: this.getStringField(fields, 'cur_debt_b'),
       marketIdA: this.getStringField(fields, 'market_id_a'),
       marketIdB: this.getStringField(fields, 'market_id_b'),
-      currentDebtToSupplyRatio,
+      currentDebtToSupplyRatio: this.getNestedField(fields, 'current_debt_to_supply_ratio.value'),
       safeBorrowPercentage: this.getStringField(fields, 'safe_borrow_percentage'),
       upperTick: this.getNumberField(fields, 'upper_tick'),
     };
@@ -425,7 +405,6 @@ export interface LyfPoolObject {
   id: string;
   imageUrl: string;
   name: string;
-  paused: boolean;
   rewards: {
     id: string;
     size: string;
@@ -488,7 +467,6 @@ export interface LyfReceiptObject {
   pendingRewards: KeyValuePair[];
   poolId: string;
   xTokenBalance: string;
-  type: string;
 }
 
 // ===== Pool Label =====

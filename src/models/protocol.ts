@@ -12,11 +12,11 @@ import {
   SingleAssetLoopingStrategy,
 } from '../strategies/singleAssetLooping.js';
 import { Strategy } from '../strategies/strategy.js';
-import { PoolData } from './types.ts';
+import { PoolData } from './types.js';
 
 export class Protocol {
   strategyContext: StrategyContext;
-  strategies: Map<string, Strategy>;
+  private strategies: Map<string, Strategy>;
   private isInitialized: boolean = false;
   private initializationPromise: Promise<void> | null = null;
   private lastInitializedAt: number | null = null;
@@ -50,6 +50,11 @@ export class Protocol {
     });
 
     return this.initializationPromise;
+  }
+
+  async getAllStrategies(): Promise<Map<string, Strategy>> {
+    await this.ensureInitialized();
+    return this.strategies;
   }
 
   async getAllPoolsData(): Promise<PoolData[]> {
@@ -97,7 +102,6 @@ export class Protocol {
               poolObjects.get(poolLabel.poolId),
               investorObjects.get((poolLabel as LpPoolLabel).investorId),
               parentPoolObjects.get((poolLabel as LpPoolLabel).parentPoolId),
-              [],
               this.strategyContext,
             ),
           );
@@ -109,7 +113,6 @@ export class Protocol {
               poolLabel,
               poolObjects.get(poolLabel.poolId),
               parentPoolObjects.get((poolLabel as LyfPoolLabel).parentPoolId),
-              [],
               this.strategyContext,
             ),
           );
@@ -122,7 +125,6 @@ export class Protocol {
               poolObjects.get(poolLabel.poolId),
               investorObjects.get((poolLabel as AutobalanceLpPoolLabel).investorId),
               parentPoolObjects.get((poolLabel as AutobalanceLpPoolLabel).parentPoolId),
-              [],
               this.strategyContext,
             ),
           );
@@ -135,7 +137,6 @@ export class Protocol {
               poolObjects.get(poolLabel.poolId),
               investorObjects.get((poolLabel as FungibleLpPoolLabel).investorId),
               parentPoolObjects.get((poolLabel as FungibleLpPoolLabel).parentPoolId),
-              '0',
               this.strategyContext,
             ),
           );
@@ -147,8 +148,6 @@ export class Protocol {
               poolLabel,
               poolObjects.get(poolLabel.poolId),
               investorObjects.get((poolLabel as AlphaVaultPoolLabel).investorId),
-              [],
-              [],
               this.strategyContext,
             ),
           );
@@ -161,7 +160,6 @@ export class Protocol {
               poolObjects.get(poolLabel.poolId),
               investorObjects.get((poolLabel as LendingPoolLabel).investorId),
               parentPoolObjects.get((poolLabel as LendingPoolLabel).parentPoolId),
-              [],
               this.strategyContext,
             ),
           );
@@ -172,7 +170,6 @@ export class Protocol {
             new SlushLendingStrategy(
               poolLabel,
               poolObjects.get(poolLabel.poolId),
-              [],
               this.strategyContext,
             ),
           );
@@ -184,7 +181,6 @@ export class Protocol {
               poolLabel,
               poolObjects.get(poolLabel.poolId),
               investorObjects.get((poolLabel as LoopingPoolLabel).investorId),
-              [],
               this.strategyContext,
             ),
           );
@@ -196,7 +192,6 @@ export class Protocol {
               poolLabel,
               poolObjects.get(poolLabel.poolId),
               investorObjects.get((poolLabel as SingleAssetLoopingPoolLabel).investorId),
-              [],
               this.strategyContext,
             ),
           );

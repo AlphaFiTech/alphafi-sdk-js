@@ -23,14 +23,13 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
   private poolLabel: SingleAssetLoopingPoolLabel;
   private poolObject: SingleAssetLoopingPoolObject;
   private investorObject: SingleAssetLoopingInvestorObject;
-  private receiptObjects: SingleAssetLoopingReceiptObject[];
+  private receiptObjects: SingleAssetLoopingReceiptObject[] = [];
   private context: StrategyContext;
 
   constructor(
     poolLabel: SingleAssetLoopingPoolLabel,
     poolObject: any,
     investorObject: any,
-    receiptObjects: any[],
     context: StrategyContext,
   ) {
     super();
@@ -38,7 +37,14 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
     this.poolObject = this.parsePoolObject(poolObject);
     this.investorObject = this.parseInvestorObject(investorObject);
     this.context = context;
-    this.receiptObjects = this.parseReceiptObjects(receiptObjects);
+  }
+
+  getPoolLabel(): SingleAssetLoopingPoolLabel {
+    return this.poolLabel;
+  }
+
+  updateReceipts(receipts: any[]) {
+    this.receiptObjects = this.parseReceiptObjects(receipts);
   }
 
   // ===== Strategy Interface Implementation =====
@@ -148,20 +154,14 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
         paused: this.getBooleanField(fields, 'paused', false),
         rewards: (() => {
           // Parse rewards PoolRewardsInfo { id, size }
-          const rewardsId =
-            (this.getNestedField(fields, 'rewards.fields.id.id') as string | undefined) || '';
-          const rewardsSize =
-            (this.getNestedField(fields, 'rewards.fields.size') as string | undefined) || '';
+          const rewardsId = this.getNestedField(fields, 'rewards.id');
+          const rewardsSize = this.getNestedField(fields, 'rewards.size');
           return { id: String(rewardsId), size: String(rewardsSize) };
         })(),
-        tokensInvested:
-          this.getStringField(fields, 'tokens_invested') ||
-          this.getStringField(fields, 'tokensInvested'),
+        tokensInvested: this.getStringField(fields, 'tokensInvested'),
         withdrawFeeMaxCap: this.getStringField(fields, 'withdraw_fee_max_cap'),
         withdrawalFee: this.getStringField(fields, 'withdrawal_fee'),
-        xTokenSupply:
-          this.getStringField(fields, 'xtoken_supply') ||
-          this.getStringField(fields, 'xTokenSupply'),
+        xTokenSupply: this.getStringField(fields, 'xTokenSupply'),
       };
     }, 'Failed to parse SingleAssetLooping pool object');
   }
@@ -176,16 +176,10 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
       return {
         assetLtv: this.getStringField(fields, 'asset_ltv'),
         curDebt: this.getStringField(fields, 'cur_debt'),
-        currentDebtToSupplyRatio:
-          this.getStringField(fields, 'current_debt_to_supply_ratio') ||
-          (fields.current_debt_to_supply_ratio?.fields?.value as string) ||
-          this.getStringField(fields.current_debt_to_supply_ratio?.fields ?? {}, 'value') ||
-          '0',
+        currentDebtToSupplyRatio: this.getStringField(fields, 'current_debt_to_supply_ratio'),
         freeRewards: (() => {
-          const idVal =
-            (this.getNestedField(fields, 'free_rewards.fields.id.id') as string | undefined) || '';
-          const sizeVal =
-            (this.getNestedField(fields, 'free_rewards.fields.size') as string | undefined) || '';
+          const idVal = this.getNestedField(fields, 'free_rewards.id');
+          const sizeVal = this.getNestedField(fields, 'free_rewards.size');
           return { id: String(idVal), size: String(sizeVal) };
         })(),
         id: this.getStringField(fields, 'id'),
@@ -194,16 +188,13 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
         minimumSwapAmount: this.getStringField(fields, 'minimum_swap_amount'),
         performanceFee: this.getStringField(fields, 'performance_fee'),
         positionCap: {
-          clientAddress: this.getNestedField(fields, 'position_cap.fields.client_address') || '',
-          id:
-            (this.getNestedField(fields, 'position_cap.fields.id.id') as string | undefined) || '',
-          imageUrl: this.getNestedField(fields, 'position_cap.fields.image_url') || '',
-          positionId: this.getNestedField(fields, 'position_cap.fields.position_id') || '',
+          clientAddress: this.getNestedField(fields, 'position_cap.client_address'),
+          id: this.getNestedField(fields, 'position_cap.id'),
+          imageUrl: this.getNestedField(fields, 'position_cap.image_url'),
+          positionId: this.getNestedField(fields, 'position_cap.position_id'),
         },
         safeBorrowPercentage: this.getStringField(fields, 'safe_borrow_percentage'),
-        tokensDeposited:
-          this.getStringField(fields, 'tokens_deposited') ||
-          this.getStringField(fields, 'tokensDeposited'),
+        tokensDeposited: this.getStringField(fields, 'tokensDeposited'),
       };
     }, 'Failed to parse SingleAssetLooping investor object');
   }
@@ -219,25 +210,26 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
    * Parse receipt objects from blockchain responses
    */
   parseReceiptObjects(responses: any[]): SingleAssetLoopingReceiptObject[] {
-    return responses.map((response, index) => {
-      return this.safeParseObject(() => {
-        const fields = this.extractFields(response);
+    return responses
+      .map((response, index) => {
+        return this.safeParseObject(() => {
+          const fields = this.extractFields(response);
 
-        return {
-          id: this.getStringField(fields, 'id'),
-          imageUrl: this.getStringField(fields, 'image_url'),
-          lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
-          name: this.getStringField(fields, 'name'),
-          owner: this.getStringField(fields, 'owner'),
-          pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
-          poolId: this.getStringField(fields, 'pool_id'),
-          xTokenBalance:
-            this.getStringField(fields, 'xtoken_balance') ||
-            this.getStringField(fields, 'xTokenBalance'),
-          type: this.getStringField(fields, 'type'),
-        };
-      }, `Failed to parse SingleAssetLooping receipt object at index ${index}`);
-    });
+          return {
+            id: this.getStringField(fields, 'id'),
+            imageUrl: this.getStringField(fields, 'image_url'),
+            lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
+            name: this.getStringField(fields, 'name'),
+            owner: this.getStringField(fields, 'owner'),
+            pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
+            poolId: this.getStringField(fields, 'pool_id'),
+            xTokenBalance:
+              this.getStringField(fields, 'xtoken_balance') ||
+              this.getStringField(fields, 'xTokenBalance'),
+          };
+        }, `Failed to parse SingleAssetLooping receipt object at index ${index}`);
+      })
+      .filter((receipt) => receipt.poolId === this.poolLabel.poolId);
   }
 }
 
@@ -304,7 +296,6 @@ export interface SingleAssetLoopingReceiptObject {
   pendingRewards: KeyValuePair[];
   poolId: string;
   xTokenBalance: string;
-  type: string;
 }
 
 // ===== Pool Label =====

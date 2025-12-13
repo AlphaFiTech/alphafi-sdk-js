@@ -30,7 +30,7 @@ import { Decimal } from 'decimal.js';
 import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
 import { StrategyContext } from '../models/strategyContext.js';
 import { CetusSwap } from '../models/swap.js';
-import type { PoolData } from '../models/types.js';
+import type { PoolData, UserPortfolioData } from '../models/types.js';
 import {
   AlphaFiSDKConfig,
   ClaimOptions,
@@ -90,6 +90,11 @@ export class AlphaFiSDK {
   async getAllPoolsData(address?: string): Promise<PoolData[]> {
     await this.ensureInitialized(address);
     return this.protocol.getAllPoolsData();
+  }
+
+  async getUserPortfolio(address: string): Promise<UserPortfolioData> {
+    await this.ensureInitialized(address);
+    return this.portfolio.getUserPortfolio(address);
   }
 
   /**

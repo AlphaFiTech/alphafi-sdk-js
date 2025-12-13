@@ -95,6 +95,8 @@ export interface Strategy<TPool = any, TInvestor = any, TParentPool = any, TRece
 
   getBalance(userAddress: string): Promise<PoolBalance>;
 
+  getPoolLabel(): PoolLabel;
+
   /**
    * Get full pool data for this strategy (high-level summary used by the SDK).
    */
@@ -117,6 +119,7 @@ export abstract class BaseStrategy<TPool = any, TInvestor = any, TParentPool = a
   abstract getParentTvl(): Promise<SingleTvl | DoubleTvl>;
   abstract getData(): Promise<PoolData>;
   abstract getBalance(userAddress: string): Promise<PoolBalance>;
+  abstract getPoolLabel(): PoolLabel;
 
   // ===== Parsing Helper Methods =====
 
@@ -163,27 +166,21 @@ export abstract class BaseStrategy<TPool = any, TInvestor = any, TParentPool = a
   /**
    * Helper function to parse VecMap structures from Move objects into KeyValuePair format
    */
-  protected parseVecMap(vecMapField: any): KeyValuePair[] {
+  protected parseVecMap(vecMapField: any) {
     if (!vecMapField || typeof vecMapField !== 'object') {
       return [];
     }
 
-    const contents = vecMapField.fields?.contents;
+    const contents = vecMapField.contents;
     if (!Array.isArray(contents)) {
       return [];
     }
 
-    return contents
-      .map((entry: any) => {
-        const key = entry?.fields?.key?.fields?.name || entry?.fields?.key;
-        const value = entry?.fields?.value;
-
-        if (typeof key === 'string' && typeof value === 'string') {
-          return { key, value };
-        }
-        return null;
-      })
-      .filter((item: any): item is KeyValuePair => item !== null);
+    return contents.map((entry: any) => {
+      const key = entry?.key?.name;
+      const value = entry?.value;
+      return { key, value };
+    });
   }
 
   /**

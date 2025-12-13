@@ -26,7 +26,7 @@ export class FungibleLpStrategy extends BaseStrategy<
   private poolObject: FungibleLpPoolObject;
   private investorObject: FungibleLpInvestorObject;
   private parentPoolObject: FungibleLpParentPoolObject;
-  private xTokenBalance: Decimal;
+  private xTokenBalance: Decimal = new Decimal(0);
   private context: StrategyContext;
 
   constructor(
@@ -34,16 +34,22 @@ export class FungibleLpStrategy extends BaseStrategy<
     poolObject: any,
     investorObject: any,
     parentPoolObject: any,
-    xTokenBalance: string,
     context: StrategyContext,
   ) {
     super();
     this.poolLabel = poolLabel;
     this.poolObject = this.parsePoolObject(poolObject);
     this.investorObject = this.parseInvestorObject(investorObject);
-    this.context = context;
-    this.xTokenBalance = new Decimal(xTokenBalance);
     this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
+    this.context = context;
+  }
+
+  getPoolLabel(): FungibleLpPoolLabel {
+    return this.poolLabel;
+  }
+
+  updateReceipts(xTokenBalance: Decimal): void {
+    this.xTokenBalance = xTokenBalance;
   }
 
   // ===== Strategy Interface Implementation =====
@@ -272,17 +278,10 @@ export class FungibleLpStrategy extends BaseStrategy<
         id: this.getStringField(fields, 'id'),
         paused: this.getBooleanField(fields, 'paused', false),
         treasuryCap: {
-          id:
-            (this.getNestedField(fields, 'treasury_cap.fields.id.id') as string | undefined) ||
-            this.getStringField(fields.treasury_cap || {}, 'id'),
-          totalSupply:
-            (this.getNestedField(fields, 'treasury_cap.fields.total_supply.fields.value') as
-              | string
-              | undefined) || this.getStringField(fields.treasury_cap || {}, 'total_supply'),
+          id: this.getNestedField(fields, 'treasury_cap.id'),
+          totalSupply: this.getNestedField(fields, 'treasury_cap.total_supply.value'),
         },
-        tokensInvested:
-          this.getStringField(fields, 'tokens_invested') ||
-          this.getStringField(fields, 'tokensInvested'),
+        tokensInvested: this.getStringField(fields, 'tokensInvested'),
         withdrawFeeMaxCap: this.getStringField(fields, 'withdraw_fee_max_cap'),
         withdrawalFee: this.getStringField(fields, 'withdrawal_fee'),
       };
@@ -302,10 +301,8 @@ export class FungibleLpStrategy extends BaseStrategy<
         freeBalanceA: this.getStringField(fields, 'free_balance_a'),
         freeBalanceB: this.getStringField(fields, 'free_balance_b'),
         freeRewards: (() => {
-          const idVal =
-            (this.getNestedField(fields, 'free_rewards.fields.id.id') as string | undefined) || '';
-          const sizeVal =
-            (this.getNestedField(fields, 'free_rewards.fields.size') as string | undefined) || '';
+          const idVal = this.getNestedField(fields, 'free_rewards.id');
+          const sizeVal = this.getNestedField(fields, 'free_rewards.size');
           return { id: String(idVal), size: String(sizeVal) };
         })(),
         id: this.getStringField(fields, 'id'),
@@ -330,9 +327,7 @@ export class FungibleLpStrategy extends BaseStrategy<
         coinA: this.getStringField(fields, 'coin_a'),
         coinB: this.getStringField(fields, 'coin_b'),
         currentSqrtPrice: this.getStringField(fields, 'current_sqrt_price'),
-        currentTickIndex:
-          (this.getNestedField(fields, 'current_tick_index.bits') as number | undefined) ||
-          this.getNumberField(fields, 'current_tick_index'),
+        currentTickIndex: this.getNestedField(fields, 'current_tick_index.bits'),
         id: this.getStringField(fields, 'id'),
         liquidity: this.getStringField(fields, 'liquidity'),
       };

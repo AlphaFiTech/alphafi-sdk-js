@@ -153,6 +153,69 @@ export class StrategyContext {
     return this.bucketTvl;
   }
 
+  private async cacheBucketTvl() {
+    const FOUNTAIN = '0xbdf91f558c2b61662e5839db600198eda66d502e4c10c4fc5c683f9caca13359';
+    const FLASK = '0xc6ecc9731e15d182bc0a46ebe1754a779a4bfb165c201102ad51a36838a1a7b8';
+    const fountain = await this.blockchain.suiClient.getObject({
+      id: FOUNTAIN,
+      options: { showContent: true },
+    });
+    const flask = await this.blockchain.suiClient.getObject({
+      id: FLASK,
+      options: { showContent: true },
+    });
+    const fountainFields = (fountain.data as any)?.content?.fields;
+    const flaskFields = (flask.data as any)?.content?.fields;
+    if (!fountainFields || !flaskFields) {
+      throw new Error('Failed to get fountain or flask fields');
+    }
+    const totalSbuckInFountain = new Decimal(fountainFields.staked || '0');
+    const reserves = new Decimal(flaskFields.reserves || '0');
+    const sbuckSupply = new Decimal(flaskFields.sbuck_supply?.fields?.value || '0');
+    if (sbuckSupply.isZero()) {
+      return { tokenAmount: new Decimal(0), usdValue: new Decimal(0) };
+    }
+    const buckPerSbuck = reserves.div(sbuckSupply);
+    const totalBuckInFountain = totalSbuckInFountain.mul(buckPerSbuck);
+
+    this.bucketTvl = totalBuckInFountain.div(new Decimal(1e9));
+  }
+
+  async getAllSlushPositions(userAddress: string): Promise<Map<string, any[]>> {
+    const caps = await this.getSlushPositionCaps(userAddress);
+    if (!caps.length) {
+      return new Map();
+    }
+
+    // Map positionId -> poolId for easy lookup after fetching
+    const positionToPool: Map<string, string> = new Map();
+    for (const cap of caps) {
+      for (const [posId, poolId] of cap.position_pool_map.entries()) {
+        positionToPool.set(posId, poolId);
+      }
+    }
+
+    const allIds = Array.from(positionToPool.keys());
+    if (allIds.length === 0) {
+      return new Map();
+    }
+
+    const positionMap = await this.blockchain.multiGetObjects(allIds);
+
+    // Group fetched positions by poolId
+    const result: Map<string, any[]> = new Map();
+    positionMap.forEach((obj, posId) => {
+      const poolId = positionToPool.get(posId);
+      if (!poolId || !obj) return;
+      if (!result.has(poolId)) {
+        result.set(poolId, []);
+      }
+      result.get(poolId)!.push(obj);
+    });
+
+    return result;
+  }
+
   /**
    * Get slush positions for a user and pool.
    */
@@ -177,26 +240,6 @@ export class StrategyContext {
 
     const positionMap = await this.blockchain.multiGetObjects(positionIds);
     return Array.from(positionMap.values()).filter(Boolean);
-  }
-
-  /**
-   * Get AlphaFi receipts for a user (parsed and cached).
-   */
-  async getAlphaFiReceipts(userAddress: string): Promise<AlphaFiReceipt[]> {
-    const cached = this.alphaFiReceiptsCache.get(userAddress);
-    if (cached) {
-      return cached;
-    }
-
-    const receipts = await this.blockchain.getReceipt(userAddress, ALPHAFI_RECEIPT_TYPE);
-    if (!receipts || receipts.length === 0) {
-      this.alphaFiReceiptsCache.set(userAddress, []);
-      return [];
-    }
-
-    const parsed = this.parseAlphaFiReceipts(receipts);
-    this.alphaFiReceiptsCache.set(userAddress, parsed);
-    return parsed;
   }
 
   /**
@@ -259,6 +302,61 @@ export class StrategyContext {
       client_address,
       image_url,
     };
+  }
+
+  async getPositionsFromAlphaFiReceipts(userAddress: string): Promise<Map<string, any[]>> {
+    const alphaFiReceipts = await this.getAlphaFiReceipts(userAddress);
+    if (!alphaFiReceipts.length) {
+      return new Map();
+    }
+
+    // Map positionId -> poolId for easy lookup after fetching
+    const positionToPool: Map<string, string> = new Map();
+    for (const receipt of alphaFiReceipts) {
+      for (const entry of receipt.positionPoolMap) {
+        positionToPool.set(entry.key, entry.value.poolId);
+      }
+    }
+
+    const allIds = Array.from(positionToPool.keys());
+    if (allIds.length === 0) {
+      return new Map();
+    }
+
+    const positionMap = await this.blockchain.multiGetObjects(allIds);
+
+    // Group fetched positions by poolId
+    const result: Map<string, any[]> = new Map();
+    positionMap.forEach((obj, posId) => {
+      const poolId = positionToPool.get(posId);
+      if (!poolId || !obj) return;
+      if (!result.has(poolId)) {
+        result.set(poolId, []);
+      }
+      result.get(poolId)!.push(obj);
+    });
+
+    return result;
+  }
+
+  /**
+   * Get AlphaFi receipts for a user (parsed and cached).
+   */
+  async getAlphaFiReceipts(userAddress: string): Promise<AlphaFiReceipt[]> {
+    const cached = this.alphaFiReceiptsCache.get(userAddress);
+    if (cached) {
+      return cached;
+    }
+
+    const receipts = await this.blockchain.getReceipt(userAddress, ALPHAFI_RECEIPT_TYPE);
+    if (!receipts || receipts.length === 0) {
+      this.alphaFiReceiptsCache.set(userAddress, []);
+      return [];
+    }
+
+    const parsed = this.parseAlphaFiReceipts(receipts);
+    this.alphaFiReceiptsCache.set(userAddress, parsed);
+    return parsed;
   }
 
   /**
@@ -333,34 +431,6 @@ export class StrategyContext {
     } catch {
       return '';
     }
-  }
-
-  private async cacheBucketTvl() {
-    const FOUNTAIN = '0xbdf91f558c2b61662e5839db600198eda66d502e4c10c4fc5c683f9caca13359';
-    const FLASK = '0xc6ecc9731e15d182bc0a46ebe1754a779a4bfb165c201102ad51a36838a1a7b8';
-    const fountain = await this.blockchain.suiClient.getObject({
-      id: FOUNTAIN,
-      options: { showContent: true },
-    });
-    const flask = await this.blockchain.suiClient.getObject({
-      id: FLASK,
-      options: { showContent: true },
-    });
-    const fountainFields = (fountain.data as any)?.content?.fields;
-    const flaskFields = (flask.data as any)?.content?.fields;
-    if (!fountainFields || !flaskFields) {
-      throw new Error('Failed to get fountain or flask fields');
-    }
-    const totalSbuckInFountain = new Decimal(fountainFields.staked || '0');
-    const reserves = new Decimal(flaskFields.reserves || '0');
-    const sbuckSupply = new Decimal(flaskFields.sbuck_supply?.fields?.value || '0');
-    if (sbuckSupply.isZero()) {
-      return { tokenAmount: new Decimal(0), usdValue: new Decimal(0) };
-    }
-    const buckPerSbuck = reserves.div(sbuckSupply);
-    const totalBuckInFountain = totalSbuckInFountain.mul(buckPerSbuck);
-
-    this.bucketTvl = totalBuckInFountain.div(new Decimal(1e9));
   }
 
   /**
