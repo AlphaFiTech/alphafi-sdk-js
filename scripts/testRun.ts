@@ -7,6 +7,8 @@ import { Portfolio } from '../src/models/portfolio.js';
 import { AlphaFiSDK } from '../src/index.js';
 import dotenv from 'dotenv';
 import { Transaction } from '@mysten/sui/transactions';
+import { get } from 'http';
+import { getConf } from '../src/common/constants.js';
 
 dotenv.config();
 
@@ -56,8 +58,8 @@ export async function dryRunTransactionBlock(txb: Transaction) {
         transactionBlock: serializedTxb,
       })
       .then((res) => {
-        console.log(JSON.stringify(res, null, 2));
-        // console.log(res.effects.status, res.balanceChanges);
+        // console.log(JSON.stringify(res, null, 2));
+        console.log(res.effects.status, res.balanceChanges);
       })
       .catch((error) => {
         console.error(error);
@@ -66,16 +68,36 @@ export async function dryRunTransactionBlock(txb: Transaction) {
     console.log(e);
   }
 }
+export async function executeTransactionBlock(txb: Transaction) {
+  const { keypair, suiClient } = getExecStuff();
 
-async function test() {
-  const { address, keypair, suiClient } = getExecStuff();
-  const lockedTableID = '0xe8474026c16bcb0581bc77169e1ee8d656d64c07ddfa02929ea536fe260e1a09';
-  const blockchain = new Blockchain(suiClient, 'mainnet');
-  const protocol = new Protocol(suiClient, 'mainnet');
-  const portfolio = new Portfolio(protocol, blockchain, suiClient, address);
-  const res = await portfolio.getPortfolioData();
-  console.log(res);
+  await suiClient
+    .signAndExecuteTransaction({
+      signer: keypair,
+      transaction: txb,
+      requestType: 'WaitForLocalExecution',
+      options: {
+        showEffects: true,
+        showBalanceChanges: true,
+        showObjectChanges: true,
+      },
+    })
+    .then((res) => {
+      console.log(JSON.stringify(res, null, 2));
+    })
+    .catch((error) => {
+      console.error(error);
+    });
 }
+// async function test() {
+//   const { address, keypair, suiClient } = getExecStuff();
+//   const lockedTableID = '0xe8474026c16bcb0581bc77169e1ee8d656d64c07ddfa02929ea536fe260e1a09';
+//   const blockchain = new Blockchain(suiClient, 'mainnet');
+//   const protocol = new Protocol(suiClient, 'mainnet');
+//   const portfolio = new Portfolio(protocol, blockchain, suiClient, address);
+//   const res = await portfolio.getPortfolioData();
+//   console.log(res);
+// }
 // test();
 
 async function main() {
@@ -116,10 +138,11 @@ async function deposit() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
   const tx = await sdk.deposit({
-    poolId: '0x04378cf67d21b41399dc0b6653a5f73f8d3a03cc7643463e47e8d378f8b0bdfa', // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
-    amount: 100_000n,
+    poolId: getConf().ALPHAFI_ALPHALEND_SINGLE_LOOP_DEEP_POOL, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    amount: 10000n,
   });
-  dryRunTransactionBlock(tx);
+  // dryRunTransactionBlock(tx);
+  executeTransactionBlock(tx);
 }
 // deposit();
 
@@ -127,28 +150,13 @@ async function withdraw() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
   const tx = await sdk.withdraw({
-    poolId: '0x139d3ed6292b4ac8978b31adb3415bfa5cdb1d1a6b8f364adbe3317158792413', // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
-    amount: '100000000',
+    poolId: getConf().ALPHAFI_ALPHALEND_SINGLE_LOOP_WBTC_POOL, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    amount: '1000',
     withdrawMax: false,
   });
   tx.setGasBudget(2e8);
-  // dryRunTransactionBlock(tx);
-  await suiClient
-    .signAndExecuteTransaction({
-      signer: keypair,
-      transaction: tx,
-      requestType: 'WaitForLocalExecution',
-      options: {
-        showEffects: true,
-        showBalanceChanges: true,
-        showObjectChanges: true,
-      },
-    })
-    .then((res) => {
-      console.log(JSON.stringify(res, null, 2));
-    })
-    .catch((error) => {
-      console.error(error);
-    });
+  dryRunTransactionBlock(tx);
+  // executeTransactionBlock(tx);
 }
 withdraw();
+// deposit();
