@@ -305,8 +305,8 @@ export class AlphaFiSDK {
     return await claimWithdrawAlphaTx(ticketId, address, this.config.suiClient);
   }
 
-  async claimAirdrop(address: string): Promise<Transaction> {
-    return await claimAirdropTx(address, this.config.suiClient);
+  async claimAirdrop(address: string, transferToWallet: boolean): Promise<Transaction> {
+    return await claimAirdropTx(address, this.config.suiClient, transferToWallet);
   }
 
   /**
