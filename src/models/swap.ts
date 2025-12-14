@@ -1,4 +1,9 @@
-import { AggregatorClient, RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
+import {
+  AggregatorClient,
+  RouterDataV3,
+  // getAllProviders,
+  getProvidersExcluding,
+} from '@cetusprotocol/aggregator-sdk';
 import { Transaction } from '@mysten/sui/transactions';
 
 export class CetusSwap {
@@ -20,13 +25,23 @@ export class CetusSwap {
     try {
       // const providers = getAllProviders();
 
+      const providersExcept = getProvidersExcluding([
+        'STEAMM_OMM_V2',
+        'OBRIC',
+        'METASTABLE',
+        'HAEDALHMMV2',
+        'HAEDALPMM',
+      ]);
+
       const router = await this.client.findRouters({
         from,
         target,
         amount,
         byAmountIn: true, // `true` means fix input amount, `false` means fix output amount
-        // providers: providers,
+        providers: providersExcept,
+        splitCount: 15,
       });
+
       return router || undefined;
     } catch (error) {
       console.error('Error getting cetus swap quote', error);
