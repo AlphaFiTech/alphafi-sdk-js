@@ -70,10 +70,12 @@ export async function dryRunTransactionBlock(txb: Transaction) {
 
 async function main() {
   const { address, keypair, suiClient } = getExecStuff();
-  const blockchain = new Blockchain(suiClient, 'mainnet');
   const alphafiClient = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
-  const res = await alphafiClient.getAllPoolsData();
-  // const res = await protocol.getAllPoolsData();
+  // const res = await alphafiClient.getAllPoolsData();
+  const res = await alphafiClient.getUserPortfolio(
+    '0x396c8d5f9560f2ffa5d67dcdf3f458ee654ad3e3e08d4eb6ff50e7ddf66a82e5',
+    // address,
+  );
   // for (const pool of res) {
   //   console.log(poolDetailsMap[pool[0]].poolName, pool[1]);
   // }
@@ -97,6 +99,10 @@ async function main() {
   const serializedRes = JSON.stringify(
     res,
     (key, value) => {
+      // Convert Map to array of entries (or object)
+      if (value instanceof Map) {
+        return Object.fromEntries(value); // or Array.from(value.entries())
+      }
       // Convert Decimal objects to strings
       if (value && typeof value === 'object' && value.constructor?.name === 'Decimal') {
         return value.toString();
