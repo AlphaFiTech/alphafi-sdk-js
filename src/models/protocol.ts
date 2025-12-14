@@ -57,9 +57,12 @@ export class Protocol {
     return this.strategies;
   }
 
-  async getAllPoolsData(): Promise<PoolData[]> {
+  async getAllPoolsData(): Promise<Map<string, PoolData>> {
     await this.ensureInitialized();
-    return Promise.all(Array.from(this.strategies.values()).map((strategy) => strategy.getData()));
+    const poolsData = await Promise.all(
+      Array.from(this.strategies.values()).map((strategy) => strategy.getData()),
+    );
+    return new Map(poolsData.map((poolData) => [poolData.poolId, poolData]));
   }
 
   /**

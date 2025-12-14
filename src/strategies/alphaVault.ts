@@ -5,7 +5,7 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
+import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 
@@ -47,6 +47,39 @@ export class AlphaVaultStrategy extends BaseStrategy<
   updateReceipts(legacyReceipts: any[], receipts: any[]): void {
     this.legacyReceiptObjects = this.parseLegacyReceiptObjects(legacyReceipts);
     this.receiptObjects = this.parseReceiptObjects(receipts);
+  }
+
+  /**
+   * Get data needed for alpha mining rewards calculation.
+   * AlphaVault uses positions (receiptObjects) for alpha mining data.
+   */
+  protected getAlphaMiningData(): AlphaMiningData {
+    // Get receipt data from positions or legacy receipts
+    const position = this.receiptObjects.length > 0 ? this.receiptObjects[0] : null;
+    const legacyReceipt =
+      this.legacyReceiptObjects.length > 0 ? this.legacyReceiptObjects[0] : null;
+
+    let receiptData = null;
+    if (position) {
+      receiptData = {
+        lastAccRewardPerXtoken: position.lastAccRewardPerXtoken,
+        pendingRewards: position.pendingRewards,
+        xTokenBalance: position.xTokens,
+      };
+    } else if (legacyReceipt) {
+      receiptData = {
+        lastAccRewardPerXtoken: legacyReceipt.lastAccRewardPerXtoken,
+        pendingRewards: legacyReceipt.pendingRewards,
+        xTokenBalance: legacyReceipt.xTokenBalance,
+      };
+    }
+
+    return {
+      poolId: this.poolLabel.poolId,
+      accRewardsPerXtoken: this.poolObject.accRewardsPerXtoken,
+      xTokenSupply: this.poolObject.xTokenSupply,
+      receipt: receiptData,
+    };
   }
 
   // ===== Strategy Interface Implementation =====
@@ -449,7 +482,13 @@ export class AlphaVaultStrategy extends BaseStrategy<
           const sizeVal = this.getNestedField(fields, 'rewards.size');
           return { id: String(idVal), size: String(sizeVal) };
         })(),
-        accRewardsPerXtoken: this.parseVecMap(fields.acc_rewards_per_xtoken || {}),
+        accRewardsPerXtoken: this.parseVecMap(fields.acc_rewards_per_xtoken).map(
+          (item) =>
+            ({
+              key: item.key,
+              value: item.value.value,
+            }) as KeyValuePair,
+        ),
         totalDistributed: this.parseVecMap(fields.total_distributed || {}),
         depositFee: this.getStringField(fields, 'deposit_fee') || '0',
         depositFeeMaxCap: this.getStringField(fields, 'deposit_fee_max_cap') || '0',
@@ -644,7 +683,13 @@ export class AlphaVaultStrategy extends BaseStrategy<
           }[],
           allWithdrawals: parseTableInfo(fields.all_withdrawals),
           allDeposits: parseTableInfo(fields.all_deposits),
-          lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken || {}),
+          lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken).map(
+            (item) =>
+              ({
+                key: item.key,
+                value: item.value.value,
+              }) as KeyValuePair,
+          ),
           pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
           totalCollectedRewards,
         };

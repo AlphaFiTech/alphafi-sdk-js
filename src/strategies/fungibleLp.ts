@@ -5,7 +5,7 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { BaseStrategy, ProtocolType, NameType } from './strategy.js';
+import { AlphaMiningData, BaseStrategy, ProtocolType, NameType } from './strategy.js';
 import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
@@ -50,6 +50,19 @@ export class FungibleLpStrategy extends BaseStrategy<
 
   updateReceipts(xTokenBalance: Decimal): void {
     this.xTokenBalance = xTokenBalance;
+  }
+
+  /**
+   * FungibleLp does not have alpha mining rewards.
+   * Returns data with receipt: null to indicate no alpha mining rewards.
+   */
+  protected getAlphaMiningData(): AlphaMiningData {
+    return {
+      poolId: this.poolLabel.poolId,
+      accRewardsPerXtoken: [],
+      xTokenSupply: '0',
+      receipt: null,
+    };
   }
 
   // ===== Strategy Interface Implementation =====

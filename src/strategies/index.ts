@@ -25,8 +25,9 @@ export type {
   ProtocolType,
   NameType,
   PoolLabel,
+  AlphaMiningData,
 } from './strategy.js';
-export { BaseStrategy } from './strategy.js';
+export { BaseStrategy, ALPHA_COIN_TYPE } from './strategy.js';
 
 // Re-export pool label types
 export type { LpPoolLabel } from './lp.js';

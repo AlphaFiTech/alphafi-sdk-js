@@ -33,10 +33,44 @@ interface AlphaFiReceipt {
   imageUrl: string;
 }
 
+export interface DistributorObject {
+  airdropWallet: string;
+  airdropWalletBalance: string;
+  dustWalletAddress: string;
+  feeWallet: string;
+  id: string;
+  nextHalvingTimestamp: string;
+  onholdReceiptsWalletAddress: string;
+  poolAllocator: {
+    id: string;
+    members: {
+      key: string;
+      value: {
+        poolData: {
+          key: string;
+          value: {
+            lastUpdateTime: string;
+            pendingRewards: string;
+            weight: string;
+          };
+        }[];
+      };
+    }[];
+    rewards: { id: string; size: string };
+    totalWeights: Array<{ key: string; value: string }>;
+  };
+  rewardUnlock: string[];
+  startTimestamp: string;
+  target: string;
+  teamWalletAddress: string;
+  teamWalletBalance: string;
+}
+
 const SLUSH_POSITION_CAP_TYPE =
   '0x41b1def47b6259cd7306e049d6500eabb1a984e25558b56eefa9b6c000a038c3::alphalend_slush_pool::PositionCap';
 const ALPHAFI_RECEIPT_TYPE =
   '0x18533807391b15db5f1f530f54b32553372e5c204d179928d8da0a1753cbb63c::alphafi_receipt::AlphaFiReceipt';
+const DISTRIBUTOR_OBJECT_ID = '0x33f3c288a90c5368ec3b937875cfae94aebae0ee7fb65e97265728eff9e6995b';
 
 export class StrategyContext {
   blockchain: Blockchain;
@@ -48,6 +82,7 @@ export class StrategyContext {
   bucketTvl: Decimal;
   private slushPositionCapsCache: Map<string, SlushPositionCap[]>;
   private alphaFiReceiptsCache: Map<string, AlphaFiReceipt[]>;
+  distributorObjectCache: DistributorObject | null;
 
   constructor(network: 'mainnet' | 'testnet' | 'devnet' | 'localnet', suiClient: SuiClient) {
     this.blockchain = new Blockchain(suiClient, network);
@@ -61,6 +96,7 @@ export class StrategyContext {
     this.bucketTvl = new Decimal(0);
     this.slushPositionCapsCache = new Map<string, SlushPositionCap[]>();
     this.alphaFiReceiptsCache = new Map<string, AlphaFiReceipt[]>();
+    this.distributorObjectCache = null;
   }
 
   async init(userAddress?: string) {
@@ -70,6 +106,7 @@ export class StrategyContext {
       this.cacheNaviTvlByPoolId(),
       this.cacheBucketTvl(),
       this.cachePoolLabelsFromConfig(),
+      this.cacheDistributorObject(),
       this.coinInfoProvider.init(),
     ]);
     if (userAddress) {
@@ -113,6 +150,56 @@ export class StrategyContext {
     for (const [key, value] of Object.entries(dataArr)) {
       this.aprMap.set(key, value);
     }
+  }
+
+  getDistributorObject(): DistributorObject | null {
+    return this.distributorObjectCache;
+  }
+
+  private async cacheDistributorObject() {
+    const distributorObject = await this.blockchain.getObject(DISTRIBUTOR_OBJECT_ID);
+    this.distributorObjectCache = this.parseDistributorObject(distributorObject);
+  }
+
+  private parseDistributorObject(fields: any): DistributorObject {
+    return {
+      id: fields.id,
+      airdropWallet: fields.airdrop_wallet,
+      airdropWalletBalance: fields.airdrop_wallet_balance,
+      dustWalletAddress: fields.dust_wallet_address,
+      feeWallet: fields.fee_wallet,
+      nextHalvingTimestamp: fields.next_halving_timestamp,
+      onholdReceiptsWalletAddress: fields.onhold_receipts_wallet_address,
+      poolAllocator: {
+        id: fields.pool_allocator.id,
+        members: fields.pool_allocator.members.contents.map((member: any) => ({
+          key: member.key,
+          value: {
+            poolData: member.value.pool_data.contents.map((poolData: any) => ({
+              key: poolData.key,
+              value: {
+                lastUpdateTime: poolData.value.last_update_time,
+                pendingRewards: poolData.value.pending_rewards,
+                weight: poolData.value.weight,
+              },
+            })),
+          },
+        })),
+        rewards: {
+          id: fields.pool_allocator.rewards.id,
+          size: fields.pool_allocator.rewards.size,
+        },
+        totalWeights: fields.pool_allocator.total_weights.contents.map((weight: any) => ({
+          key: weight.key.name,
+          value: weight.value,
+        })),
+      },
+      rewardUnlock: [],
+      startTimestamp: fields.start_timestamp,
+      target: fields.target,
+      teamWalletAddress: fields.team_wallet_address,
+      teamWalletBalance: fields.team_wallet_balance,
+    };
   }
 
   getAlphaLendTvl(coinType: string): Decimal {

@@ -38,6 +38,7 @@ export class Portfolio {
   async getUserPortfolio(userAddress: string): Promise<UserPortfolioData> {
     const strategies = await this.protocol.getAllStrategies();
     await this.updateStrategiesWithReceipts(userAddress, strategies);
+
     const balancesWithIds = await Promise.all(
       Array.from(strategies.entries()).map(async ([poolId, strategy]) => {
         const balance = await strategy.getBalance(userAddress);
@@ -45,12 +46,36 @@ export class Portfolio {
       }),
     );
     const poolBalances: Map<string, PoolBalance> = new Map(balancesWithIds);
-    return {
-      netWorth: new Decimal(0),
-      aggregatedApy: new Decimal(0),
-      alphaRewardsToClaim: new Decimal(0),
-      poolBalances,
-    };
+
+    let [netWorth, aggregatedApy] = [new Decimal(0), new Decimal(0)];
+    Array.from(poolBalances.entries()).forEach(([poolId, balance]) => {
+      const balanceUsd =
+        'stakedAlphaUsdValue' in balance ? balance.stakedAlphaUsdValue : balance.usdValue;
+
+      // Cap APY for retired pools at 1000% (matches rust-sdk behavior)
+      let apy = new Decimal(this.strategyContext.getAprData(poolId).apy);
+      const isActive = (strategies.get(poolId)?.getPoolLabel() as any)?.isActive;
+      if (isActive === false && apy.gt(1000)) {
+        apy = new Decimal(1000);
+      }
+
+      netWorth = netWorth.add(balanceUsd);
+      aggregatedApy = aggregatedApy.add(balanceUsd.mul(apy));
+    });
+    aggregatedApy = netWorth.isZero() ? new Decimal(0) : aggregatedApy.div(netWorth);
+
+    // Calculate total alpha mining rewards to claim across all strategies
+    const distributor = this.strategyContext.getDistributorObject();
+    let alphaRewardsToClaim = new Decimal(0);
+    if (distributor) {
+      for (const strategy of strategies.values()) {
+        alphaRewardsToClaim = alphaRewardsToClaim.add(
+          strategy.getAlphaMiningRewardsToClaim(distributor),
+        );
+      }
+    }
+
+    return { netWorth, aggregatedApy, alphaRewardsToClaim, poolBalances };
   }
 
   private async updateStrategiesWithReceipts(

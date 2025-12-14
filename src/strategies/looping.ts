@@ -5,7 +5,7 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
+import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 
@@ -45,6 +45,26 @@ export class LoopingStrategy extends BaseStrategy<
 
   updateReceipts(receipts: any[]): void {
     this.receiptObjects = this.parseReceiptObjects(receipts);
+  }
+
+  /**
+   * Get data needed for alpha mining rewards calculation.
+   */
+  protected getAlphaMiningData(): AlphaMiningData {
+    const receipt = this.receiptObjects.length > 0 ? this.receiptObjects[0] : null;
+
+    return {
+      poolId: this.poolLabel.poolId,
+      accRewardsPerXtoken: this.poolObject.accRewardsPerXtoken,
+      xTokenSupply: this.poolObject.xTokenSupply,
+      receipt: receipt
+        ? {
+            lastAccRewardPerXtoken: receipt.lastAccRewardPerXtoken,
+            pendingRewards: receipt.pendingRewards,
+            xTokenBalance: receipt.xTokenBalance,
+          }
+        : null,
+    };
   }
 
   // ===== Strategy Interface Implementation =====

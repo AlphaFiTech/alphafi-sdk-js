@@ -5,11 +5,33 @@
 
 import { Decimal } from 'decimal.js';
 import { SingleTvl, DoubleTvl, PoolData, PoolBalance } from '../models/types.js';
+import { DistributorObject } from '../models/strategyContext.js';
 
 export interface KeyValuePair {
   key: string;
   value: string;
 }
+
+/**
+ * Data required to calculate alpha mining rewards for a user.
+ * Returns null if the strategy does not support alpha mining rewards.
+ */
+export interface AlphaMiningData {
+  poolId: string;
+  accRewardsPerXtoken: KeyValuePair[];
+  xTokenSupply: string;
+  receipt: {
+    lastAccRewardPerXtoken: KeyValuePair[];
+    pendingRewards: KeyValuePair[];
+    xTokenBalance: string;
+  } | null;
+}
+
+/**
+ * Alpha coin type for mining rewards
+ */
+export const ALPHA_COIN_TYPE =
+  'fe3afec26c59e874f3c1d60b8203cb3852d2bb2aa415df9548b8d688e6683f93::alpha::ALPHA';
 
 // ===== Common Pool Label Types =====
 
@@ -101,6 +123,13 @@ export interface Strategy<TPool = any, TInvestor = any, TParentPool = any, TRece
    * Get full pool data for this strategy (high-level summary used by the SDK).
    */
   getData(): Promise<PoolData>;
+
+  /**
+   * Get alpha mining rewards to claim for this strategy.
+   * Returns the amount of ALPHA tokens claimable by the user.
+   * @param distributor - The distributor object from StrategyContext
+   */
+  getAlphaMiningRewardsToClaim(distributor: DistributorObject): Decimal;
 }
 
 /**
@@ -120,6 +149,108 @@ export abstract class BaseStrategy<TPool = any, TInvestor = any, TParentPool = a
   abstract getData(): Promise<PoolData>;
   abstract getBalance(userAddress: string): Promise<PoolBalance>;
   abstract getPoolLabel(): PoolLabel;
+
+  /**
+   * Get the data needed for alpha mining rewards calculation.
+   * Strategies that don't support alpha mining (e.g., AutobalanceLp, SlushLending, FungibleLp)
+   * should return data with `receipt: null`.
+   */
+  protected abstract getAlphaMiningData(): AlphaMiningData;
+
+  /**
+   * Get alpha mining rewards to claim for this strategy.
+   * Implements the same logic as the Rust SDK's get_alpha_mining_rewards_to_claim.
+   * @param distributor - The distributor object from StrategyContext
+   * @returns The amount of ALPHA tokens claimable (in human-readable units, i.e., divided by 1e9)
+   */
+  getAlphaMiningRewardsToClaim(distributor: DistributorObject): Decimal {
+    const data = this.getAlphaMiningData();
+
+    // If no receipt, return 0 (no alpha mining rewards for this user/strategy)
+    if (!data.receipt) {
+      return new Decimal(0);
+    }
+
+    const { poolId, accRewardsPerXtoken, xTokenSupply, receipt } = data;
+    const { lastAccRewardPerXtoken, pendingRewards, xTokenBalance } = receipt;
+
+    // Get user's last accumulated reward per xtoken for ALPHA
+    const userLastAccEntry = lastAccRewardPerXtoken.find((entry) => entry.key === ALPHA_COIN_TYPE);
+    const userLastAcc = new Decimal(userLastAccEntry?.value || '0');
+
+    // Get user's xtoken balance
+    const userXtokenBalance = new Decimal(xTokenBalance || '0');
+
+    // Get pending alpha rewards from receipt
+    const pendingAlphaRewards = pendingRewards
+      .filter((entry) => entry.key === ALPHA_COIN_TYPE)
+      .reduce((acc, entry) => acc.add(new Decimal(entry.value || '0')), new Decimal(0));
+
+    // Get total alpha weight across all pools from distributor
+    const alphaRewardTotalWeight =
+      distributor.poolAllocator.totalWeights.find((w) => w.key === ALPHA_COIN_TYPE)?.value || '0';
+
+    // Get distribution status for this pool
+    const memberEntry = distributor.poolAllocator.members.find((m) => m.key === poolId);
+    const alphaAllocatorDetailsForPool = memberEntry?.value.poolData.find(
+      (pd) => pd.key === ALPHA_COIN_TYPE,
+    )?.value;
+
+    // Calculate pending rewards for pool
+    let pendingRewardsForPool = new Decimal(0);
+    if (alphaAllocatorDetailsForPool) {
+      const currentTime = Date.now();
+      const pendingRewardsInAllocator = new Decimal(
+        alphaAllocatorDetailsForPool.pendingRewards || '0',
+      );
+      const lastUpdateTime = parseInt(alphaAllocatorDetailsForPool.lastUpdateTime || '0', 10);
+      const weight = new Decimal(alphaAllocatorDetailsForPool.weight || '0');
+      const totalWeight = new Decimal(alphaRewardTotalWeight);
+      const target = new Decimal(distributor.target || '0');
+
+      // Calculate unlockPerMS (target per millisecond)
+      // unlock_per_ms = target * 2750000 / (4250000 * 100 * 86400000)
+      const unlockPerMs = target
+        .mul(new Decimal('2750000'))
+        .div(new Decimal('4250000').mul('100').mul('86400000'));
+
+      // Calculate time diff
+      const timeDiff = Math.max(0, currentTime - lastUpdateTime);
+
+      // Calculate additional rewards
+      let additionalRewards = new Decimal(0);
+      if (totalWeight.gt(0)) {
+        additionalRewards = new Decimal(timeDiff).mul(unlockPerMs).mul(weight).div(totalWeight);
+      }
+
+      pendingRewardsForPool = pendingRewardsInAllocator.add(additionalRewards);
+    }
+
+    // Get pool's accumulated rewards per xtoken for ALPHA
+    const alphaOldAccEntry = accRewardsPerXtoken.find((entry) => entry.key === ALPHA_COIN_TYPE);
+    const alphaOldAccInPool = new Decimal(alphaOldAccEntry?.value || '0');
+
+    // Get total xtoken supply from pool
+    const totalXtokenSupply = new Decimal(xTokenSupply || '0');
+
+    // Calculate new accumulated rewards per xtoken
+    const SCALE = new Decimal('1000000000000000000'); // 1e18
+    let addAcc = new Decimal(0);
+    if (totalXtokenSupply.gt(0)) {
+      addAcc = pendingRewardsForPool.div(totalXtokenSupply).mul(SCALE).mul(SCALE);
+    }
+    const alphaNewAccInPool = alphaOldAccInPool.add(addAcc);
+
+    // Calculate user's accrued rewards
+    // user_accrued_rewards = ((acc_new - acc_last) / SCALE^2) * user_balance
+    const deltaAcc = alphaNewAccInPool.sub(userLastAcc);
+    const userAccruedRewards = deltaAcc.div(SCALE.mul(SCALE)).mul(userXtokenBalance);
+
+    // Combine pending rewards and accrued rewards, then divide by 1e9 for human-readable amount
+    const totalPendingRewards = pendingAlphaRewards.add(userAccruedRewards).div(new Decimal(1e9));
+
+    return totalPendingRewards;
+  }
 
   // ===== Parsing Helper Methods =====
 

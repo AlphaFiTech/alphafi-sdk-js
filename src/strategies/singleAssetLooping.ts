@@ -5,7 +5,7 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
+import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 
@@ -47,14 +47,38 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
     this.receiptObjects = this.parseReceiptObjects(receipts);
   }
 
+  /**
+   * Get data needed for alpha mining rewards calculation.
+   */
+  protected getAlphaMiningData(): AlphaMiningData {
+    const receipt = this.receiptObjects.length > 0 ? this.receiptObjects[0] : null;
+
+    return {
+      poolId: this.poolLabel.poolId,
+      accRewardsPerXtoken: this.poolObject.accRewardsPerXtoken,
+      xTokenSupply: this.poolObject.xTokenSupply,
+      receipt: receipt
+        ? {
+            lastAccRewardPerXtoken: receipt.lastAccRewardPerXtoken,
+            pendingRewards: receipt.pendingRewards,
+            xTokenBalance: receipt.xTokenBalance,
+          }
+        : null,
+    };
+  }
+
   // ===== Strategy Interface Implementation =====
 
   /**
    * Get the exchange rate for SingleAssetLooping strategy (xtoken to underlying token ratio)
-   * Exchange rate = tokens_invested / xtoken_supply
+   * Matches Rust `single_asset_looping.rs`:
+   * exchange_rate = (tokens_deposited * (1 - current_debt_to_supply_ratio / 10^20)) / xtoken_supply
    */
   exchangeRate(): Decimal {
-    const tokensInvested = new Decimal(this.poolObject.tokensInvested);
+    const currentDebtToSupplyRatio = new Decimal(this.investorObject.currentDebtToSupplyRatio);
+    const tokensInvested = new Decimal(this.investorObject.tokensDeposited).mul(
+      new Decimal(1).minus(currentDebtToSupplyRatio.div(new Decimal(10).pow(20))),
+    );
     const xtokenSupply = new Decimal(this.poolObject.xTokenSupply);
 
     if (xtokenSupply.isZero()) {

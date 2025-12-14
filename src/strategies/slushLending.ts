@@ -5,7 +5,7 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { BaseStrategy, ProtocolType, NameType } from './strategy.js';
+import { AlphaMiningData, BaseStrategy, ProtocolType, NameType } from './strategy.js';
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 
@@ -35,6 +35,19 @@ export class SlushLendingStrategy extends BaseStrategy<
 
   updateReceipts(receipts: any[]): void {
     this.receiptObjects = this.parseReceiptObjects(receipts);
+  }
+
+  /**
+   * SlushLending does not have alpha mining rewards.
+   * Returns data with receipt: null to indicate no alpha mining rewards.
+   */
+  protected getAlphaMiningData(): AlphaMiningData {
+    return {
+      poolId: this.poolLabel.poolId,
+      accRewardsPerXtoken: [],
+      xTokenSupply: '0',
+      receipt: null,
+    };
   }
 
   // ===== Strategy Interface Implementation =====

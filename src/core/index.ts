@@ -87,7 +87,7 @@ export class AlphaFiSDK {
     this.isInitialized = true;
   }
 
-  async getAllPoolsData(address?: string): Promise<PoolData[]> {
+  async getAllPoolsData(address?: string): Promise<Map<string, PoolData>> {
     await this.ensureInitialized(address);
     return this.protocol.getAllPoolsData();
   }
