@@ -1,7 +1,5 @@
 /**
- * Slush Lending Strategy Implementation
- * Mirrors the Lending strategy but targets slush lending pools.
- * Pattern based on alphafi-sdk-rust slush_lending strategy.
+ * SlushLending Strategy
  */
 
 import { Decimal } from 'decimal.js';
@@ -9,8 +7,9 @@ import { AlphaMiningData, BaseStrategy, ProtocolType, NameType } from './strateg
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 
-// ===== Slush Lending Strategy Class =====
-
+/**
+ * SlushLending Strategy for slush lending pools without alpha mining
+ */
 export class SlushLendingStrategy extends BaseStrategy<
   SlushLendingPoolObject,
   never,
@@ -38,8 +37,7 @@ export class SlushLendingStrategy extends BaseStrategy<
   }
 
   /**
-   * SlushLending does not have alpha mining rewards.
-   * Returns data with receipt: null to indicate no alpha mining rewards.
+   * Returns alpha mining data - SlushLending pools do not support alpha mining
    */
   protected getAlphaMiningData(): AlphaMiningData {
     return {
@@ -50,11 +48,9 @@ export class SlushLendingStrategy extends BaseStrategy<
     };
   }
 
-  // ===== Strategy Interface Implementation =====
-
   /**
-   * Get the exchange rate for Slush Lending strategy (xtoken to underlying token ratio)
-   * Exchange rate = tokens_invested / xtoken_supply
+   * Get the exchange rate for xtoken to underlying token ratio
+   * Calculated as tokens_invested / xtoken_supply
    */
   exchangeRate(): Decimal {
     const tokensInvested = new Decimal(this.poolObject.tokensInvested);
@@ -68,7 +64,7 @@ export class SlushLendingStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute data (APR/TVL) similar to Rust get_data
+   * Get comprehensive pool data including TVL and APR information
    */
   async getData(): Promise<PoolData> {
     const [alphafi, parent] = await Promise.all([this.getTvl(), this.getParentTvl()]);
@@ -84,7 +80,7 @@ export class SlushLendingStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute TVL in quote currency using coin price data.
+   * Calculate total value locked using current asset price
    */
   async getTvl(): Promise<SingleTvl> {
     const coinType = this.poolLabel.asset.type;
@@ -100,7 +96,7 @@ export class SlushLendingStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute parent TVL based on parent protocol.
+   * Calculate parent protocol TVL (Alphalend only)
    */
   async getParentTvl(): Promise<SingleTvl> {
     const protocol = this.poolLabel.parentProtocol;
@@ -115,8 +111,8 @@ export class SlushLendingStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute the user's current pool balance for Slush Lending strategy.
-   * Uses exchangeRate to convert xTokens to underlying, scaled by 1e9 and priced.
+   * Calculate user's current pool balance from xToken balance
+   * Converts xTokens to underlying tokens via exchange rate
    */
   async getBalance(_userAddress: string): Promise<PoolBalance> {
     if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokens === '0') {
@@ -132,8 +128,9 @@ export class SlushLendingStrategy extends BaseStrategy<
     return { tokenAmount: tokens, usdValue: tokens.mul(price) };
   }
 
-  // ===== Parsing Functions =====
-
+  /**
+   * Parse pool object from blockchain response
+   */
   parsePoolObject(response: any): SlushLendingPoolObject {
     return this.safeParseObject(() => {
       const fields = this.extractFields(response);
@@ -179,14 +176,23 @@ export class SlushLendingStrategy extends BaseStrategy<
     }, 'Failed to parse Slush Lending pool object');
   }
 
+  /**
+   * Parse investor object (not applicable for SlushLending)
+   */
   parseInvestorObject(_: any): never {
     throw new Error('Investor object not used for SlushLending');
   }
 
+  /**
+   * Parse parent pool object (not applicable for SlushLending)
+   */
   parseParentPoolObject(_: any): never {
     throw new Error('Parent pool object not used for SlushLending');
   }
 
+  /**
+   * Parse receipt objects from blockchain responses
+   */
   parseReceiptObjects(responses: any[]): SlushLendingReceiptObject[] {
     return responses.map((response, index) => {
       return this.safeParseObject(() => {
@@ -208,8 +214,9 @@ export class SlushLendingStrategy extends BaseStrategy<
   }
 }
 
-// ===== Types =====
-
+/**
+ * SlushLending Pool object data structure
+ */
 export interface SlushLendingPoolObject {
   id: string;
   xTokenSupply: string;
@@ -240,6 +247,9 @@ export interface SlushLendingPoolObject {
   paused: boolean;
 }
 
+/**
+ * SlushLending Receipt object data structure
+ */
 export interface SlushLendingReceiptObject {
   id: string;
   positionCapId: string;
@@ -249,8 +259,9 @@ export interface SlushLendingReceiptObject {
   xTokens: string;
 }
 
-// ===== Pool Label =====
-
+/**
+ * SlushLending Pool Label configuration
+ */
 export interface SlushLendingPoolLabel {
   poolId: string;
   packageId: string;

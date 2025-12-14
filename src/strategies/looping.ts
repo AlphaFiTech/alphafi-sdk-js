@@ -1,15 +1,11 @@
 /**
- * Looping Strategy Implementation
- * Looping strategy for leveraged positions with automated compounding
- * Based on alphafi-sdk-rust/src/strategies/looping.rs
+ * Looping Strategy
  */
 
 import { Decimal } from 'decimal.js';
 import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
-
-// ===== Looping Strategy Class =====
 
 /**
  * Looping Strategy for leveraged positions with automated compounding
@@ -48,7 +44,7 @@ export class LoopingStrategy extends BaseStrategy<
   }
 
   /**
-   * Get data needed for alpha mining rewards calculation.
+   * Get alpha mining data including pool and receipt information
    */
   protected getAlphaMiningData(): AlphaMiningData {
     const receipt = this.receiptObjects.length > 0 ? this.receiptObjects[0] : null;
@@ -67,11 +63,9 @@ export class LoopingStrategy extends BaseStrategy<
     };
   }
 
-  // ===== Strategy Interface Implementation =====
-
   /**
-   * Get the exchange rate for Looping strategy (xtoken to underlying token ratio)
-   * Exchange rate = tokens_invested / xtoken_supply
+   * Get the exchange rate for xtoken to underlying token ratio
+   * Adjusted for current debt-to-supply ratio in leveraged positions
    */
   exchangeRate(): Decimal {
     const currentDebtToSupplyRatio = new Decimal(this.investorObject.currentDebtToSupplyRatio);
@@ -88,7 +82,7 @@ export class LoopingStrategy extends BaseStrategy<
   }
 
   /**
-   * Stubbed getData similar to Rust get_data; returns zero/empty placeholders
+   * Get comprehensive pool data including TVL and APR information
    */
   async getData(): Promise<PoolData> {
     const [alphafi, parent] = await Promise.all([this.getTvl(), this.getParentTvl()]);
@@ -104,10 +98,8 @@ export class LoopingStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute TVL mirroring Rust get_base_tvl_inner:
-   * - Adjust tokens_invested by current_debt_to_supply_ratio
-   * - Scale by supply token decimals (or 1e9 for Navi)
-   * - Convert to user deposit token using price ratio
+   * Calculate total value locked adjusted for leveraged position
+   * Accounts for debt-to-supply ratio and protocol-specific scaling
    */
   async getTvl(): Promise<SingleTvl> {
     const supplyType = this.poolLabel.supplyAsset.type;
@@ -133,6 +125,9 @@ export class LoopingStrategy extends BaseStrategy<
     return { tokenAmount, usdValue };
   }
 
+  /**
+   * Calculate parent protocol TVL based on protocol type (Navi/Alphalend)
+   */
   async getParentTvl(): Promise<SingleTvl> {
     const protocol = this.poolLabel.parentProtocol;
     const coinType = this.poolLabel.supplyAsset.type;
@@ -148,8 +143,8 @@ export class LoopingStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute the user's current pool balance for Looping strategy.
-   * Matches looping.rs behavior.
+   * Calculate user's current pool balance from xToken balance
+   * Includes leverage adjustment and protocol-specific scaling
    */
   async getBalance(_userAddress: string): Promise<PoolBalance> {
     if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
@@ -174,8 +169,6 @@ export class LoopingStrategy extends BaseStrategy<
     const amount = tokens.mul(supplyPrice).div(userDepositPrice);
     return { tokenAmount: amount, usdValue: amount.mul(userDepositPrice) };
   }
-
-  // ===== Parsing Functions (similar to Rust SDK) =====
 
   /**
    * Parse pool object from blockchain response
@@ -237,7 +230,7 @@ export class LoopingStrategy extends BaseStrategy<
   }
 
   /**
-   * Parse parent pool object from blockchain response (not applicable for Looping)
+   * Parse parent pool object (not applicable for Looping)
    */
   parseParentPoolObject(_response: any): never {
     throw new Error('Looping strategy does not have parent pool objects');
@@ -267,8 +260,6 @@ export class LoopingStrategy extends BaseStrategy<
       .filter((receipt) => receipt.poolId === this.poolLabel.poolId);
   }
 }
-
-// ===== Types =====
 
 /**
  * Looping Pool object data structure
@@ -327,10 +318,8 @@ export interface LoopingReceiptObject {
   xTokenBalance: string;
 }
 
-// ===== Pool Label =====
-
 /**
- * Looping Pool Label - Configuration for Looping strategy pools
+ * Looping Pool Label configuration
  */
 export interface LoopingPoolLabel {
   poolId: string;

@@ -1,15 +1,11 @@
 /**
- * SingleAssetLooping Strategy Implementation
- * Single asset looping strategy for leveraged positions on single assets
- * Based on alphafi-sdk-rust/src/strategies/single_asset_looping.rs
+ * SingleAssetLooping Strategy
  */
 
 import { Decimal } from 'decimal.js';
 import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
-
-// ===== SingleAssetLooping Strategy Class =====
 
 /**
  * SingleAssetLooping Strategy for leveraged positions on single assets
@@ -48,7 +44,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
   }
 
   /**
-   * Get data needed for alpha mining rewards calculation.
+   * Get alpha mining data including pool and receipt information
    */
   protected getAlphaMiningData(): AlphaMiningData {
     const receipt = this.receiptObjects.length > 0 ? this.receiptObjects[0] : null;
@@ -67,12 +63,9 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
     };
   }
 
-  // ===== Strategy Interface Implementation =====
-
   /**
-   * Get the exchange rate for SingleAssetLooping strategy (xtoken to underlying token ratio)
-   * Matches Rust `single_asset_looping.rs`:
-   * exchange_rate = (tokens_deposited * (1 - current_debt_to_supply_ratio / 10^20)) / xtoken_supply
+   * Get the exchange rate for xtoken to underlying token ratio
+   * Adjusted for current debt-to-supply ratio in leveraged single-asset position
    */
   exchangeRate(): Decimal {
     const currentDebtToSupplyRatio = new Decimal(this.investorObject.currentDebtToSupplyRatio);
@@ -89,7 +82,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
   }
 
   /**
-   * Stubbed getData similar to Rust get_data; returns zero/empty placeholders
+   * Get comprehensive pool data including TVL and APR information
    */
   async getData(): Promise<PoolData> {
     const [alphafi, parent] = await Promise.all([this.getTvl(), this.getParentTvl()]);
@@ -105,7 +98,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute TVL in quote currency using coin price data.
+   * Calculate total value locked adjusted for leveraged position
    */
   async getTvl(): Promise<SingleTvl> {
     const coinType = this.poolLabel.asset.type;
@@ -123,6 +116,9 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
     return { tokenAmount, usdValue };
   }
 
+  /**
+   * Calculate parent protocol TVL based on protocol type (Alphalend/Navi)
+   */
   async getParentTvl(): Promise<SingleTvl> {
     const protocol = this.poolLabel.parentProtocol;
     const coinType = this.poolLabel.asset.type;
@@ -138,8 +134,8 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute user's current pool balance for SingleAssetLooping.
-   * Matches single_asset_looping.rs behavior.
+   * Calculate user's current pool balance from xToken balance
+   * Includes leverage adjustment for single-asset position
    */
   async getBalance(_userAddress: string): Promise<PoolBalance> {
     if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
@@ -156,8 +152,6 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
     const amount = tokens.div(new Decimal(10).pow(tokenDecimals));
     return { tokenAmount: amount, usdValue: amount.mul(tokenPrice) };
   }
-
-  // ===== Parsing Functions (similar to Rust SDK) =====
 
   /**
    * Parse pool object from blockchain response
@@ -224,7 +218,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
   }
 
   /**
-   * Parse parent pool object from blockchain response (not applicable for SingleAssetLooping)
+   * Parse parent pool object (not applicable for SingleAssetLooping)
    */
   parseParentPoolObject(_response: any): never {
     throw new Error('SingleAssetLooping strategy does not have parent pool objects');
@@ -256,8 +250,6 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
       .filter((receipt) => receipt.poolId === this.poolLabel.poolId);
   }
 }
-
-// ===== Types =====
 
 /**
  * SingleAssetLooping Pool object data structure
@@ -322,10 +314,8 @@ export interface SingleAssetLoopingReceiptObject {
   xTokenBalance: string;
 }
 
-// ===== Pool Label =====
-
 /**
- * SingleAssetLooping Pool Label - Configuration for SingleAssetLooping strategy pools
+ * SingleAssetLooping Pool Label configuration
  */
 export interface SingleAssetLoopingPoolLabel {
   poolId: string;

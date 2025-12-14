@@ -1,18 +1,10 @@
-/**
- * Alpha Strategy Implementation
- * Single-asset pool strategy for SUI deposits with Alpha token rewards
- * Based on alphafi-sdk-rust/src/strategies/alpha.rs
- */
-
 import { Decimal } from 'decimal.js';
 import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 
-// ===== Alpha Strategy Class =====
-
 /**
- * AlphaVault Strategy for single-asset pools with SUI deposits and Alpha token rewards
+ * AlphaVault Strategy
  */
 export class AlphaVaultStrategy extends BaseStrategy<
   AlphaVaultPoolObject,
@@ -51,7 +43,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
 
   /**
    * Get data needed for alpha mining rewards calculation.
-   * AlphaVault uses positions (receiptObjects) for alpha mining data.
+   * Uses positions (receiptObjects) or legacy receipts if available.
    */
   protected getAlphaMiningData(): AlphaMiningData {
     // Get receipt data from positions or legacy receipts
@@ -82,11 +74,9 @@ export class AlphaVaultStrategy extends BaseStrategy<
     };
   }
 
-  // ===== Strategy Interface Implementation =====
-
   /**
-   * Get the exchange rate for AlphaVault strategy (xtoken to underlying token ratio)
-   * Exchange rate = tokens_invested / xtoken_supply
+   * Calculate exchange rate: tokens_invested / xtoken_supply
+   * Returns 1 if no tokens are supplied.
    */
   exchangeRate(): Decimal {
     const tokensInvested = new Decimal(this.poolObject.tokensInvested);
@@ -100,7 +90,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
   }
 
   /**
-   * Stubbed getData similar to Rust get_data; returns zero/empty placeholders
+   * Get pool summary data including APR and TVL
    */
   async getData(): Promise<PoolData> {
     const alphafi = await this.getTvl();
@@ -116,7 +106,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute TVL in quote currency using coin price data.
+   * Calculate TVL in USD using token amount and price
    */
   async getTvl(): Promise<SingleTvl> {
     const coinType = this.poolLabel.asset.type;
@@ -134,9 +124,8 @@ export class AlphaVaultStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute user's current AlphaVault balance.
-   * Mirrors Rust's get_balance implementation with full breakdown.
-   * @param userAddress - The user's wallet address
+   * Get user's balance including staked amount, pending deposits, withdrawals, and claimable airdrop
+   * @param userAddress - User's wallet address
    */
   async getBalance(userAddress: string): Promise<PoolBalance> {
     // Get all required data concurrently
@@ -198,26 +187,23 @@ export class AlphaVaultStrategy extends BaseStrategy<
     };
   }
 
-  // ===== Helper Functions (similar to Rust SDK alpha.rs) =====
-
   /**
-   * Gets token decimals for the pool's asset
+   * Get token decimals for the pool's asset
    */
   async getTokenDecimals(): Promise<number> {
     return this.context.getCoinDecimals(this.poolLabel.asset.type);
   }
 
   /**
-   * Gets token price in USD for the pool's asset
+   * Get token price in USD for the pool's asset
    */
   async getTokenPriceUsd(): Promise<Decimal> {
     return this.context.getCoinPrice(this.poolLabel.asset.type);
   }
 
   /**
-   * Gets pending deposits for a user.
-   * Checks recently_updated_alphafi_receipts for xtokens_to_add.
-   * @param userAddress - The user's wallet address
+   * Get pending deposits amount by checking recently_updated_alphafi_receipts
+   * @param userAddress - User's wallet address
    */
   async getPendingDeposits(userAddress: string): Promise<Decimal> {
     const alphafiReceipts = await this.context.getAlphaFiReceipts(userAddress);
@@ -251,8 +237,8 @@ export class AlphaVaultStrategy extends BaseStrategy<
   }
 
   /**
-   * Gets withdrawals status for a user.
-   * Returns an array of UserWithdrawalStatus with ticket_id, alpha_amount, status, and eta.
+   * Get all withdrawal requests with status and ETA timestamps
+   * Status: 0 = pending, 1 = accepted, 2 = claimable
    */
   async getWithdrawals(): Promise<
     {
@@ -315,8 +301,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
   }
 
   /**
-   * Gets the user's claimable airdrop amount (in SUI).
-   * Calculates based on acc_rewards_per_xtoken difference and pending rewards.
+   * Calculate user's claimable SUI airdrop based on accrued rewards per xtoken and pending rewards
    */
   async getUserClaimableAirdropAmount(): Promise<Decimal> {
     const rewardType =
@@ -362,7 +347,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
   }
 
   /**
-   * Gets the user's total airdrop claimed amount (in SUI).
+   * Get user's total SUI airdrop claimed so far
    */
   getUserTotalAirdropClaimed(): Decimal {
     const rewardType =
@@ -383,7 +368,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
   }
 
   /**
-   * Gets the total airdrop distributed from the pool (in SUI).
+   * Get total SUI airdrop distributed from the pool
    */
   getTotalAirdropDistributed(): Decimal {
     const rewardType =
@@ -409,10 +394,8 @@ export class AlphaVaultStrategy extends BaseStrategy<
     return totalDistributed.div(new Decimal(10).pow(9));
   }
 
-  // ===== Parsing Functions (similar to Rust SDK) =====
-
   /**
-   * Parse VecMap<ID, PositionUpdate> to PositionUpdateEntry[]
+   * Parse VecMap of position updates into structured entries
    */
   private parsePositionUpdateVecMap(vecMapField: any): PositionUpdateEntry[] {
     const contents = vecMapField?.fields?.contents ?? vecMapField?.contents ?? vecMapField;

@@ -1,7 +1,5 @@
 /**
- * FungibleLp Strategy Implementation
- * Fungible liquidity pool strategy for dual-asset pools with fungible tokens
- * Based on alphafi-sdk-rust/src/strategies/fungible_lp.rs
+ * FungibleLp Strategy
  */
 
 import { Decimal } from 'decimal.js';
@@ -10,8 +8,6 @@ import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
 import { ClmmPoolUtil, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
-
-// ===== FungibleLp Strategy Class =====
 
 /**
  * FungibleLp Strategy for dual-asset liquidity pools with fungible tokens
@@ -53,8 +49,7 @@ export class FungibleLpStrategy extends BaseStrategy<
   }
 
   /**
-   * FungibleLp does not have alpha mining rewards.
-   * Returns data with receipt: null to indicate no alpha mining rewards.
+   * Returns alpha mining data - FungibleLp pools do not support alpha mining
    */
   protected getAlphaMiningData(): AlphaMiningData {
     return {
@@ -65,11 +60,9 @@ export class FungibleLpStrategy extends BaseStrategy<
     };
   }
 
-  // ===== Strategy Interface Implementation =====
-
   /**
-   * Get the exchange rate for FungibleLp strategy (fungible token to underlying token ratio)
-   * Exchange rate = tokens_invested / treasury_cap.total_supply
+   * Get the exchange rate for fungible token to underlying token ratio
+   * Calculated as tokens_invested / treasury_cap.total_supply
    */
   exchangeRate(): Decimal {
     const tokensInvested = new Decimal(this.poolObject.tokensInvested);
@@ -83,7 +76,7 @@ export class FungibleLpStrategy extends BaseStrategy<
   }
 
   /**
-   * Stubbed getData similar to Rust get_data; returns zero/empty placeholders
+   * Get comprehensive pool data including TVL, LP breakdown, price, and position range
    */
   async getData(): Promise<PoolData> {
     const [alphafi, parent, lpBreakdown, parentLpBreakdown, currentLPPoolPrice, positionRange] =
@@ -111,7 +104,7 @@ export class FungibleLpStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute TVL using primary asset (asset_a) price and tokens_invested.
+   * Calculate total value locked using current asset prices and token amounts
    */
   async getTvl(): Promise<DoubleTvl> {
     const coinTypeA = this.poolLabel.assetA.type;
@@ -123,6 +116,9 @@ export class FungibleLpStrategy extends BaseStrategy<
     return { tokenAmountA: amountA, tokenAmountB: amountB, usdValue };
   }
 
+  /**
+   * Calculate parent pool TVL from underlying protocol reserves
+   */
   async getParentTvl(): Promise<DoubleTvl> {
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
@@ -140,10 +136,8 @@ export class FungibleLpStrategy extends BaseStrategy<
     return { tokenAmountA, tokenAmountB, usdValue };
   }
 
-  // ===== Helper Functions =====
-
   /**
-   * Estimate token A and B amounts from liquidity using Cetus CLMM SDK.
+   * Calculate token A and B amounts from liquidity using Cetus CLMM SDK
    */
   private async getTokenAmounts(
     liquidity: string,
@@ -180,6 +174,9 @@ export class FungibleLpStrategy extends BaseStrategy<
     return { amountA, amountB };
   }
 
+  /**
+   * Get LP token breakdown showing individual asset amounts and total liquidity
+   */
   private async getLpBreakdown(): Promise<{
     token1Amount: Decimal;
     token2Amount: Decimal;
@@ -195,6 +192,9 @@ export class FungibleLpStrategy extends BaseStrategy<
     };
   }
 
+  /**
+   * Get parent pool LP breakdown from underlying protocol
+   */
   private async getParentLpBreakdown(): Promise<{
     token1Amount: Decimal;
     token2Amount: Decimal;
@@ -214,6 +214,9 @@ export class FungibleLpStrategy extends BaseStrategy<
     return { token1Amount, token2Amount, totalLiquidity };
   }
 
+  /**
+   * Get current LP pool price from tick index
+   */
   async getCurrentLPPoolPrice(): Promise<Decimal> {
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
@@ -228,6 +231,9 @@ export class FungibleLpStrategy extends BaseStrategy<
     return new Decimal(price.toString());
   }
 
+  /**
+   * Get position price range from lower and upper tick bounds
+   */
   async getPositionRange(): Promise<{ lowerPrice: Decimal; upperPrice: Decimal }> {
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
@@ -249,8 +255,8 @@ export class FungibleLpStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute the user's current pool balance based on fungible xToken balance.
-   * Mirrors fungible_lp.rs: uses wallet balance instead of receipts.
+   * Calculate user's current pool balance from fungible xToken balance
+   * Uses wallet balance instead of receipts
    */
   async getBalance(_userAddress: string): Promise<PoolBalance> {
     if (this.xTokenBalance.isZero()) {
@@ -275,8 +281,6 @@ export class FungibleLpStrategy extends BaseStrategy<
     const usdValue = amountA.mul(priceA).add(amountB.mul(priceB));
     return { tokenAAmount: amountA, tokenBAmount: amountB, usdValue };
   }
-
-  // ===== Parsing Functions (similar to Rust SDK) =====
 
   /**
    * Parse pool object from blockchain response
@@ -348,14 +352,12 @@ export class FungibleLpStrategy extends BaseStrategy<
   }
 
   /**
-   * Parse receipt objects from blockchain responses (not applicable for FungibleLp)
+   * Parse receipt objects (not applicable for FungibleLp)
    */
   parseReceiptObjects(_responses: any[]): never {
     throw new Error('FungibleLp strategy does not have receipts');
   }
 }
-
-// ===== Types =====
 
 /**
  * FungibleLp Pool object data structure
@@ -396,7 +398,7 @@ export interface FungibleLpInvestorObject {
 }
 
 /**
- * FungibleLp Parent Pool object data structure (underlying protocol pool)
+ * FungibleLp Parent Pool object data structure
  */
 export interface FungibleLpParentPoolObject {
   coinA: string;
@@ -407,10 +409,8 @@ export interface FungibleLpParentPoolObject {
   liquidity: string;
 }
 
-// ===== Pool Label =====
-
 /**
- * FungibleLp Pool Label - Configuration for FungibleLp strategy pools
+ * FungibleLp Pool Label configuration
  */
 export interface FungibleLpPoolLabel {
   poolId: string;

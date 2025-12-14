@@ -1,7 +1,5 @@
 /**
- * LP Strategy Implementation
- * Liquidity pool strategy for dual-asset pools with LP positions
- * Based on alphafi-sdk-rust/src/strategies/lp.rs
+ * LP Strategy
  */
 
 import { Decimal } from 'decimal.js';
@@ -10,8 +8,6 @@ import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
 import { ClmmPoolUtil, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
-
-// ===== LP Strategy Class =====
 
 /**
  * LP Strategy for dual-asset liquidity pools
@@ -53,7 +49,7 @@ export class LpStrategy extends BaseStrategy<
   }
 
   /**
-   * Get data needed for alpha mining rewards calculation.
+   * Get alpha mining data including pool and receipt information
    */
   protected getAlphaMiningData(): AlphaMiningData {
     const receipt = this.receiptObjects.length > 0 ? this.receiptObjects[0] : null;
@@ -72,11 +68,9 @@ export class LpStrategy extends BaseStrategy<
     };
   }
 
-  // ===== Strategy Interface Implementation =====
-
   /**
-   * Get the exchange rate for LP strategy (xtoken to underlying token ratio)
-   * Exchange rate = tokens_invested / xtoken_supply
+   * Get the exchange rate for xtoken to underlying token ratio
+   * Calculated as tokens_invested / xtoken_supply
    */
   exchangeRate(): Decimal {
     const tokensInvested = new Decimal(this.poolObject.tokensInvested);
@@ -90,7 +84,7 @@ export class LpStrategy extends BaseStrategy<
   }
 
   /**
-   * Stubbed getData similar to Rust get_data; returns zero/empty placeholders
+   * Get comprehensive pool data including TVL, LP breakdown, price, and position range
    */
   async getData(): Promise<PoolData> {
     const [alphafi, parent, lpBreakdown, parentLpBreakdown, currentLPPoolPrice, positionRange] =
@@ -118,7 +112,7 @@ export class LpStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute TVL for LP-style strategies. Uses parent pool amounts if available.
+   * Calculate total value locked using current asset prices and token amounts
    */
   async getTvl(): Promise<DoubleTvl> {
     const coinTypeA = this.poolLabel.assetA.type;
@@ -130,6 +124,9 @@ export class LpStrategy extends BaseStrategy<
     return { tokenAmountA: amountA, tokenAmountB: amountB, usdValue };
   }
 
+  /**
+   * Calculate parent pool TVL from underlying protocol reserves
+   */
   async getParentTvl(): Promise<DoubleTvl> {
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
@@ -147,6 +144,9 @@ export class LpStrategy extends BaseStrategy<
     return { tokenAmountA, tokenAmountB, usdValue };
   }
 
+  /**
+   * Get LP token breakdown showing individual asset amounts and total liquidity
+   */
   async getLpBreakdown(): Promise<{
     token1Amount: Decimal;
     token2Amount: Decimal;
@@ -162,6 +162,9 @@ export class LpStrategy extends BaseStrategy<
     };
   }
 
+  /**
+   * Get parent pool LP breakdown from underlying protocol
+   */
   async getParentLpBreakdown(): Promise<{
     token1Amount: Decimal;
     token2Amount: Decimal;
@@ -181,6 +184,9 @@ export class LpStrategy extends BaseStrategy<
     return { token1Amount, token2Amount, totalLiquidity };
   }
 
+  /**
+   * Get current LP pool price from tick index
+   */
   async getCurrentLPPoolPrice(): Promise<Decimal> {
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
@@ -195,6 +201,9 @@ export class LpStrategy extends BaseStrategy<
     return new Decimal(price.toString());
   }
 
+  /**
+   * Get position price range from lower and upper tick bounds
+   */
   async getPositionRange(): Promise<{ lowerPrice: Decimal; upperPrice: Decimal }> {
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
@@ -216,8 +225,8 @@ export class LpStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute the user's current pool balance from a receipt object.
-   * Parses the receipt inline and returns token amounts and total USD value.
+   * Calculate user's current pool balance from receipt objects
+   * Converts xToken balance to underlying assets and USD value
    */
   async getBalance(_userAddress: string): Promise<PoolBalance> {
     if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
@@ -244,10 +253,8 @@ export class LpStrategy extends BaseStrategy<
     return { tokenAAmount: amountA, tokenBAmount: amountB, usdValue };
   }
 
-  // ===== Helper Functions =====
-
   /**
-   * Estimate token A and B amounts from liquidity using Cetus CLMM SDK.
+   * Calculate token A and B amounts from liquidity using Cetus CLMM SDK
    */
   private async getTokenAmounts(
     liquidity: string,
@@ -283,8 +290,6 @@ export class LpStrategy extends BaseStrategy<
     const amountB = new Decimal(amounts.coinB.toString()).div(scalingB);
     return { amountA, amountB };
   }
-
-  // ===== Parsing Functions (similar to Rust SDK) =====
 
   /**
    * Parse pool object from blockchain response
@@ -385,8 +390,6 @@ export class LpStrategy extends BaseStrategy<
   }
 }
 
-// ===== Types =====
-
 /**
  * LP Pool object data structure
  */
@@ -430,7 +433,7 @@ export interface LpInvestorObject {
 }
 
 /**
- * LP Parent Pool object data structure (underlying protocol pool)
+ * LP Parent Pool object data structure
  */
 export interface LpParentPoolObject {
   coinA: string;
@@ -455,10 +458,8 @@ export interface LpReceiptObject {
   xTokenBalance: string;
 }
 
-// ===== Pool Label =====
-
 /**
- * LP Pool Label - Configuration for LP strategy pools
+ * LP Pool Label configuration
  */
 export interface LpPoolLabel {
   poolId: string;

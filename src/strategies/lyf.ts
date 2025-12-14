@@ -1,7 +1,5 @@
 /**
- * Lyf Strategy Implementation
- * Lyf strategy for dual-asset pools using alphalend for leverage
- * Based on alphafi-sdk-rust/src/strategies/lyf.rs
+ * Lyf Strategy
  */
 
 import { Decimal } from 'decimal.js';
@@ -10,8 +8,6 @@ import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
 import { ClmmPoolUtil, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
-
-// ===== Lyf Strategy Class =====
 
 /**
  * Lyf Strategy for dual-asset pools using alphalend for leverage
@@ -52,7 +48,7 @@ export class LyfStrategy extends BaseStrategy<
   }
 
   /**
-   * Get data needed for alpha mining rewards calculation.
+   * Get alpha mining data including pool and receipt information
    */
   protected getAlphaMiningData(): AlphaMiningData {
     const receipt = this.receiptObjects.length > 0 ? this.receiptObjects[0] : null;
@@ -71,11 +67,9 @@ export class LyfStrategy extends BaseStrategy<
     };
   }
 
-  // ===== Strategy Interface Implementation =====
-
   /**
-   * Get the exchange rate for Lyf strategy (xtoken to underlying token ratio)
-   * Exchange rate = tokens_invested / xtoken_supply
+   * Get the exchange rate for xtoken to underlying token ratio
+   * Calculated as tokens_invested / xtoken_supply
    */
   exchangeRate(): Decimal {
     const tokensInvested = new Decimal(this.poolObject.tokensInvested);
@@ -89,7 +83,7 @@ export class LyfStrategy extends BaseStrategy<
   }
 
   /**
-   * Stubbed getData similar to Rust get_data; returns zero/empty placeholders
+   * Get comprehensive pool data including TVL, LP breakdown, price, and position range
    */
   async getData(): Promise<PoolData> {
     const [alphafi, parent, lpBreakdown, parentLpBreakdown, currentLPPoolPrice, positionRange] =
@@ -117,7 +111,7 @@ export class LyfStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute TVL using primary asset (asset_a) price and tokens_invested.
+   * Calculate total value locked using current asset prices and token amounts
    */
   async getTvl(): Promise<DoubleTvl> {
     const coinTypeA = this.poolLabel.assetA.type;
@@ -129,6 +123,9 @@ export class LyfStrategy extends BaseStrategy<
     return { tokenAmountA: amountA, tokenAmountB: amountB, usdValue };
   }
 
+  /**
+   * Calculate parent pool TVL from underlying protocol reserves
+   */
   async getParentTvl(): Promise<DoubleTvl> {
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
@@ -146,6 +143,9 @@ export class LyfStrategy extends BaseStrategy<
     return { tokenAmountA, tokenAmountB, usdValue };
   }
 
+  /**
+   * Get LP token breakdown showing individual asset amounts and total liquidity
+   */
   async getLpBreakdown(): Promise<{
     token1Amount: Decimal;
     token2Amount: Decimal;
@@ -161,6 +161,9 @@ export class LyfStrategy extends BaseStrategy<
     };
   }
 
+  /**
+   * Get parent pool LP breakdown from underlying protocol
+   */
   async getParentLpBreakdown(): Promise<{
     token1Amount: Decimal;
     token2Amount: Decimal;
@@ -180,6 +183,9 @@ export class LyfStrategy extends BaseStrategy<
     return { token1Amount, token2Amount, totalLiquidity };
   }
 
+  /**
+   * Get current LP pool price from tick index
+   */
   async getCurrentLPPoolPrice(): Promise<Decimal> {
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
@@ -194,6 +200,9 @@ export class LyfStrategy extends BaseStrategy<
     return new Decimal(price.toString());
   }
 
+  /**
+   * Get position price range from lower and upper tick bounds
+   */
   async getPositionRange(): Promise<{ lowerPrice: Decimal; upperPrice: Decimal }> {
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
@@ -215,9 +224,8 @@ export class LyfStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute the user's current pool balance for LYF strategy.
-   * Mirrors lyf.rs: convert xTokens to underlying amounts via exchange rate,
-   * get token A/B amounts, compute USD value, then convert to zap asset amount.
+   * Calculate user's current pool balance from xToken balance
+   * Converts to underlying assets, calculates USD value, then converts to zap asset
    */
   async getBalance(_userAddress: string): Promise<PoolBalance> {
     if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
@@ -243,8 +251,9 @@ export class LyfStrategy extends BaseStrategy<
     return { tokenAmount, usdValue };
   }
 
-  // ===== Helper Functions =====
-
+  /**
+   * Calculate leverage from debt-to-supply ratio
+   */
   private getLeverage(): Decimal {
     // leverage = 1 / (1 - debt_to_supply_ratio_scaled)
     const ratioScaled = new Decimal(this.investorObject.currentDebtToSupplyRatio);
@@ -253,7 +262,7 @@ export class LyfStrategy extends BaseStrategy<
   }
 
   /**
-   * Estimate token A and B amounts from liquidity using Cetus CLMM SDK, adjusted by leverage.
+   * Calculate token A and B amounts from liquidity using Cetus CLMM SDK, adjusted by leverage
    */
   private async getTokenAmounts(
     liquidity: string,
@@ -294,8 +303,6 @@ export class LyfStrategy extends BaseStrategy<
     }
     return { amountA, amountB };
   }
-
-  // ===== Parsing Functions (similar to Rust SDK) =====
 
   /**
    * Parse pool object from blockchain response
@@ -384,6 +391,9 @@ export class LyfStrategy extends BaseStrategy<
       .filter((receipt) => receipt.poolId === this.poolLabel.poolId);
   }
 
+  /**
+   * Parse investor fields from blockchain response data
+   */
   private parseInvestorFields(response: any): LyfInvestorObject {
     const fields = this.extractFields(response ?? {});
     const freeRewards = (() => {
@@ -414,8 +424,6 @@ export class LyfStrategy extends BaseStrategy<
     };
   }
 }
-
-// ===== Types =====
 
 /**
  * Lyf Pool object data structure
@@ -466,7 +474,7 @@ export interface LyfInvestorObject {
 }
 
 /**
- * Lyf Parent Pool object data structure (underlying protocol pool)
+ * Lyf Parent Pool object data structure
  */
 export interface LyfParentPoolObject {
   coinA: string;
@@ -491,10 +499,8 @@ export interface LyfReceiptObject {
   xTokenBalance: string;
 }
 
-// ===== Pool Label =====
-
 /**
- * Lyf Pool Label - Configuration for Lyf strategy pools
+ * Lyf Pool Label configuration
  */
 export interface LyfPoolLabel {
   poolId: string;

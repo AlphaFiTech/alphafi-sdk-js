@@ -1,7 +1,5 @@
 /**
- * AutobalanceLp Strategy Implementation
- * Autobalance liquidity pool strategy for dual-asset pools with automatic rebalancing
- * Based on alphafi-sdk-rust/src/strategies/autobalance_lp.rs
+ * AutobalanceLp Strategy
  */
 
 import { Decimal } from 'decimal.js';
@@ -10,8 +8,6 @@ import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
 import { ClmmPoolUtil, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
-
-// ===== AutobalanceLp Strategy Class =====
 
 /**
  * AutobalanceLp Strategy for dual-asset liquidity pools with automatic rebalancing
@@ -53,8 +49,7 @@ export class AutobalanceLpStrategy extends BaseStrategy<
   }
 
   /**
-   * AutobalanceLp does not have alpha mining rewards.
-   * Returns data with receipt: null to indicate no alpha mining rewards.
+   * Returns alpha mining data - AutobalanceLp pools do not support alpha mining
    */
   protected getAlphaMiningData(): AlphaMiningData {
     return {
@@ -65,11 +60,9 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     };
   }
 
-  // ===== Strategy Interface Implementation =====
-
   /**
-   * Get the exchange rate for AutobalanceLp strategy (xtoken to underlying token ratio)
-   * Exchange rate = tokens_invested / xtoken_supply
+   * Get the exchange rate for xtoken to underlying token ratio
+   * Calculated as tokens_invested / xtoken_supply
    */
   exchangeRate(): Decimal {
     const tokensInvested = new Decimal(this.poolObject.tokensInvested);
@@ -83,7 +76,7 @@ export class AutobalanceLpStrategy extends BaseStrategy<
   }
 
   /**
-   * Stubbed getData similar to Rust get_data; returns zero/empty placeholders
+   * Get comprehensive pool data including TVL, LP breakdown, price, and position range
    */
   async getData(): Promise<PoolData> {
     const [alphafi, parent, lpBreakdown, parentLpBreakdown, currentLPPoolPrice, positionRange] =
@@ -111,7 +104,7 @@ export class AutobalanceLpStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute TVL using primary asset (asset_a) price and tokens_invested.
+   * Calculate total value locked using current asset prices and token amounts
    */
   async getTvl(): Promise<DoubleTvl> {
     const coinTypeA = this.poolLabel.assetA.type;
@@ -123,6 +116,9 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     return { tokenAmountA: amountA, tokenAmountB: amountB, usdValue };
   }
 
+  /**
+   * Calculate parent pool TVL from underlying protocol reserves
+   */
   async getParentTvl(): Promise<DoubleTvl> {
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
@@ -141,6 +137,9 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     return { tokenAmountA, tokenAmountB, usdValue };
   }
 
+  /**
+   * Get LP token breakdown showing individual asset amounts and total liquidity
+   */
   async getLpBreakdown(): Promise<{
     token1Amount: Decimal;
     token2Amount: Decimal;
@@ -156,6 +155,9 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     };
   }
 
+  /**
+   * Get parent pool LP breakdown from underlying protocol
+   */
   async getParentLpBreakdown(): Promise<{
     token1Amount: Decimal;
     token2Amount: Decimal;
@@ -175,6 +177,9 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     return { token1Amount, token2Amount, totalLiquidity };
   }
 
+  /**
+   * Get current LP pool price from tick index
+   */
   async getCurrentLPPoolPrice(): Promise<Decimal> {
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
@@ -189,6 +194,9 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     return new Decimal(price.toString());
   }
 
+  /**
+   * Get position price range from lower and upper tick bounds
+   */
   async getPositionRange(): Promise<{ lowerPrice: Decimal; upperPrice: Decimal }> {
     const coinTypeA = this.poolLabel.assetA.type;
     const coinTypeB = this.poolLabel.assetB.type;
@@ -210,9 +218,8 @@ export class AutobalanceLpStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute the user's current pool balance from stored receipt objects.
-   * Uses the first parsed receipt to derive xToken balance, converts via exchangeRate,
-   * estimates token amounts using getTokenAmounts, and returns USD value.
+   * Calculate user's current pool balance from receipt objects
+   * Converts xToken balance to underlying assets and USD value
    */
   async getBalance(_userAddress: string): Promise<PoolBalance> {
     if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
@@ -239,10 +246,8 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     return { tokenAAmount: amountA, tokenBAmount: amountB, usdValue };
   }
 
-  // ===== Helper Functions =====
-
   /**
-   * Estimate token A and B amounts from liquidity using Cetus CLMM SDK.
+   * Calculate token A and B amounts from liquidity using Cetus CLMM SDK
    */
   private async getTokenAmounts(
     liquidity: string,
@@ -278,8 +283,6 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     const amountB = new Decimal(amounts.coinB.toString()).div(scalingB);
     return { amountA, amountB };
   }
-
-  // ===== Parsing Functions (similar to Rust SDK) =====
 
   /**
    * Parse pool object from blockchain response
@@ -380,8 +383,6 @@ export class AutobalanceLpStrategy extends BaseStrategy<
   }
 }
 
-// ===== Types =====
-
 /**
  * AutobalanceLp Pool object data structure
  */
@@ -425,7 +426,7 @@ export interface AutobalanceLpInvestorObject {
 }
 
 /**
- * AutobalanceLp Parent Pool object data structure (underlying protocol pool)
+ * AutobalanceLp Parent Pool object data structure
  */
 export interface AutobalanceLpParentPoolObject {
   coinA: string;
@@ -450,10 +451,8 @@ export interface AutobalanceLpReceiptObject {
   xTokenBalance: string;
 }
 
-// ===== Pool Label =====
-
 /**
- * AutobalanceLp Pool Label - Configuration for AutobalanceLp strategy pools
+ * AutobalanceLp Pool Label configuration
  */
 export interface AutobalanceLpPoolLabel {
   poolId: string;

@@ -1,15 +1,11 @@
 /**
- * Lending Strategy Implementation
- * Lending strategy for single-asset pools with lending protocol integration
- * Based on alphafi-sdk-rust/src/strategies/lending.rs
+ * Lending Strategy
  */
 
 import { Decimal } from 'decimal.js';
 import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
-
-// ===== Lending Strategy Class =====
 
 /**
  * Lending Strategy for single-asset pools with lending protocol integration
@@ -51,7 +47,7 @@ export class LendingStrategy extends BaseStrategy<
   }
 
   /**
-   * Get data needed for alpha mining rewards calculation.
+   * Get alpha mining data including pool and receipt information
    */
   protected getAlphaMiningData(): AlphaMiningData {
     const receipt = this.receiptObjects.length > 0 ? this.receiptObjects[0] : null;
@@ -70,11 +66,9 @@ export class LendingStrategy extends BaseStrategy<
     };
   }
 
-  // ===== Strategy Interface Implementation =====
-
   /**
-   * Get the exchange rate for Lending strategy (xtoken to underlying token ratio)
-   * Exchange rate = tokens_invested / xtoken_supply
+   * Get the exchange rate for xtoken to underlying token ratio
+   * Calculated as tokens_invested / xtoken_supply
    */
   exchangeRate(): Decimal {
     const tokensInvested = new Decimal(this.poolObject.tokensInvested);
@@ -88,7 +82,7 @@ export class LendingStrategy extends BaseStrategy<
   }
 
   /**
-   * Stubbed getData similar to Rust get_data; returns zero/empty placeholders
+   * Get comprehensive pool data including TVL and APR information
    */
   async getData(): Promise<PoolData> {
     const [alphafi, parent] = await Promise.all([this.getTvl(), this.getParentTvl()]);
@@ -104,7 +98,7 @@ export class LendingStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute TVL in quote currency using coin price data.
+   * Calculate total value locked using current asset price
    */
   async getTvl(): Promise<SingleTvl> {
     const coinType = this.poolLabel.asset.type;
@@ -114,6 +108,9 @@ export class LendingStrategy extends BaseStrategy<
     return { tokenAmount, usdValue };
   }
 
+  /**
+   * Calculate parent protocol TVL based on protocol type (Bucket/Navi/Alphalend)
+   */
   async getParentTvl(): Promise<SingleTvl> {
     const protocol = this.poolLabel.parentProtocol;
     const price = await this.context.getCoinPrice(this.poolLabel.asset.type);
@@ -131,8 +128,8 @@ export class LendingStrategy extends BaseStrategy<
   }
 
   /**
-   * Compute the user's current pool balance for Lending strategy.
-   * Mirrors lending.rs: xTokens -> tokens via exchangeRate, scaled by 1e9, priced by asset.
+   * Calculate user's current pool balance from xToken balance
+   * Converts xTokens to underlying tokens via exchange rate
    */
   async getBalance(_userAddress: string): Promise<PoolBalance> {
     if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokenBalance === '0') {
@@ -146,8 +143,6 @@ export class LendingStrategy extends BaseStrategy<
     const tokens = xTokens.mul(exchangeRate).div(new Decimal(10).pow(9));
     return { tokenAmount: tokens, usdValue: tokens.mul(price) };
   }
-
-  // ===== Parsing Functions (similar to Rust SDK) =====
 
   /**
    * Parse pool object from blockchain response
@@ -245,8 +240,6 @@ export class LendingStrategy extends BaseStrategy<
   }
 }
 
-// ===== Types =====
-
 /**
  * Lending Pool object data structure
  */
@@ -311,10 +304,8 @@ export interface LendingReceiptObject {
   xTokenBalance: string;
 }
 
-// ===== Pool Label =====
-
 /**
- * Lending Pool Label - Configuration for Lending strategy pools
+ * Lending Pool Label configuration
  */
 export interface LendingPoolLabel {
   poolId: string;
