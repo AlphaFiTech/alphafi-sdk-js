@@ -7,7 +7,6 @@ import { Portfolio } from '../src/models/portfolio.js';
 import { AlphaFiSDK } from '../src/index.js';
 import dotenv from 'dotenv';
 import { Transaction } from '@mysten/sui/transactions';
-import { get } from 'http';
 import { getConf } from '../src/common/constants.js';
 
 dotenv.config();
@@ -136,7 +135,11 @@ async function main() {
 
 async function deposit() {
   const { address, keypair, suiClient } = getExecStuff();
-  const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
+  const sdk = new AlphaFiSDK({
+    client: suiClient,
+    network: 'mainnet',
+    address,
+  });
   const tx = await sdk.deposit({
     poolId: getConf().ALPHAFI_ALPHALEND_SINGLE_LOOP_DEEP_POOL, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
     amount: 10000n,
@@ -158,5 +161,13 @@ async function withdraw() {
   dryRunTransactionBlock(tx);
   // executeTransactionBlock(tx);
 }
-withdraw();
-// deposit();
+async function claimAirdrop() {
+  const { address, keypair, suiClient } = getExecStuff();
+  const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
+  const tx = await sdk.claimAirdrop(false);
+  tx.setGasBudget(2e8);
+  dryRunTransactionBlock(tx);
+  // executeTransactionBlock(tx);
+}
+claimAirdrop();
+// withdraw();
