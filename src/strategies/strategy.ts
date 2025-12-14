@@ -1,6 +1,5 @@
 /**
- * Strategy Base Class and Interface
- * Contains both the Strategy interface and BaseStrategy implementation with parsing utilities
+ * Strategy interfaces and shared helpers used by all strategy implementations.
  */
 
 import { Decimal } from 'decimal.js';
@@ -13,8 +12,9 @@ export interface KeyValuePair {
 }
 
 /**
- * Data required to calculate alpha mining rewards for a user.
- * Returns null if the strategy does not support alpha mining rewards.
+ * Minimal data needed to compute ALPHA mining rewards for a user.
+ *
+ * Strategies that don't participate in alpha mining should return `receipt: null`.
  */
 export interface AlphaMiningData {
   poolId: string;
@@ -28,7 +28,7 @@ export interface AlphaMiningData {
 }
 
 /**
- * Alpha coin type for mining rewards
+ * Struct tag for the ALPHA coin used by the distributor.
  */
 export const ALPHA_COIN_TYPE =
   'fe3afec26c59e874f3c1d60b8203cb3852d2bb2aa415df9548b8d688e6683f93::alpha::ALPHA';
@@ -66,8 +66,7 @@ export type SingleAssetLoopingPoolLabel =
 export type LyfPoolLabel = import('./lyf.js').LyfPoolLabel;
 
 /**
- * Union type containing all strategy-specific pool label types
- * Similar to PoolLabelEnum in the Rust SDK
+ * Union of all strategy-specific pool label types.
  */
 export type PoolLabel =
   | LpPoolLabel
@@ -81,60 +80,67 @@ export type PoolLabel =
   | LyfPoolLabel;
 
 /**
- * Strategy interface that all strategies must implement
+ * Common strategy surface used by the SDK.
  */
 export interface Strategy<TPool = any, TInvestor = any, TParentPool = any, TReceipt = any> {
   /**
-   * Parse pool object from blockchain response
+   * Parse a pool object fetched from chain into a typed shape.
    */
   parsePoolObject(response: any): TPool;
 
   /**
-   * Parse investor object from blockchain response
+   * Parse an investor object fetched from chain into a typed shape.
    */
   parseInvestorObject(response: any): TInvestor;
 
   /**
-   * Parse parent pool object from blockchain response
+   * Parse a parent pool object (underlying protocol) fetched from chain.
    */
   parseParentPoolObject(response: any): TParentPool;
 
   /**
-   * Parse receipt objects from blockchain responses
+   * Parse receipt objects fetched from chain.
    */
   parseReceiptObjects(responses: any[]): TReceipt[];
 
   /**
-   * Get the exchange rate for the strategy (xtoken to underlying token ratio)
+   * Current exchange rate used by the strategy.
+   * Typically: `tokens_invested / xToken_supply`.
    */
   exchangeRate(): Decimal;
 
   /**
-   * Compute the TVL (and parent TVL if applicable) for the strategy.
+   * TVL for the AlphaFi pool and the underlying parent protocol (if any).
    */
   getTvl(): Promise<SingleTvl | DoubleTvl>;
   getParentTvl(): Promise<SingleTvl | DoubleTvl>;
 
+  /**
+   * User balance breakdown for this pool.
+   */
   getBalance(userAddress: string): Promise<PoolBalance>;
 
+  /**
+   * Static metadata/config for this pool (from config API).
+   */
   getPoolLabel(): PoolLabel;
 
   /**
-   * Get full pool data for this strategy (high-level summary used by the SDK).
+   * High-level pool summary (APR + TVL + strategy-specific metadata).
    */
   getData(): Promise<PoolData>;
 
   /**
-   * Get alpha mining rewards to claim for this strategy.
-   * Returns the amount of ALPHA tokens claimable by the user.
-   * @param distributor - The distributor object from StrategyContext
+   * Compute ALPHA mining rewards claimable for this pool.
+   *
+   * Note: this uses the cached distributor object from `StrategyContext`.
    */
   getAlphaMiningRewardsToClaim(distributor: DistributorObject): Decimal;
 }
 
 /**
- * Base Strategy class with built-in parsing utilities
- * All strategies should extend this class
+ * Base class shared by all strategies.
+ * Provides parsing helpers and common reward calculation logic.
  */
 export abstract class BaseStrategy<TPool = any, TInvestor = any, TParentPool = any, TReceipt = any>
   implements Strategy<TPool, TInvestor, TParentPool, TReceipt>
@@ -151,22 +157,19 @@ export abstract class BaseStrategy<TPool = any, TInvestor = any, TParentPool = a
   abstract getPoolLabel(): PoolLabel;
 
   /**
-   * Get the data needed for alpha mining rewards calculation.
-   * Strategies that don't support alpha mining (e.g., AutobalanceLp, SlushLending, FungibleLp)
-   * should return data with `receipt: null`.
+   * Provide the inputs needed to compute ALPHA mining rewards for this strategy.
+   * Return `receipt: null` if the strategy/user has no alpha mining position.
    */
   protected abstract getAlphaMiningData(): AlphaMiningData;
 
   /**
-   * Get alpha mining rewards to claim for this strategy.
-   * Implements the same logic as the Rust SDK's get_alpha_mining_rewards_to_claim.
-   * @param distributor - The distributor object from StrategyContext
-   * @returns The amount of ALPHA tokens claimable (in human-readable units, i.e., divided by 1e9)
+   * Compute claimable ALPHA rewards using the distributor + pool/receipt accounting.
+   * Returns a human-readable amount (divided by 1e9).
    */
   getAlphaMiningRewardsToClaim(distributor: DistributorObject): Decimal {
     const data = this.getAlphaMiningData();
 
-    // If no receipt, return 0 (no alpha mining rewards for this user/strategy)
+    // No receipt -> no position -> no alpha rewards.
     if (!data.receipt) {
       return new Decimal(0);
     }
