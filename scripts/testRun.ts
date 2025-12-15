@@ -7,7 +7,7 @@ import { Portfolio } from '../src/models/portfolio.js';
 import { AlphaFiSDK, StrategyContext } from '../src/index.js';
 import dotenv from 'dotenv';
 import { Transaction } from '@mysten/sui/transactions';
-import { getConf } from '../src/common/constants.js';
+import * as fs from 'fs';
 
 dotenv.config();
 
@@ -160,12 +160,11 @@ main();
 async function deposit() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({
-    client: suiClient,
+    suiClient: suiClient,
     network: 'mainnet',
-    address,
   });
   const tx = await sdk.deposit({
-    poolId: getConf().ALPHA_SLUSH_WAL_POOL_ID, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    poolId: '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
     amount: 100_000n,
     address: address,
   });
@@ -175,9 +174,9 @@ async function deposit() {
 
 async function withdraw() {
   const { address, keypair, suiClient } = getExecStuff();
-  const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
+  const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
   const tx = await sdk.initiateWithdrawAlpha({
-    poolId: getConf().ALPHAFI_EMBER_POOL, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    poolId: '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
     amount: '200000',
     withdrawMax: false,
     address: address,
@@ -188,8 +187,8 @@ async function withdraw() {
 }
 async function claimAirdrop() {
   const { address, keypair, suiClient } = getExecStuff();
-  const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
-  const tx = await sdk.claimAirdrop(false);
+  const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
+  const tx = await sdk.claimAirdrop(address, false);
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx);
   // executeTransactionBlock(tx);
