@@ -41,6 +41,7 @@ import {
   ZapDepositQuoteOptions,
 } from './types.js';
 import { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
+import { StrategyType } from '../strategies/strategy.js';
 
 // Re-export types for external use
 export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
@@ -87,14 +88,19 @@ export class AlphaFiSDK {
     this.isInitialized = true;
   }
 
-  async getAllPoolsData(address?: string): Promise<Map<string, PoolData>> {
+  async getPoolsData(
+    address?: string,
+    strategiesType?: StrategyType[],
+  ): Promise<Map<string, PoolData>> {
     await this.ensureInitialized(address);
-    return this.protocol.getAllPoolsData();
+    return this.protocol.getPoolsData(strategiesType);
   }
-
-  async getUserPortfolio(address: string): Promise<UserPortfolioData> {
+  async getUserPortfolio(
+    address: string,
+    strategiesType?: StrategyType[],
+  ): Promise<UserPortfolioData> {
     await this.ensureInitialized(address);
-    return this.portfolio.getUserPortfolio(address);
+    return this.portfolio.getUserPortfolio(address, strategiesType);
   }
 
   /**

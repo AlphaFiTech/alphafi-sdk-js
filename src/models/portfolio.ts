@@ -3,7 +3,7 @@ import { normalizeStructTag } from '@mysten/sui/utils/sui-types.js';
 import { StrategyContext } from './strategyContext.js';
 import { PoolBalance, UserPortfolioData } from './types.js';
 import { Decimal } from 'decimal.js';
-import { Strategy } from '../strategies/strategy.js';
+import { Strategy, StrategyType } from '../strategies/strategy.js';
 import { AlphaVaultStrategy } from '../strategies/alphaVault.js';
 import { AutobalanceLpStrategy } from '../strategies/autobalanceLp.js';
 import { LendingStrategy } from '../strategies/lending.js';
@@ -35,8 +35,11 @@ export class Portfolio {
     return resMap;
   }
 
-  async getUserPortfolio(userAddress: string): Promise<UserPortfolioData> {
-    const strategies = await this.protocol.getAllStrategies();
+  async getUserPortfolio(
+    userAddress: string,
+    strategiesType?: StrategyType[],
+  ): Promise<UserPortfolioData> {
+    const strategies = await this.protocol.getStrategies(strategiesType);
     await this.updateStrategiesWithReceipts(userAddress, strategies);
 
     const balancesWithIds = await Promise.all(
@@ -82,7 +85,7 @@ export class Portfolio {
     userAddress: string,
     strategies: Map<string, Strategy>,
   ) {
-    const poolLabels = Array.from(this.strategyContext.poolLabels.values());
+    const poolLabels = Array.from(strategies.values()).map((strategy) => strategy.getPoolLabel());
     const receiptTypes: string[] = [];
     poolLabels.forEach((poolLabel) => {
       switch (poolLabel.strategyType) {

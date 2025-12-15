@@ -11,15 +11,14 @@ import {
   SingleAssetLoopingPoolLabel,
   SingleAssetLoopingStrategy,
 } from '../strategies/singleAssetLooping.js';
-import { Strategy } from '../strategies/strategy.js';
+import { PoolLabel, Strategy, StrategyType } from '../strategies/strategy.js';
 import { PoolData } from './types.js';
 
 export class Protocol {
   strategyContext: StrategyContext;
   private strategies: Map<string, Strategy>;
-  private isInitialized: boolean = false;
+  private lastInitializedAtByType: Map<StrategyType, number> = new Map();
   private initializationPromise: Promise<void> | null = null;
-  private lastInitializedAt: number | null = null;
   private static readonly STRATEGIES_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
   constructor(strategyContext: StrategyContext) {
@@ -27,64 +26,140 @@ export class Protocol {
     this.strategies = new Map<string, Strategy>();
   }
 
+  async getStrategies(strategiesType?: StrategyType[]): Promise<Map<string, Strategy>> {
+    await this.ensureInitialized(strategiesType);
+    // If no filter specified, return all strategies
+    if (!strategiesType) {
+      return this.strategies;
+    }
+
+    return new Map(
+      Array.from(this.strategies.values())
+        .filter((strategy) => strategiesType.includes(strategy.getPoolLabel().strategyType))
+        .map((strategy) => [strategy.getPoolLabel().poolId, strategy]),
+    );
+  }
+
+  async getPoolsData(strategiesType?: StrategyType[]): Promise<Map<string, PoolData>> {
+    const strategies = await this.getStrategies(strategiesType);
+    const poolsData = await Promise.all(
+      Array.from(strategies.values()).map((strategy) => strategy.getData()),
+    );
+    return new Map(poolsData.map((poolData) => [poolData.poolId, poolData]));
+  }
+
   /**
    * Ensure strategies are initialized and refreshed at most every STRATEGIES_TTL_MS.
+   * @param strategiesType - Optional array of strategy types to initialize. If not provided, all types are initialized.
+   *
+   * Behavior:
+   * - Each strategy type has its own TTL. Only stale types are cleared and rebuilt.
+   * - Fresh strategy types are kept in cache, even if other types need rebuilding.
+   * - Concurrent calls are deduplicated: if an initialization is in progress, subsequent calls wait and recheck.
    */
-  async ensureInitialized() {
-    const now = Date.now();
-    const isFresh =
-      this.isInitialized &&
-      this.lastInitializedAt !== null &&
-      now - this.lastInitializedAt < Protocol.STRATEGIES_TTL_MS;
+  private async ensureInitialized(strategiesType?: StrategyType[]) {
+    // Determine which strategy types need to be built (stale or never initialized)
+    let typesToBuild = this.getTypesToBuild(strategiesType);
 
-    if (isFresh) {
+    if (typesToBuild.length === 0) {
+      // All requested types are fresh
       return;
     }
 
+    // Clear only the stale strategies before rebuilding
+    this.clearStrategiesOfTypes(typesToBuild);
+
+    // If there's an ongoing initialization, wait for it then recheck
     if (this.initializationPromise) {
-      return this.initializationPromise;
+      await this.initializationPromise;
+      // After waiting, check again if we still need to build any types
+      typesToBuild = this.getTypesToBuild(strategiesType);
+      if (typesToBuild.length === 0) {
+        return;
+      }
+      // Clear any newly stale strategies
+      this.clearStrategiesOfTypes(typesToBuild);
     }
 
-    this.initializationPromise = this.init().finally(() => {
+    this.initializationPromise = this.init(typesToBuild).finally(() => {
       this.initializationPromise = null;
     });
 
     return this.initializationPromise;
   }
 
-  async getAllStrategies(): Promise<Map<string, Strategy>> {
-    await this.ensureInitialized();
-    return this.strategies;
-  }
+  /**
+   * Build and cache strategies for the specified types, merging with existing strategies.
+   * @param strategiesType - Array of strategy types to build.
+   */
+  private async init(strategiesType: StrategyType[]) {
+    const newStrategies = await this.buildPoolStrategies(strategiesType);
 
-  async getAllPoolsData(): Promise<Map<string, PoolData>> {
-    await this.ensureInitialized();
-    const poolsData = await Promise.all(
-      Array.from(this.strategies.values()).map((strategy) => strategy.getData()),
-    );
-    return new Map(poolsData.map((poolData) => [poolData.poolId, poolData]));
+    // Merge new strategies into existing map
+    newStrategies.forEach((strategy, poolId) => {
+      this.strategies.set(poolId, strategy);
+    });
+
+    // Update per-type initialization timestamps
+    const now = Date.now();
+    strategiesType.forEach((type) => this.lastInitializedAtByType.set(type, now));
   }
 
   /**
-   * Build and cache all strategies keyed by poolId.
+   * Check if a strategy type is fresh (initialized and within TTL).
    */
-  private async init() {
-    this.strategies = await this.buildAllPoolStrategies();
-    this.isInitialized = true;
-    this.lastInitializedAt = Date.now();
+  private isTypeFresh(type: StrategyType): boolean {
+    const lastInit = this.lastInitializedAtByType.get(type);
+    if (!lastInit) return false;
+    return Date.now() - lastInit < Protocol.STRATEGIES_TTL_MS;
+  }
+
+  /**
+   * Clear strategies of specific types from the cache.
+   */
+  private clearStrategiesOfTypes(types: StrategyType[]) {
+    const typeSet = new Set(types);
+    for (const [poolId, strategy] of this.strategies) {
+      if (typeSet.has(strategy.getPoolLabel().strategyType)) {
+        this.strategies.delete(poolId);
+      }
+    }
+    // Also clear from lastInitializedAtByType
+    types.forEach((type) => this.lastInitializedAtByType.delete(type));
+  }
+
+  /**
+   * Get strategy types that need to be built (stale or never initialized).
+   * If strategiesType is undefined, derives all available types from poolLabels.
+   */
+  private getTypesToBuild(strategiesType?: StrategyType[]): StrategyType[] {
+    // If undefined, derive all unique strategy types from poolLabels
+    const requestedTypes =
+      strategiesType ??
+      Array.from(
+        new Set(
+          Array.from(this.strategyContext.poolLabels.values()).map((label) => label.strategyType),
+        ),
+      );
+    // Filter to types that are stale or never initialized
+    return requestedTypes.filter((type) => !this.isTypeFresh(type));
   }
 
   /**
    * Internal helper to construct strategies map from on-chain data.
    */
-  private async buildAllPoolStrategies(): Promise<Map<string, Strategy>> {
-    const poolIds = Array.from(this.strategyContext.poolLabels.values()).map(
-      (poolLabel) => poolLabel.poolId,
+  private async buildPoolStrategies(
+    strategiesType: StrategyType[],
+  ): Promise<Map<string, Strategy>> {
+    const poolLabels: PoolLabel[] = Array.from(this.strategyContext.poolLabels.values()).filter(
+      (poolLabel) => strategiesType.includes(poolLabel.strategyType),
     );
-    const investorIds = Array.from(this.strategyContext.poolLabels.values())
+
+    const poolIds = poolLabels.map((poolLabel) => poolLabel.poolId);
+    const investorIds = poolLabels
       .filter((poolLabel) => 'investorId' in poolLabel && poolLabel.investorId)
       .map((poolLabel) => (poolLabel as any).investorId);
-    const parentPoolIds = Array.from(this.strategyContext.poolLabels.values())
+    const parentPoolIds = poolLabels
       .filter((poolLabel) => 'parentPoolId' in poolLabel && poolLabel.parentPoolId)
       .map((poolLabel) => (poolLabel as any).parentPoolId);
 
@@ -95,7 +170,7 @@ export class Protocol {
     ]);
 
     const resMap: Map<string, Strategy> = new Map();
-    this.strategyContext.poolLabels.forEach((poolLabel) => {
+    poolLabels.forEach((poolLabel) => {
       switch (poolLabel.strategyType) {
         case 'Lp':
           resMap.set(
