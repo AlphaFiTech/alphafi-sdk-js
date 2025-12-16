@@ -175,7 +175,8 @@ async function deposit() {
     amount: 100_000n,
     address: address,
   });
-  dryRunTransactionBlock(tx);
+  // dryRunTransactionBlock(tx);
+  executeTransactionBlock(tx);
 }
 // deposit();
 
