@@ -1,3 +1,7 @@
+/**
+ * User portfolio manager that calculates balances, net worth, and aggregated APY.
+ */
+
 import { Protocol } from './protocol.js';
 import { normalizeStructTag } from '@mysten/sui/utils/sui-types.js';
 import { StrategyContext } from './strategyContext.js';
@@ -23,6 +27,7 @@ export class Portfolio {
     this.strategyContext = strategyContext;
   }
 
+  /** Get all coin balances in user's wallet. */
   async getWalletCoins(userAddress: string): Promise<Map<string, string>> {
     const res = await this.strategyContext.blockchain.suiClient.getAllBalances({
       owner: userAddress,
@@ -35,6 +40,7 @@ export class Portfolio {
     return resMap;
   }
 
+  /** Calculate user's complete portfolio including net worth, aggregated APY, and alpha rewards. */
   async getUserPortfolio(
     userAddress: string,
     strategiesType?: StrategyType[],
@@ -55,7 +61,7 @@ export class Portfolio {
       const balanceUsd =
         'stakedAlphaUsdValue' in balance ? balance.stakedAlphaUsdValue : balance.usdValue;
 
-      // Cap APY for retired pools at 1000% (matches rust-sdk behavior)
+      // Cap retired pool APY at 1000%
       let apy = new Decimal(this.strategyContext.getAprData(poolId).apy);
       const isActive = (strategies.get(poolId)?.getPoolLabel() as any)?.isActive;
       if (isActive === false && apy.gt(1000)) {
@@ -67,7 +73,7 @@ export class Portfolio {
     });
     aggregatedApy = netWorth.isZero() ? new Decimal(0) : aggregatedApy.div(netWorth);
 
-    // Calculate total alpha mining rewards to claim across all strategies
+    // Sum alpha rewards across all strategies
     const distributor = this.strategyContext.getDistributorObject();
     let alphaRewardsToClaim = new Decimal(0);
     if (distributor) {
@@ -81,6 +87,7 @@ export class Portfolio {
     return { netWorth, aggregatedApy, alphaRewardsToClaim, poolBalances };
   }
 
+  /** Update strategies with user's receipt objects and positions. */
   private async updateStrategiesWithReceipts(
     userAddress: string,
     strategies: Map<string, Strategy>,

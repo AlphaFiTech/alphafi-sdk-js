@@ -1,3 +1,7 @@
+/**
+ * Provides coin metadata and pricing data from AlphaLend API with automatic caching.
+ */
+
 import { normalizeStructTag } from '@mysten/sui/utils/sui-types.js';
 import { Decimal } from 'decimal.js';
 
@@ -25,17 +29,19 @@ export class CoinInfoProvider {
   private readonly apiUrl: string = 'https://api.alphalend.xyz/public/graphql';
   private readonly coinInfoByType: Map<string, CoinInfo>;
   private lastFetchedAt: number | null;
-  private readonly maxAgeMs: number = 2 * 60 * 1000; // 2 minutes
+  private readonly maxAgeMs: number = 2 * 60 * 1000; // Cache TTL
 
   constructor() {
     this.coinInfoByType = new Map();
     this.lastFetchedAt = null;
   }
 
+  /** Initialize coin data cache. */
   async init(): Promise<void> {
     await this.ensureInitialized();
   }
 
+  /** Fetch fresh data if cache is stale. */
   private async ensureInitialized(): Promise<void> {
     const now = Date.now();
     const isStale = this.lastFetchedAt == null || now - this.lastFetchedAt > this.maxAgeMs;
@@ -49,16 +55,19 @@ export class CoinInfoProvider {
     }
   }
 
+  /** Get all coin metadata. */
   async getAllCoins(): Promise<Map<string, CoinInfo>> {
     await this.ensureInitialized();
     return this.coinInfoByType;
   }
 
+  /** Get coin metadata by type. */
   async getCoinByType(coinType: string): Promise<CoinInfo | undefined> {
     await this.ensureInitialized();
     return this.coinInfoByType.get(normalizeStructTag(coinType));
   }
 
+  /** Get coin price (Pyth preferred, fallback to CoinGecko). */
   async getPriceByType(coinType: string): Promise<Decimal> {
     await this.ensureInitialized();
     const coin = await this.getCoinByType(normalizeStructTag(coinType));
@@ -68,6 +77,7 @@ export class CoinInfoProvider {
     return price;
   }
 
+  /** Fetch coin data from AlphaLend GraphQL API. */
   private async fetchFromApi(): Promise<Map<string, CoinInfo>> {
     const query = `
       query {

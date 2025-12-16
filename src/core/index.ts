@@ -1,5 +1,6 @@
 /**
- * Core functionality for the AlphaFi SDK
+ * AlphaFi SDK - A comprehensive DeFi toolkit for the Sui blockchain.
+ * Provides easy access to lending, LP farming, leveraged yield farming, and more.
  */
 import { Transaction } from '@mysten/sui/transactions';
 import { Protocol } from '../models/protocol.js';
@@ -33,7 +34,11 @@ import { CetusSwap } from '../models/swap.js';
 import type { PoolData, UserPortfolioData } from '../models/types.js';
 import {
   AlphaFiSDKConfig,
+  CetusSwapOptions,
+  CetusSwapQuoteOptions,
+  ClaimAirdropOptions,
   ClaimOptions,
+  ClaimWithdrawAlphaOptions,
   DepositOptions,
   EstimateLpAmountsOptions,
   WithdrawOptions,
@@ -47,8 +52,15 @@ import { StrategyType } from '../strategies/strategy.js';
 export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 
 /**
- * Main AlphaFi SDK class providing a simple facade for DeFi operations
- * This is the primary entry point for users of the AlphaFi SDK
+ * Main AlphaFi SDK class - your gateway to DeFi on Sui.
+ * Supports multiple DeFi strategies
+ *
+ * @example
+ * ```typescript
+ * const sdk = new AlphaFiSDK({ suiClient, network: 'mainnet' });
+ * const pools = await sdk.getPoolsData();
+ * const portfolio = await sdk.getUserPortfolio(userAddress);
+ * ```
  */
 export class AlphaFiSDK {
   private config: AlphaFiSDKConfig;
@@ -63,12 +75,8 @@ export class AlphaFiSDK {
     this.config = config;
     this.strategyContext = new StrategyContext(config.network, config.suiClient);
 
-    // Initialize core components
     this.protocol = new Protocol(this.strategyContext);
     this.portfolio = new Portfolio(this.protocol, this.strategyContext);
-
-    // Initialize the transaction facade
-    // this.transactionManager = new TransactionManager(config.address, this.blockchain);
   }
 
   async ensureInitialized(userAddress?: string) {
@@ -88,13 +96,24 @@ export class AlphaFiSDK {
     this.isInitialized = true;
   }
 
-  async getPoolsData(
-    address?: string,
-    strategiesType?: StrategyType[],
-  ): Promise<Map<string, PoolData>> {
-    await this.ensureInitialized(address);
+  /**
+   * Get comprehensive data for all available DeFi pools.
+   *
+   * @param strategiesType - Optional array to filter by strategy types (e.g., ['Lending', 'Lp'])
+   * @returns Map of pool ID to pool data (APY, TVL, supported assets, etc.)
+   */
+  async getPoolsData(strategiesType?: StrategyType[]): Promise<Map<string, PoolData>> {
+    await this.ensureInitialized();
     return this.protocol.getPoolsData(strategiesType);
   }
+
+  /**
+   * Get complete portfolio summary for a user address.
+   *
+   * @param address - User's wallet address
+   * @param strategiesType - Optional array to filter by strategy types
+   * @returns Portfolio data including net worth, aggregated APY, alpha rewards, and individual pool balances
+   */
   async getUserPortfolio(
     address: string,
     strategiesType?: StrategyType[],
@@ -104,9 +123,15 @@ export class AlphaFiSDK {
   }
 
   /**
-   * Deposit assets into a DeFi pool
-   * @param options - Deposit configuration options
-   * @returns Promise<TransactionResult> - Transaction result
+   * Deposit assets into a DeFi pool to start earning yield.
+   *
+   * Supports all pool types:
+   * - Single-asset pools (Lending, Looping, Alpha Vaults): Deposit one token
+   * - LP pools (Lp, AutobalanceLp, FungibleLp): Deposit tokens to provide liquidity
+   * - LYF pools: Deposit SUI for leveraged yield farming
+   *
+   * @param options - Deposit configuration including pool ID, amount, and user address
+   * @returns Transaction object ready for signing and execution
    */
   async deposit(options: DepositOptions): Promise<Transaction> {
     await this.ensureInitialized(options.address);
@@ -159,9 +184,13 @@ export class AlphaFiSDK {
   }
 
   /**
-   * Estimate lp amounts for a DeFi pool
-   * @param options - Estimate lp amounts configuration options
-   * @returns Promise<[string, string]> - coin amounts
+   * Calculate required token amounts for balanced LP deposits.
+   *
+   * Given an amount of one token, calculates how much of the other token
+   * is needed to maintain the pool's balance ratio.
+   *
+   * @param options - Pool ID, input amount, and which token the amount represents
+   * @returns Tuple of [tokenA amount, tokenB amount] required for deposit
    */
   async estimateLpAmounts(options: EstimateLpAmountsOptions): Promise<[string, string]> {
     await this.ensureInitialized();
@@ -194,9 +223,14 @@ export class AlphaFiSDK {
   }
 
   /**
-   * Withdraw assets from a DeFi pool
-   * @param options - Withdraw configuration options
-   * @returns Promise<TransactionResult> - Transaction result
+   * Withdraw assets from a DeFi pool.
+   *
+   * Supports partial or full withdrawals from any pool type.
+   * For leveraged positions (Looping, LYF), automatically handles
+   * deleveraging and debt repayment.
+   *
+   * @param options - Withdrawal configuration including amount or withdrawMax flag
+   * @returns Transaction object ready for signing and execution
    */
   async withdraw(options: WithdrawOptions): Promise<Transaction> {
     await this.ensureInitialized(options.address);
@@ -298,6 +332,13 @@ export class AlphaFiSDK {
     return await withdrawTxb(xTokens.toString(), poolLabel.poolName as PoolName, options.address);
   }
 
+  /**
+   * Initiate ALPHA token withdrawal (creates withdrawal ticket).
+   * ALPHA withdrawals require a 2-step process due to unlock periods.
+   *
+   * @param options - Withdrawal configuration (amount and user address)
+   * @returns Transaction to create withdrawal ticket
+   */
   async initiateWithdrawAlpha(options: WithdrawOptions): Promise<Transaction> {
     return await initiateWithdrawAlpha(
       options.amount.toString(),
@@ -307,18 +348,34 @@ export class AlphaFiSDK {
     );
   }
 
-  async claimWithdrawAlpha(ticketId: string, address: string): Promise<Transaction> {
-    return await claimWithdrawAlphaTx(ticketId, address, this.config.suiClient);
-  }
-
-  async claimAirdrop(address: string, transferToWallet: boolean): Promise<Transaction> {
-    return await claimAirdropTx(address, this.config.suiClient, transferToWallet);
+  /**
+   * Complete ALPHA token withdrawal using previously created ticket.
+   *
+   * @param options - Withdrawal claim configuration with ticket ID and user address
+   * @returns Transaction to claim the withdrawn ALPHA tokens
+   */
+  async claimWithdrawAlpha(options: ClaimWithdrawAlphaOptions): Promise<Transaction> {
+    return await claimWithdrawAlphaTx(options.ticketId, options.address, this.config.suiClient);
   }
 
   /**
-   * Get zap deposit quote for a DeFi pool
-   * @param options - Zap deposit quote configuration options
-   * @returns Promise<[string, string] | undefined> - quote
+   * Claim available airdrop tokens.
+   *
+   * @param options - Airdrop claim configuration with user address and transfer preference
+   * @returns Transaction to claim airdrop rewards
+   */
+  async claimAirdrop(options: ClaimAirdropOptions): Promise<Transaction> {
+    return await claimAirdropTx(options.address, this.config.suiClient, options.transferToWallet);
+  }
+
+  /**
+   * Get quote for zap deposit operation.
+   *
+   * Estimates how much LP tokens you'll receive when depositing a single token
+   * that gets automatically swapped and balanced for LP provision.
+   *
+   * @param options - Input token amount, pool ID, and slippage tolerance
+   * @returns Tuple of [expected tokenA out, expected tokenB out] or undefined if quote fails
    */
   async zapDepositQuote(options: ZapDepositQuoteOptions): Promise<[string, string] | undefined> {
     await this.ensureInitialized();
@@ -336,9 +393,13 @@ export class AlphaFiSDK {
   }
 
   /**
-   * Zap deposit into a DeFi pool
-   * @param options - Zap deposit configuration options
-   * @returns Promise<Transaction | undefined> - transaction
+   * Execute zap deposit: convert single token to balanced LP position.
+   *
+   * Automatically swaps your input token to achieve the proper balance
+   * for LP provision, then deposits both tokens in one transaction.
+   *
+   * @param options - Input token details, pool ID, slippage, and user address
+   * @returns Transaction object or undefined if zap fails
    */
   async zapDeposit(options: ZapDepositOptions): Promise<Transaction | undefined> {
     await this.ensureInitialized(options.address);
@@ -357,28 +418,44 @@ export class AlphaFiSDK {
   }
 
   /**
-   * Claim rewards from a DeFi pool
-   * @param options - Claim configuration options
-   * @returns Promise<TransactionResult> - Transaction result with gas estimate
+   * Claim accumulated rewards from all pools.
+   *
+   * Collects all available rewards including:
+   * - ALPHA mining rewards
+   * - Pool-specific yield rewards
+   * - Protocol incentives
+   *
+   * @param options - User address and optional pool filter
+   * @returns Transaction to claim all available rewards
    */
   async claim(options: ClaimOptions): Promise<Transaction> {
     return await claimRewardTxb(options.address);
-    // return this.transactionManager.claim({
-    //   poolId: options.poolId,
-    // });
   }
 
-  async getCetusSwapQuote(
-    from: string,
-    target: string,
-    amount: string,
-  ): Promise<RouterDataV3 | undefined> {
+  /**
+   * Get quote for token swap via Cetus aggregator.
+   *
+   * @param options - Swap quote configuration with token types and amount
+   * @returns Router data with swap path and expected output, or undefined if no route found
+   */
+  async getCetusSwapQuote(options: CetusSwapQuoteOptions): Promise<RouterDataV3 | undefined> {
     const swap = new CetusSwap(this.config.network);
-    return await swap.getCetusSwapQuote(from, target, amount);
+    return await swap.getCetusSwapQuote(
+      options.from,
+      options.target,
+      options.amount,
+      options.byAmountIn,
+    );
   }
 
-  async cetusSwapTokensTxb(router: RouterDataV3, slippage: number): Promise<Transaction> {
+  /**
+   * Execute token swap using Cetus aggregator.
+   *
+   * @param options - Swap execution configuration with router data and slippage tolerance
+   * @returns Transaction object ready for signing and execution
+   */
+  async cetusSwapTxb(options: CetusSwapOptions): Promise<Transaction> {
     const swap = new CetusSwap(this.config.network);
-    return await swap.cetusSwapTokensTxb(router, slippage);
+    return await swap.cetusSwapTokensTxb(options.router, options.slippage);
   }
 }

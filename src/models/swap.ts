@@ -21,6 +21,7 @@ export class CetusSwap {
     from: string,
     target: string,
     amount: string,
+    byAmountIn: boolean,
   ): Promise<RouterDataV3 | undefined> {
     try {
       // const providers = getAllProviders();
@@ -37,7 +38,7 @@ export class CetusSwap {
         from,
         target,
         amount,
-        byAmountIn: true, // `true` means fix input amount, `false` means fix output amount
+        byAmountIn, // `true` means fix input amount, `false` means fix output amount
         providers: providersExcept,
         splitCount: 15,
       });

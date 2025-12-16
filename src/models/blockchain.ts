@@ -1,3 +1,7 @@
+/**
+ * Blockchain interface wrapper for Sui network operations using GraphQL and JSON-RPC clients.
+ */
+
 import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
 import { SuiGraphQLClient } from '@mysten/sui/graphql';
 import { graphql } from '@mysten/sui/graphql/schemas/latest';
@@ -19,9 +23,7 @@ export class Blockchain {
     });
   }
 
-  /**
-   * Get estimated gas budget for a transaction
-   */
+  /** Estimate gas budget for transaction execution. */
   async getEstimatedGasBudget(tx: Transaction, sender: string): Promise<number | undefined> {
     try {
       const simResult = await this.suiClient.devInspectTransactionBlock({
@@ -39,6 +41,7 @@ export class Blockchain {
     }
   }
 
+  /** Get object contents by ID using GraphQL. */
   async getObject(objectId: string) {
     const query = graphql(`
       query getObject($objectId: SuiAddress!) {
@@ -60,6 +63,7 @@ export class Blockchain {
     return result.data?.object?.asMoveObject?.contents?.json;
   }
 
+  /** Get multiple objects in batches using GraphQL. */
   async multiGetObjects(objectIds: string[]): Promise<Map<string, any>> {
     const query = graphql(`
       query multiGetObjects($objectIds: [ObjectKey!]!) {
@@ -100,6 +104,7 @@ export class Blockchain {
     return resMap;
   }
 
+  /** Get receipt objects owned by address for specific type. */
   async getReceipt(address: string, type: string) {
     const query = graphql(`
       query getReceipt($address: SuiAddress!, $type: String!) {
@@ -123,6 +128,7 @@ export class Blockchain {
     return result.data?.objects?.nodes.map((obj) => obj?.asMoveObject?.contents?.json);
   }
 
+  /** Get receipt objects for multiple types in batches. */
   async multiGetReceipts(address: string, types: string[]) {
     const batches: string[][] = [];
     for (let i = 0; i < types.length; i += 10) {
@@ -156,6 +162,7 @@ export class Blockchain {
     return receiptsMap;
   }
 
+  /** Generate dynamic GraphQL query for multiple receipt types. */
   private getMultiReceiptsQuery(types: string[]) {
     let char = 65;
     let query = `query multiGetReceipts($address: SuiAddress!) {`;

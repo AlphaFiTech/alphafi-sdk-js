@@ -4,7 +4,7 @@ import { fromB64, normalizeStructTag } from '@mysten/sui/utils';
 import { SuiClient } from '@mysten/sui/client';
 import { Protocol } from '../src/models/protocol.js';
 import { Portfolio } from '../src/models/portfolio.js';
-import { AlphaFiSDK, StrategyContext } from '../src/index.js';
+import { AlphaFiSDK } from '../src/index.js';
 import dotenv from 'dotenv';
 import { Transaction } from '@mysten/sui/transactions';
 import * as fs from 'fs';
@@ -102,11 +102,18 @@ export async function executeTransactionBlock(txb: Transaction) {
 async function main() {
   const { address, keypair, suiClient } = getExecStuff();
   const alphafiClient = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
-  // const res = await alphafiClient.getAllPoolsData();
+  const startTime = Date.now();
+  // const res = await alphafiClient.getPoolsData(
+  //   // ['SlushLending']
+  //   // ['AutobalanceLp', 'Lp']
+  // );
   const res = await alphafiClient.getUserPortfolio(
-    '0x396c8d5f9560f2ffa5d67dcdf3f458ee654ad3e3e08d4eb6ff50e7ddf66a82e5',
-    // address,
+    // '0x396c8d5f9560f2ffa5d67dcdf3f458ee654ad3e3e08d4eb6ff50e7ddf66a82e5',
+    address,
+    // ['SlushLending'],
   );
+  const endTime = Date.now();
+  console.log(`Time taken: ${endTime - startTime}ms`);
   // for (const pool of res) {
   //   console.log(poolDetailsMap[pool[0]].poolName, pool[1]);
   // }
@@ -188,10 +195,10 @@ async function withdraw() {
 async function claimAirdrop() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
-  const tx = await sdk.claimAirdrop(address, false);
+  const tx = await sdk.claimAirdrop({ address: address, transferToWallet: false });
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx);
   // executeTransactionBlock(tx);
 }
-claimAirdrop();
+// claimAirdrop();
 // withdraw();

@@ -1,7 +1,7 @@
 /**
  * StrategyContext
- * Aggregates shared dependencies for strategies (blockchain and coin info provider).
- * Mirrors the concept used in the Rust SDK's StrategyContext.
+ *
+ * Shared services + cached on-chain/API data used by strategies.
  */
 
 import { Blockchain } from './blockchain.js';
@@ -88,7 +88,7 @@ export class StrategyContext {
     this.blockchain = new Blockchain(suiClient, network);
     this.coinInfoProvider = new CoinInfoProvider();
 
-    // Initialize cache maps
+    // In-memory caches (populated by `init()`)
     this.poolLabels = new Map<string, PoolLabel>();
     this.aprMap = new Map<string, AprData>();
     this.alphalendTvl = new Map<string, Decimal>();
@@ -99,8 +99,11 @@ export class StrategyContext {
     this.distributorObjectCache = null;
   }
 
+  /**
+   * Preload commonly-used caches. Pass `userAddress` to also warm user-specific caches.
+   */
   async init(userAddress?: string) {
-    await Promise.all([
+    const promises: Promise<unknown>[] = [
       this.cacheAprData(),
       this.cacheAlphaLendMarkets(),
       this.cacheNaviTvlByPoolId(),
@@ -108,15 +111,16 @@ export class StrategyContext {
       this.cachePoolLabelsFromConfig(),
       this.cacheDistributorObject(),
       this.coinInfoProvider.init(),
-    ]);
+    ];
     if (userAddress) {
-      await this.getAlphaFiReceipts(userAddress);
-      await this.getSlushPositionCaps(userAddress);
+      promises.push(this.getAlphaFiReceipts(userAddress));
+      promises.push(this.getAllSlushPositions(userAddress));
     }
+    await Promise.all(promises);
   }
 
   /**
-   * Convenience helper: get coin decimals by type, defaulting to 9 when missing.
+   * Get coin decimals (defaults to 9 if unknown).
    */
   async getCoinDecimals(coinType: string): Promise<number> {
     const info = await this.coinInfoProvider.getCoinByType(coinType);
@@ -124,12 +128,15 @@ export class StrategyContext {
   }
 
   /**
-   * Convenience helper: get coin price by type.
+   * Get coin price (USD).
    */
   async getCoinPrice(coinType: string): Promise<Decimal> {
     return this.coinInfoProvider.getPriceByType(coinType);
   }
 
+  /**
+   * Get APR/APY data for a pool (falls back to zeros).
+   */
   getAprData(poolId: string): AprData {
     return (
       this.aprMap.get(poolId) || {
@@ -141,6 +148,9 @@ export class StrategyContext {
     );
   }
 
+  /**
+   * Cache APR map from AlphaFi API.
+   */
   private async cacheAprData() {
     const resp = await fetch('https://api.alphafi.xyz/api/apr');
     if (!resp.ok) {
@@ -156,11 +166,17 @@ export class StrategyContext {
     return this.distributorObjectCache;
   }
 
+  /**
+   * Cache the distributor object used for ALPHA mining accounting.
+   */
   private async cacheDistributorObject() {
     const distributorObject = await this.blockchain.getObject(DISTRIBUTOR_OBJECT_ID);
     this.distributorObjectCache = this.parseDistributorObject(distributorObject);
   }
 
+  /**
+   * Parse the distributor Move object into a JS-friendly shape.
+   */
   private parseDistributorObject(fields: any): DistributorObject {
     return {
       id: fields.id,
@@ -202,29 +218,40 @@ export class StrategyContext {
     };
   }
 
+  /**
+   * Get Alphalend TVL for a coin type (normalized struct tag).
+   */
   getAlphaLendTvl(coinType: string): Decimal {
     return this.alphalendTvl.get(normalizeStructTag(coinType)) || new Decimal(0);
   }
 
+  /**
+   * Cache Alphalend market TVLs (uses Alphalend SDK cache).
+   */
   private async cacheAlphaLendMarkets() {
     const alphalendClient = new AlphalendClient('mainnet', this.blockchain.suiClient);
-    const marketsChain = await alphalendClient.getMarketsChain();
-    if (!marketsChain) {
-      throw new Error('Failed to get markets chain');
-    }
-    const markets = await alphalendClient.getAllMarketsWithCachedMarkets(marketsChain);
+    const markets = await alphalendClient.getAllMarkets({
+      useCache: true,
+      cacheTTL: 60000,
+    });
     if (!markets) {
-      throw new Error('Failed to get markets');
+      throw new Error('Failed to get Alphalend markets');
     }
     for (const market of markets) {
       this.alphalendTvl.set(normalizeStructTag(market.coinType), market.totalSupply);
     }
   }
 
+  /**
+   * Get Navi TVL (USD) by poolId.
+   */
   getNaviTvlByPoolId(poolId: string): Decimal {
     return this.naviTvl.get(poolId) || new Decimal(0);
   }
 
+  /**
+   * Cache Navi TVL map from AlphaFi API.
+   */
   private async cacheNaviTvlByPoolId() {
     const resp = await fetch('https://api.alphafi.xyz/navi-params');
     if (!resp.ok) {
@@ -236,10 +263,16 @@ export class StrategyContext {
     }
   }
 
+  /**
+   * Get Bucket TVL in BUCK units.
+   */
   getBucketTvl(): Decimal {
     return this.bucketTvl;
   }
 
+  /**
+   * Cache Bucket TVL by reading on-chain Fountain/Flask objects.
+   */
   private async cacheBucketTvl() {
     const FOUNTAIN = '0xbdf91f558c2b61662e5839db600198eda66d502e4c10c4fc5c683f9caca13359';
     const FLASK = '0xc6ecc9731e15d182bc0a46ebe1754a779a4bfb165c201102ad51a36838a1a7b8';
@@ -268,13 +301,16 @@ export class StrategyContext {
     this.bucketTvl = totalBuckInFountain.div(new Decimal(1e9));
   }
 
+  /**
+   * Fetch all slush positions for a user, grouped by poolId.
+   */
   async getAllSlushPositions(userAddress: string): Promise<Map<string, any[]>> {
     const caps = await this.getSlushPositionCaps(userAddress);
     if (!caps.length) {
       return new Map();
     }
 
-    // Map positionId -> poolId for easy lookup after fetching
+    // positionId -> poolId
     const positionToPool: Map<string, string> = new Map();
     for (const cap of caps) {
       for (const [posId, poolId] of cap.position_pool_map.entries()) {
@@ -304,7 +340,7 @@ export class StrategyContext {
   }
 
   /**
-   * Get slush positions for a user and pool.
+   * Get slush positions for a user in a specific pool.
    */
   async getSlushPosition(userAddress: string, poolId: string): Promise<any[]> {
     const caps = await this.getSlushPositionCaps(userAddress);
@@ -330,7 +366,7 @@ export class StrategyContext {
   }
 
   /**
-   * Fetch and parse slush position caps for a user.
+   * Fetch and cache slush position caps for a user.
    */
   private async getSlushPositionCaps(userAddress: string): Promise<SlushPositionCap[]> {
     const cached = this.slushPositionCapsCache.get(userAddress);
@@ -357,7 +393,7 @@ export class StrategyContext {
   }
 
   /**
-   * Parse a slush position cap object response into a structured shape.
+   * Parse a slush PositionCap into a structured shape.
    */
   private parseSlushPositionCap(response: any): SlushPositionCap | null {
     const fields = response?.fields ?? response;
@@ -391,13 +427,16 @@ export class StrategyContext {
     };
   }
 
+  /**
+   * Fetch AlphaFi positions for a user, grouped by poolId.
+   */
   async getPositionsFromAlphaFiReceipts(userAddress: string): Promise<Map<string, any[]>> {
     const alphaFiReceipts = await this.getAlphaFiReceipts(userAddress);
     if (!alphaFiReceipts.length) {
       return new Map();
     }
 
-    // Map positionId -> poolId for easy lookup after fetching
+    // positionId -> poolId
     const positionToPool: Map<string, string> = new Map();
     for (const receipt of alphaFiReceipts) {
       for (const entry of receipt.positionPoolMap) {
@@ -427,7 +466,7 @@ export class StrategyContext {
   }
 
   /**
-   * Get AlphaFi receipts for a user (parsed and cached).
+   * Get AlphaFi receipts for a user (parsed + cached).
    */
   async getAlphaFiReceipts(userAddress: string): Promise<AlphaFiReceipt[]> {
     const cached = this.alphaFiReceiptsCache.get(userAddress);
@@ -521,7 +560,7 @@ export class StrategyContext {
   }
 
   /**
-   * Fetch pool labels configuration from the AlphaFi config API and map to PoolLabel objects.
+   * Cache pool label metadata from AlphaFi config API.
    */
   private async cachePoolLabelsFromConfig() {
     const response = await fetch('https://api.alphafi.xyz/api/config');
@@ -549,7 +588,7 @@ export class StrategyContext {
       const st = entry.strategy_type;
       const d = entry.data || {};
 
-      // Ensure we always have a pool_id to use as the map key
+      // pool_id is the key for poolLabels map
       if (!d.pool_id) {
         console.error('Pool ID is required for pool labels', d);
         continue;
