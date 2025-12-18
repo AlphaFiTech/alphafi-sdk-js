@@ -67,7 +67,7 @@ export class SlushLendingStrategy extends BaseStrategy<
    * Get comprehensive pool data including TVL and APR information
    */
   async getData(): Promise<PoolData> {
-    const [alphafi, parent] = await Promise.all([this.getTvl(), this.getParentTvl()]);
+    const [_alphafi, parent] = await Promise.all([this.getTvl(), this.getParentTvl()]);
     return {
       poolId: this.poolLabel.poolId,
       poolName: this.poolLabel.poolName,

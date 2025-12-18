@@ -2,7 +2,7 @@
  * Blockchain interface wrapper for Sui network operations using GraphQL and JSON-RPC clients.
  */
 
-import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
+import { SuiClient } from '@mysten/sui/client';
 import { SuiGraphQLClient } from '@mysten/sui/graphql';
 import { graphql } from '@mysten/sui/graphql/schemas/latest';
 import { Transaction } from '@mysten/sui/transactions';

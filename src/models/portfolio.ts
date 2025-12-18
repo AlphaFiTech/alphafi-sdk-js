@@ -122,20 +122,22 @@ export class Portfolio {
 
     strategies.forEach((strategy, poolId) => {
       switch (strategy.getPoolLabel().strategyType) {
-        case 'AlphaVault':
+        case 'AlphaVault': {
           const alphaVaultStrategy = strategy as AlphaVaultStrategy;
           alphaVaultStrategy.updateReceipts(
             receiptObjects.get(alphaVaultStrategy.getPoolLabel().receipt.type) ?? [],
             alphafiPositions.get(poolId) ?? [],
           );
           break;
-        case 'AutobalanceLp':
+        }
+        case 'AutobalanceLp': {
           const autobalanceLpStrategy = strategy as AutobalanceLpStrategy;
           autobalanceLpStrategy.updateReceipts(
             receiptObjects.get(autobalanceLpStrategy.getPoolLabel().receipt.type) ?? [],
           );
           break;
-        case 'FungibleLp':
+        }
+        case 'FungibleLp': {
           const fungibleLpStrategy = strategy as FungibleLpStrategy;
           fungibleLpStrategy.updateReceipts(
             new Decimal(
@@ -145,40 +147,47 @@ export class Portfolio {
             ),
           );
           break;
-        case 'Lending':
+        }
+        case 'Lending': {
           const lendingStrategy = strategy as LendingStrategy;
           lendingStrategy.updateReceipts(
             receiptObjects.get(lendingStrategy.getPoolLabel().receipt.type) ?? [],
           );
           break;
-        case 'Looping':
+        }
+        case 'Looping': {
           const loopingStrategy = strategy as LoopingStrategy;
           loopingStrategy.updateReceipts(
             receiptObjects.get(loopingStrategy.getPoolLabel().receipt.type) ?? [],
           );
           break;
-        case 'Lp':
+        }
+        case 'Lp': {
           const lpStrategy = strategy as LpStrategy;
           lpStrategy.updateReceipts(
             receiptObjects.get(lpStrategy.getPoolLabel().receipt.type) ?? [],
           );
           break;
-        case 'Lyf':
+        }
+        case 'Lyf': {
           const lyfStrategy = strategy as LyfStrategy;
           lyfStrategy.updateReceipts(
             receiptObjects.get(lyfStrategy.getPoolLabel().receipt.type) ?? [],
           );
           break;
-        case 'SingleAssetLooping':
+        }
+        case 'SingleAssetLooping': {
           const singleAssetLoopingStrategy = strategy as SingleAssetLoopingStrategy;
           singleAssetLoopingStrategy.updateReceipts(
             receiptObjects.get(singleAssetLoopingStrategy.getPoolLabel().receipt.type) ?? [],
           );
           break;
-        case 'SlushLending':
+        }
+        case 'SlushLending': {
           const slushLendingStrategy = strategy as SlushLendingStrategy;
           slushLendingStrategy.updateReceipts(slushPositions.get(poolId) ?? []);
           break;
+        }
       }
     });
   }
