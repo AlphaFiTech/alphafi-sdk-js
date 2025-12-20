@@ -3,7 +3,7 @@
  */
 
 import { Protocol } from './protocol.js';
-import { normalizeStructTag } from '@mysten/sui/utils/index.js';
+import { normalizeStructTag } from '@mysten/sui/utils';
 import { StrategyContext } from './strategyContext.js';
 import { PoolBalance, UserPortfolioData } from './types.js';
 import { Decimal } from 'decimal.js';
