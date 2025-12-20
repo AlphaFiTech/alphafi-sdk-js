@@ -72,6 +72,10 @@ const ALPHAFI_RECEIPT_TYPE =
   '0x18533807391b15db5f1f530f54b32553372e5c204d179928d8da0a1753cbb63c::alphafi_receipt::AlphaFiReceipt';
 const DISTRIBUTOR_OBJECT_ID = '0x33f3c288a90c5368ec3b937875cfae94aebae0ee7fb65e97265728eff9e6995b';
 
+const ALPHAFI_NAVI_TVL_URL = 'https://api.alphafi.xyz/public/navi-params';
+const ALPHAFI_APR_URL = 'https://api.alphafi.xyz/public/apr';
+const ALPHAFI_CONFIG_URL = 'https://api.alphafi.xyz/public/config';
+
 export class StrategyContext {
   blockchain: Blockchain;
   coinInfoProvider: CoinInfoProvider;
@@ -152,7 +156,7 @@ export class StrategyContext {
    * Cache APR map from AlphaFi API.
    */
   private async cacheAprData() {
-    const resp = await fetch('https://api.alphafi.xyz/api/apr');
+    const resp = await fetch(ALPHAFI_APR_URL);
     if (!resp.ok) {
       throw new Error(`Failed to fetch apr data: ${resp.status} ${resp.statusText}`);
     }
@@ -253,7 +257,7 @@ export class StrategyContext {
    * Cache Navi TVL map from AlphaFi API.
    */
   private async cacheNaviTvlByPoolId() {
-    const resp = await fetch('https://api.alphafi.xyz/navi-params');
+    const resp = await fetch(ALPHAFI_NAVI_TVL_URL);
     if (!resp.ok) {
       return null;
     }
@@ -563,7 +567,7 @@ export class StrategyContext {
    * Cache pool label metadata from AlphaFi config API.
    */
   private async cachePoolLabelsFromConfig() {
-    const response = await fetch('https://api.alphafi.xyz/api/config');
+    const response = await fetch(ALPHAFI_CONFIG_URL);
     if (!response.ok) {
       throw new Error(`Failed to fetch config: ${response.status} ${response.statusText}`);
     }
