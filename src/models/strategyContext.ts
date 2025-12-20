@@ -10,7 +10,7 @@ import { PoolLabel } from '../strategies/strategy.js';
 import { Decimal } from 'decimal.js';
 import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import { AprData } from './types.js';
-import { normalizeStructTag } from '@mysten/sui/utils/sui-types.js';
+import { normalizeStructTag } from '@mysten/sui/utils/index.js';
 import { SuiClient } from '@mysten/sui/client/index.js';
 
 interface SlushPositionCap {

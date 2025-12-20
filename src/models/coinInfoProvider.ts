@@ -2,7 +2,7 @@
  * Provides coin metadata and pricing data from AlphaLend API with automatic caching.
  */
 
-import { normalizeStructTag } from '@mysten/sui/utils/sui-types.js';
+import { normalizeStructTag } from '@mysten/sui/utils/index.js';
 import { Decimal } from 'decimal.js';
 
 export type CoinInfo = {
