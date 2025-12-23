@@ -7,7 +7,15 @@ import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } f
 import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
-import { ClmmPoolUtil, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
+import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
+import { DepositOptions, WithdrawOptions } from '../core/types.js';
+import { Transaction, TransactionResult } from '@mysten/sui/transactions';
+import {
+  GLOBAL_CONFIGS,
+  CLOCK_PACKAGE_ID,
+  DISTRIBUTOR_OBJECT_ID,
+  VERSIONS,
+} from '../utils/constants.js';
 
 /**
  * AutobalanceLp Strategy for dual-asset liquidity pools with automatic rebalancing
@@ -36,7 +44,9 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     this.poolLabel = poolLabel;
     this.poolObject = this.parsePoolObject(poolObject);
     this.investorObject = this.parseInvestorObject(investorObject);
+    console.log(parentPoolObject);
     this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
+    console.log('this.parentPoolObject', this.parentPoolObject);
     this.context = context;
   }
 
@@ -284,6 +294,40 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     return { amountA, amountB };
   }
 
+  private getLiquidity(amount: string, isAmountA: boolean): LiquidityInput {
+    const upperBound = 443636;
+    let lowerTick = this.investorObject.lowerTick;
+    let upperTick = this.investorObject.upperTick;
+    if (lowerTick > upperBound) {
+      lowerTick = -~(lowerTick - 1);
+    }
+    if (upperTick > upperBound) {
+      upperTick = -~(upperTick - 1);
+    }
+    const currentSqrtPriceBN = new BN(this.parentPoolObject.currentSqrtPrice);
+
+    return ClmmPoolUtil.estLiquidityAndcoinAmountFromOneAmounts(
+      lowerTick,
+      upperTick,
+      new BN(`${Math.floor(parseFloat(amount))}`),
+      isAmountA,
+      false,
+      0.5,
+      currentSqrtPriceBN,
+    );
+  }
+
+  private getOtherAmount(amount: string, isAmountA: boolean): [string, string] {
+    const liquidity = this.getLiquidity(amount, isAmountA);
+    return [liquidity.coinAmountA.toString(), liquidity.coinAmountB.toString()];
+  }
+
+  private coinAmountToXToken(amount: string, isAmountA: boolean): string {
+    const liquidity = new Decimal(this.getLiquidity(amount, isAmountA).liquidityAmount.toString());
+    const exchangeRate = this.exchangeRate();
+    return liquidity.div(exchangeRate).floor().toString();
+  }
+
   /**
    * Parse pool object from blockchain response
    */
@@ -347,6 +391,11 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     return this.safeParseObject(() => {
       const fields = this.extractFields(response);
 
+      const rewardInfos = (fields.reward_infos || []).map((info: any) => ({
+        rewardCoinType: String(info.reward_coin_type || ''),
+        totalReward: String(info.total_reward || '0'),
+      }));
+
       return {
         coinA: this.getStringField(fields, 'coin_a'),
         coinB: this.getStringField(fields, 'coin_b'),
@@ -354,6 +403,7 @@ export class AutobalanceLpStrategy extends BaseStrategy<
         currentTickIndex: this.getNestedField(fields, 'current_tick_index.bits'),
         id: this.getStringField(fields, 'id'),
         liquidity: this.getStringField(fields, 'liquidity'),
+        rewardInfos,
       };
     }, 'Failed to parse AutobalanceLp parent pool object');
   }
@@ -380,6 +430,242 @@ export class AutobalanceLpStrategy extends BaseStrategy<
         }, `Failed to parse AutobalanceLp receipt object at index ${index}`);
       })
       .filter((receipt) => receipt.poolId === this.poolLabel.poolId);
+  }
+
+  async deposit(tx: Transaction, options: DepositOptions) {
+    if (!options.isAmountA) {
+      throw new Error('isAmountA is required for AutobalanceLp strategy');
+    }
+    const [amountA, amountB] = this.getOtherAmount(options.amount.toString(), options.isAmountA);
+
+    // get Coin Objects
+    const coinA = await this.context.blockchain.getCoinObject(
+      tx,
+      this.poolLabel.assetA.type,
+      options.address,
+    );
+    const [depositCoinA] = tx.splitCoins(coinA, [amountA]);
+    tx.transferObjects([coinA], options.address);
+    const coinB = await this.context.blockchain.getCoinObject(
+      tx,
+      this.poolLabel.assetB.type,
+      options.address,
+    );
+    const [depositCoinB] = tx.splitCoins(coinB, [amountB]);
+    tx.transferObjects([coinB], options.address);
+
+    const receiptOption = this.context.blockchain.getOptionReceipt(
+      tx,
+      this.poolLabel.receipt.type,
+      this.receiptObjects.length > 0 ? this.receiptObjects[0].id : undefined,
+    );
+
+    this.collectReward(tx);
+
+    let target = `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::user_deposit_v3`;
+    if (this.poolLabel.assetA.name === 'SUI') {
+      target = `${this.poolLabel.packageId}::alphafi_bluefin_sui_first_pool::user_deposit_v4`;
+    } else if (this.poolLabel.assetB.name === 'SUI') {
+      target = `${this.poolLabel.packageId}::alphafi_bluefin_sui_second_pool::user_deposit_v3`;
+    }
+    tx.moveCall({
+      target,
+      typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+      arguments: [
+        tx.object(VERSIONS.AUTOBALANCE_LP),
+        receiptOption,
+        tx.object(this.poolLabel.poolId),
+        depositCoinA,
+        depositCoinB,
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(this.poolLabel.investorId),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.object(this.poolLabel.parentPoolId),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+  }
+
+  async withdraw(tx: Transaction, options: WithdrawOptions) {
+    if (!options.isAmountA) {
+      throw new Error('isAmountA is required for AutobalanceLp strategy');
+    }
+    if (this.receiptObjects.length === 0) {
+      throw new Error('No receipt found!');
+    }
+    let xTokenAmount = '0';
+    if (options.withdrawMax) {
+      xTokenAmount = this.receiptObjects[0].xTokenBalance;
+    } else {
+      xTokenAmount = this.coinAmountToXToken(options.amount.toString(), options.isAmountA);
+    }
+
+    if (xTokenAmount === this.receiptObjects[0].xTokenBalance) {
+      this.getUserRewards(tx);
+    } else this.collectReward(tx);
+
+    let target = `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::user_withdraw_v3`;
+    if (this.poolLabel.assetA.name === 'SUI') {
+      target = `${this.poolLabel.packageId}::alphafi_bluefin_sui_first_pool::user_withdraw_v4`;
+    } else if (this.poolLabel.assetB.name === 'SUI') {
+      target = `${this.poolLabel.packageId}::alphafi_bluefin_sui_second_pool::user_withdraw_v3`;
+    }
+    tx.moveCall({
+      target,
+      typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+      arguments: [
+        tx.object(VERSIONS.AUTOBALANCE_LP),
+        tx.object(this.receiptObjects[0].id),
+        tx.object(this.poolLabel.poolId),
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(this.poolLabel.investorId),
+        tx.pure.u128(xTokenAmount),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.object(this.poolLabel.parentPoolId),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+  }
+
+  async claimRewards(tx: Transaction, poolId: string, address: string) {
+    throw new Error('Claim rewards is not supported for AutobalanceLp strategy');
+  }
+
+  private collectReward(tx: Transaction) {
+    if (this.poolLabel.assetA.name === 'SUI') {
+      for (const reward of this.parentPoolObject.rewardInfos) {
+        const rewardType = '0x' + reward.rewardCoinType;
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_first_pool::collect_reward`,
+          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, rewardType],
+          arguments: [
+            tx.object(VERSIONS.AUTOBALANCE_LP),
+            tx.object(this.poolLabel.poolId),
+            tx.object(this.poolLabel.investorId),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.BLUEFIN),
+            tx.object(this.poolLabel.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+      }
+    } else if (this.poolLabel.assetB.name === 'SUI') {
+      for (const reward of this.parentPoolObject.rewardInfos) {
+        const rewardType = '0x' + reward.rewardCoinType;
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_second_pool::collect_reward`,
+          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, rewardType],
+          arguments: [
+            tx.object(VERSIONS.AUTOBALANCE_LP),
+            tx.object(this.poolLabel.poolId),
+            tx.object(this.poolLabel.investorId),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.BLUEFIN),
+            tx.object(this.poolLabel.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+      }
+    } else {
+      for (const reward of this.parentPoolObject.rewardInfos) {
+        const rewardType = '0x' + reward.rewardCoinType;
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::collect_reward`,
+          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, rewardType],
+          arguments: [
+            tx.object(VERSIONS.AUTOBALANCE_LP),
+            tx.object(this.poolLabel.poolId),
+            tx.object(this.poolLabel.investorId),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.BLUEFIN),
+            tx.object(this.poolLabel.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+      }
+    }
+  }
+
+  private getUserRewards(tx: Transaction): TransactionResult[] {
+    this.collectReward(tx);
+    const rewardsList = this.parentPoolObject.rewardInfos.map((ele) => {
+      return '0x' + ele.rewardCoinType;
+    });
+    rewardsList.push(this.poolLabel.assetA.type);
+    rewardsList.push(this.poolLabel.assetB.type);
+
+    const rewards: TransactionResult[] = [];
+    if (this.poolLabel.assetA.name === 'SUI') {
+      for (const rewardType of [...new Set(rewardsList)]) {
+        const balance = tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_first_pool::get_user_rewards_v4`,
+          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, rewardType],
+          arguments: [
+            tx.object(this.receiptObjects[0].id),
+            tx.object(VERSIONS.AUTOBALANCE_LP),
+            tx.object(this.poolLabel.poolId),
+            tx.object(this.poolLabel.investorId),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.BLUEFIN),
+            tx.object(this.poolLabel.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+        const coin = tx.moveCall({
+          target: '0x2::coin::from_balance',
+          typeArguments: [rewardType],
+          arguments: [balance!],
+        });
+        rewards.push(coin);
+      }
+    } else if (this.poolLabel.assetB.name === 'SUI') {
+      for (const rewardType of [...new Set(rewardsList)]) {
+        const balance = tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_second_pool::get_user_rewards_v3`,
+          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, rewardType],
+          arguments: [
+            tx.object(this.receiptObjects[0].id),
+            tx.object(VERSIONS.AUTOBALANCE_LP),
+            tx.object(this.poolLabel.poolId),
+            tx.object(this.poolLabel.investorId),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.BLUEFIN),
+            tx.object(this.poolLabel.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+        const coin = tx.moveCall({
+          target: '0x2::coin::from_balance',
+          typeArguments: [rewardType],
+          arguments: [balance!],
+        });
+        rewards.push(coin);
+      }
+    } else {
+      for (const rewardType of [...new Set(rewardsList)]) {
+        const balance = tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::get_user_rewards_v3`,
+          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, rewardType],
+          arguments: [
+            tx.object(this.receiptObjects[0].id),
+            tx.object(VERSIONS.AUTOBALANCE_LP),
+            tx.object(this.poolLabel.poolId),
+            tx.object(this.poolLabel.investorId),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.BLUEFIN),
+            tx.object(this.poolLabel.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+        const coin = tx.moveCall({
+          target: '0x2::coin::from_balance',
+          typeArguments: [rewardType],
+          arguments: [balance!],
+        });
+        rewards.push(coin);
+      }
+    }
+    return rewards;
   }
 }
 
@@ -435,6 +721,10 @@ export interface AutobalanceLpParentPoolObject {
   currentTickIndex: number;
   id: string;
   liquidity: string;
+  rewardInfos: {
+    rewardCoinType: string;
+    totalReward: string;
+  }[];
 }
 
 /**

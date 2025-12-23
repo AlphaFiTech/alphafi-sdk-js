@@ -8,6 +8,8 @@ import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
 import { ClmmPoolUtil, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
+import { DepositOptions, WithdrawOptions } from '../core/types.js';
+import { Transaction } from '@mysten/sui/transactions';
 
 /**
  * Lyf Strategy for dual-asset pools using alphalend for leverage
@@ -422,6 +424,18 @@ export class LyfStrategy extends BaseStrategy<
       safeBorrowPercentage: this.getStringField(fields, 'safe_borrow_percentage'),
       upperTick: this.getNumberField(fields, 'upper_tick'),
     };
+  }
+
+  async deposit(tx: Transaction, options: DepositOptions) {
+    return tx;
+  }
+
+  async withdraw(tx: Transaction, options: WithdrawOptions) {
+    return tx;
+  }
+
+  async claimRewards(tx: Transaction, poolId: string, address: string) {
+    return tx;
   }
 }
 

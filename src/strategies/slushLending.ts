@@ -6,6 +6,8 @@ import { Decimal } from 'decimal.js';
 import { AlphaMiningData, BaseStrategy, ProtocolType, NameType } from './strategy.js';
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
+import { DepositOptions, WithdrawOptions } from '../core/types.js';
+import { Transaction } from '@mysten/sui/transactions';
 
 /**
  * SlushLending Strategy for slush lending pools without alpha mining
@@ -211,6 +213,18 @@ export class SlushLendingStrategy extends BaseStrategy<
         };
       }, `Failed to parse Slush Lending receipt object at index ${index}`);
     });
+  }
+
+  async deposit(tx: Transaction, options: DepositOptions) {
+    return tx;
+  }
+
+  async withdraw(tx: Transaction, options: WithdrawOptions) {
+    return tx;
+  }
+
+  async claimRewards(tx: Transaction, poolId: string, address: string) {
+    return tx;
   }
 }
 

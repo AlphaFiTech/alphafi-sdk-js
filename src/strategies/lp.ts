@@ -8,6 +8,8 @@ import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
 import { ClmmPoolUtil, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
+import { DepositOptions, WithdrawOptions } from '../core/types.js';
+import { Transaction } from '@mysten/sui/transactions';
 
 /**
  * LP Strategy for dual-asset liquidity pools
@@ -387,6 +389,18 @@ export class LpStrategy extends BaseStrategy<
         }, `Failed to parse LP receipt object at index ${index}`);
       })
       .filter((receipt) => receipt.poolId === this.poolLabel.poolId);
+  }
+
+  async deposit(tx: Transaction, options: DepositOptions) {
+    return tx;
+  }
+
+  async withdraw(tx: Transaction, options: WithdrawOptions) {
+    return tx;
+  }
+
+  async claimRewards(tx: Transaction, poolId: string, address: string) {
+    return tx;
   }
 }
 

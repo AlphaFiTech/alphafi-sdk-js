@@ -2,7 +2,7 @@
  * Blockchain interface wrapper for Sui network operations using GraphQL and JSON-RPC clients.
  */
 
-import { SuiClient } from '@mysten/sui/client';
+import { CoinStruct, SuiClient } from '@mysten/sui/client';
 import { SuiGraphQLClient } from '@mysten/sui/graphql';
 import { graphql } from '@mysten/sui/graphql/schemas/latest';
 import { Transaction } from '@mysten/sui/transactions';
@@ -21,6 +21,58 @@ export class Blockchain {
           ? 'https://graphql.testnet.sui.io/graphql'
           : 'https://graphql.mainnet.sui.io/graphql',
     });
+  }
+
+  async getCoinObject(tx: Transaction, coinType: string, address: string) {
+    if (
+      coinType === '0x2::sui::SUI' ||
+      coinType === '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'
+    ) {
+      return tx.gas;
+    }
+
+    let currentCursor: string | null | undefined = null;
+    let coins1: CoinStruct[] = [];
+    do {
+      const response = await this.suiClient.getCoins({
+        owner: address,
+        coinType,
+        cursor: currentCursor,
+      });
+      coins1 = coins1.concat(response.data);
+      if (response.hasNextPage && response.nextCursor) {
+        currentCursor = response.nextCursor;
+      } else break;
+    } while (true);
+
+    if (coins1.length === 0) {
+      throw new Error(`No coins found for ${coinType} for owner ${address}`);
+    }
+
+    const [coin] = tx.splitCoins(tx.object(coins1[0].coinObjectId), [0]);
+    tx.mergeCoins(
+      coin,
+      coins1.map((c) => c.coinObjectId),
+    );
+    return coin;
+  }
+
+  getOptionReceipt(tx: Transaction, receiptType: string, receiptId?: string) {
+    let receiptOption;
+    if (receiptId) {
+      receiptOption = tx.moveCall({
+        target: `0x1::option::some`,
+        typeArguments: [receiptType],
+        arguments: [tx.object(receiptId)],
+      });
+    } else {
+      receiptOption = tx.moveCall({
+        target: `0x1::option::none`,
+        typeArguments: [receiptType],
+        arguments: [],
+      });
+    }
+    return receiptOption;
   }
 
   /** Estimate gas budget for transaction execution. */

@@ -5,6 +5,9 @@
 import { Decimal } from 'decimal.js';
 import { SingleTvl, DoubleTvl, PoolData, PoolBalance } from '../models/types.js';
 import { DistributorObject } from '../models/strategyContext.js';
+import { Transaction, TransactionResult } from '@mysten/sui/transactions';
+import { DepositOptions, WithdrawOptions } from '../core/types.js';
+import { IMAGE_URLS, PACKAGE_IDS } from '../utils/constants.js';
 
 export interface KeyValuePair {
   key: string;
@@ -136,6 +139,39 @@ export interface Strategy<TPool = any, TInvestor = any, TParentPool = any, TRece
    * Note: this uses the cached distributor object from `StrategyContext`.
    */
   getAlphaMiningRewardsToClaim(distributor: DistributorObject): Decimal;
+
+  /**
+   * Deposit assets into the pool.
+   *
+   * @param options - The options for the deposit
+   * @returns Transaction to deposit assets into the pool
+   */
+  deposit(tx: Transaction, options: DepositOptions): void;
+
+  /**
+   * Withdraw assets from the pool.
+   *
+   * @param options - The options for the withdrawal
+   * @returns Transaction to withdraw assets from the pool
+   */
+  withdraw(tx: Transaction, options: WithdrawOptions): void;
+
+  /**
+   * Claim rewards for a specific pool.
+   *
+   * @param poolId - The ID of the pool to claim rewards for
+   * @param address - The address of the user to claim rewards for
+   * @returns Transaction to claim rewards for the specified pool
+   */
+  claimRewards(tx: Transaction, poolId: string, address: string): void;
+
+  /**
+   * Create an AlphaFi receipt.
+   *
+   * @param tx - The transaction to create the AlphaFi receipt
+   * @returns Transaction to create the AlphaFi receipt
+   */
+  createAlphaFiReceipt(tx: Transaction): TransactionResult;
 }
 
 /**
@@ -155,6 +191,16 @@ export abstract class BaseStrategy<TPool = any, TInvestor = any, TParentPool = a
   abstract getData(): Promise<PoolData>;
   abstract getBalance(userAddress: string): Promise<PoolBalance>;
   abstract getPoolLabel(): PoolLabel;
+  abstract deposit(tx: Transaction, options: DepositOptions): void;
+  abstract withdraw(tx: Transaction, options: WithdrawOptions): void;
+  abstract claimRewards(tx: Transaction, poolId: string, address: string): void;
+
+  createAlphaFiReceipt(tx: Transaction) {
+    return tx.moveCall({
+      target: `${PACKAGE_IDS.ALPHAFI_RECEIPT}::alphafi_receipt::create_alphafi_receipt_v2`,
+      arguments: [tx.pure.string(IMAGE_URLS.ALPHAFI_RECEIPT)],
+    });
+  }
 
   /**
    * Provide the inputs needed to compute ALPHA mining rewards for this strategy.

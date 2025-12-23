@@ -2,6 +2,15 @@ import { Decimal } from 'decimal.js';
 import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
+import { DepositOptions, WithdrawOptions } from '../core/types.js';
+import { Transaction } from '@mysten/sui/transactions';
+import {
+  ALPHAFI_RECEIPT_WHITELISTED_ADDRESSES,
+  CLOCK_PACKAGE_ID,
+  PACKAGE_IDS,
+  POOLS,
+  VERSIONS,
+} from '../utils/constants.js';
 
 /**
  * AlphaVault Strategy
@@ -678,6 +687,117 @@ export class AlphaVaultStrategy extends BaseStrategy<
         };
       }, `Failed to parse AlphaVault position object at index ${index}`);
     });
+  }
+
+  async deposit(tx: Transaction, options: DepositOptions) {
+    const coin = await this.context.blockchain.getCoinObject(
+      tx,
+      this.poolLabel.asset.type,
+      options.address,
+    );
+    const [depositCoin] = tx.splitCoins(coin, [options.amount]);
+    tx.transferObjects([coin], options.address);
+
+    const alphafiReceipts = await this.context.getAlphaFiReceipts(options.address);
+    const legacyReceipt =
+      this.legacyReceiptObjects.length > 0 ? this.legacyReceiptObjects[0] : null;
+
+    if (alphafiReceipts.length === 0) {
+      const alphafiReceiptObj = this.createAlphaFiReceipt(tx);
+
+      // Convert alpha receipt to ember position if alpha receipt exists
+      if (legacyReceipt) {
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_ember_pool::migrate_alpha_receipt_to_new_alpha_strategy`,
+          typeArguments: [this.poolLabel.asset.type],
+          arguments: [
+            tx.object(VERSIONS.ALPHA_EMBER),
+            tx.object(this.poolLabel.poolId),
+            alphafiReceiptObj,
+            tx.object(legacyReceipt.id),
+            tx.object(POOLS.ALPHA_LEGACY),
+          ],
+        });
+      }
+
+      // Deposit to ember pool
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_ember_pool::user_deposit`,
+        typeArguments: [this.poolLabel.asset.type],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_EMBER),
+          alphafiReceiptObj,
+          tx.object(this.poolLabel.poolId),
+          depositCoin,
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+
+      tx.moveCall({
+        target: `${PACKAGE_IDS.ALPHAFI_RECEIPT}::alphafi_receipt::transfer_receipt_to_new_owner`,
+        arguments: [
+          alphafiReceiptObj,
+          tx.pure.address(options.address),
+          tx.object(ALPHAFI_RECEIPT_WHITELISTED_ADDRESSES),
+        ],
+      });
+    } else {
+      // Convert alpha receipt to ember position if needed
+      if (legacyReceipt && this.receiptObjects.length === 0) {
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_ember_pool::migrate_alpha_receipt_to_new_alpha_strategy`,
+          typeArguments: [this.poolLabel.asset.type],
+          arguments: [
+            tx.object(VERSIONS.ALPHA_EMBER),
+            tx.object(this.poolLabel.poolId),
+            tx.object(alphafiReceipts[0].id),
+            tx.object(legacyReceipt.id),
+            tx.object(POOLS.ALPHA_LEGACY),
+          ],
+        });
+      }
+      // Deposit to ember pool
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_ember_pool::user_deposit`,
+        typeArguments: [this.poolLabel.asset.type],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_EMBER),
+          tx.object(alphafiReceipts[0].id),
+          tx.object(this.poolLabel.poolId),
+          depositCoin,
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+  }
+
+  withdraw(tx: Transaction, options: WithdrawOptions) {
+    throw new Error('Withdraw is not supported for AlphaVault strategy');
+  }
+
+  async claimWithdraw(tx: Transaction, ticketId: string, address: string) {
+    const alphafiReceipts = await this.context.getAlphaFiReceipts(address);
+
+    if (alphafiReceipts.length === 0) {
+      throw new Error('No Alphafi receipt found!');
+    }
+
+    const coin = tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_ember_pool::user_claim_withdraw`,
+      typeArguments: [this.poolLabel.asset.type],
+      arguments: [
+        tx.object(VERSIONS.ALPHA_EMBER),
+        tx.object(alphafiReceipts[0].id),
+        tx.object(this.poolLabel.poolId),
+        tx.pure.id(ticketId),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+    tx.transferObjects([coin], address);
+  }
+
+  claimRewards(tx: Transaction, poolId: string, address: string) {
+    throw new Error('Claim rewards is not supported for AlphaVault strategy');
   }
 }
 

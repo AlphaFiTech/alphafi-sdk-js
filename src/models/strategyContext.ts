@@ -12,6 +12,11 @@ import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import { AprData } from './types.js';
 import { normalizeStructTag } from '@mysten/sui/utils';
 import { SuiClient } from '@mysten/sui/client/index.js';
+import {
+  ALPHAFI_RECEIPT_TYPE,
+  DISTRIBUTOR_OBJECT_ID,
+  SLUSH_POSITION_CAP_TYPE,
+} from '../utils/constants.js';
 
 interface SlushPositionCap {
   id: string;
@@ -65,12 +70,6 @@ export interface DistributorObject {
   teamWalletAddress: string;
   teamWalletBalance: string;
 }
-
-const SLUSH_POSITION_CAP_TYPE =
-  '0x41b1def47b6259cd7306e049d6500eabb1a984e25558b56eefa9b6c000a038c3::alphalend_slush_pool::PositionCap';
-const ALPHAFI_RECEIPT_TYPE =
-  '0x18533807391b15db5f1f530f54b32553372e5c204d179928d8da0a1753cbb63c::alphafi_receipt::AlphaFiReceipt';
-const DISTRIBUTOR_OBJECT_ID = '0x33f3c288a90c5368ec3b937875cfae94aebae0ee7fb65e97265728eff9e6995b';
 
 const ALPHAFI_NAVI_TVL_URL = 'https://api.alphafi.xyz/public/navi-params';
 const ALPHAFI_APR_URL = 'https://api.alphafi.xyz/public/apr';

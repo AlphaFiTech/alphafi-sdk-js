@@ -8,6 +8,8 @@ import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
 import { ClmmPoolUtil, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
+import { DepositOptions, WithdrawOptions } from '../core/types.js';
+import { Transaction } from '@mysten/sui/transactions';
 
 /**
  * FungibleLp Strategy for dual-asset liquidity pools with fungible tokens
@@ -356,6 +358,18 @@ export class FungibleLpStrategy extends BaseStrategy<
    */
   parseReceiptObjects(_responses: any[]): never {
     throw new Error('FungibleLp strategy does not have receipts');
+  }
+
+  async deposit(tx: Transaction, options: DepositOptions) {
+    return tx;
+  }
+
+  async withdraw(tx: Transaction, options: WithdrawOptions) {
+    return tx;
+  }
+
+  async claimRewards(tx: Transaction, poolId: string, address: string) {
+    return tx;
   }
 }
 
