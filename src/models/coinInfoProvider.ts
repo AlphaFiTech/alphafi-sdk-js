@@ -55,6 +55,13 @@ export class CoinInfoProvider {
     }
   }
 
+  async getCoinBySymbol(symbol: string): Promise<CoinInfo | undefined> {
+    await this.ensureInitialized();
+    return Array.from(this.coinInfoByType.values()).find(
+      (coin) => coin.symbol.toUpperCase() === symbol.toUpperCase(),
+    );
+  }
+
   /** Get all coin metadata. */
   async getAllCoins(): Promise<Map<string, CoinInfo>> {
     await this.ensureInitialized();

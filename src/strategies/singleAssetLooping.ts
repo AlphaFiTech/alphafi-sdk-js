@@ -8,6 +8,13 @@ import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction } from '@mysten/sui/transactions';
+import { AlphalendClient } from '@alphafi/alphalend-sdk';
+import {
+  ALPHALEND_LENDING_PROTOCOL_ID,
+  CLOCK_PACKAGE_ID,
+  DISTRIBUTOR_OBJECT_ID,
+  VERSIONS,
+} from '../utils/constants.js';
 
 /**
  * SingleAssetLooping Strategy for leveraged positions on single assets
@@ -155,6 +162,11 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
     return { tokenAmount: amount, usdValue: amount.mul(tokenPrice) };
   }
 
+  private coinAmountToXToken(amount: string): string {
+    const exchangeRate = this.exchangeRate();
+    return new Decimal(amount).div(exchangeRate).floor().toString();
+  }
+
   /**
    * Parse pool object from blockchain response
    */
@@ -252,12 +264,94 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
       .filter((receipt) => receipt.poolId === this.poolLabel.poolId);
   }
 
-  async deposit(tx: Transaction, options: DepositOptions) {
+  private collectAndSwapRewardsTxb(
+    tx: Transaction,
+    coinAType: string,
+    coinBType: string,
+  ): Transaction {
     return tx;
   }
 
+  async deposit(tx: Transaction, options: DepositOptions) {
+    const alphalendClient = new AlphalendClient(
+      this.context.blockchain.network,
+      this.context.blockchain.suiClient,
+    );
+
+    // get Coin Object
+    const coin = await this.context.blockchain.getCoinObject(
+      tx,
+      this.poolLabel.asset.type,
+      options.address,
+    );
+    const [depositCoin] = tx.splitCoins(coin, [options.amount]);
+    tx.transferObjects([coin], options.address);
+
+    const receiptOption = this.context.blockchain.getOptionReceipt(
+      tx,
+      this.poolLabel.receipt.type,
+      this.receiptObjects.length > 0 ? this.receiptObjects[0].id : undefined,
+    );
+
+    await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
+
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::user_deposit`,
+      typeArguments: [this.poolLabel.asset.type],
+      arguments: [
+        tx.object(VERSIONS.ALPHALEND_VERSION),
+        tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+        receiptOption,
+        tx.object(this.poolLabel.poolId),
+        depositCoin,
+        tx.object(this.poolLabel.investorId),
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+  }
+
   async withdraw(tx: Transaction, options: WithdrawOptions) {
-    return tx;
+    if (this.receiptObjects.length === 0) {
+      throw new Error('No receipt found');
+    }
+    const alphalendClient = new AlphalendClient(
+      this.context.blockchain.network,
+      this.context.blockchain.suiClient,
+    );
+    alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
+
+    let xTokens = this.coinAmountToXToken(options.amount);
+    if (options.withdrawMax) {
+      xTokens = this.receiptObjects[0].xTokenBalance;
+    }
+
+    const noneAlphaReceipt = tx.moveCall({
+      target: `0x1::option::none`,
+      typeArguments: [
+        '0x9bbd650b8442abb082c20f3bc95a9434a8d47b4bef98b0832dab57c1a8ba7123::alphapool::Receipt',
+      ],
+      arguments: [],
+    });
+    const [coin] = tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::user_withdraw`,
+      typeArguments: [this.poolLabel.asset.type],
+      arguments: [
+        tx.object(VERSIONS.ALPHALEND_VERSION),
+        tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+        tx.object(this.receiptObjects[0].id),
+        noneAlphaReceipt,
+        tx.object('0x6ee8f60226edf48772f81e5986994745dae249c2605a5b12de6602ef1b05b0c1'),
+        tx.object(this.poolLabel.poolId),
+        tx.pure.u64(xTokens),
+        tx.object(this.poolLabel.investorId),
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+    tx.transferObjects([coin], options.address);
   }
 
   async claimRewards(tx: Transaction, poolId: string, address: string) {

@@ -17,6 +17,7 @@ import {
   DISTRIBUTOR_OBJECT_ID,
   SLUSH_POSITION_CAP_TYPE,
 } from '../utils/constants.js';
+import { getCanonicalPairKey, POOL_REGISTRY, ProtocolPoolIds } from '../utils/poolMap.js';
 
 interface SlushPositionCap {
   id: string;
@@ -149,6 +150,36 @@ export class StrategyContext {
         lastAutocompounded: new Date(),
       }
     );
+  }
+
+  /**
+   * Lookup pool IDs by coin symbols (order-agnostic).
+   * Returns undefined if either symbol is unknown or no pool mapping exists.
+   */
+  async getPoolIdsBySymbols(
+    symbolA: string,
+    symbolB: string,
+  ): Promise<ProtocolPoolIds | undefined> {
+    const [typeA, typeB] = await Promise.all([
+      this.getCoinTypeBySymbol(symbolA),
+      this.getCoinTypeBySymbol(symbolB),
+    ]);
+    if (!typeA || !typeB) return undefined;
+    return this.getPoolIdsByTypes(typeA, typeB);
+  }
+
+  /**
+   * Lookup pool IDs by coin types (order-agnostic).
+   * Returns undefined if no pool mapping exists.
+   */
+  getPoolIdsByTypes(coinTypeA: string, coinTypeB: string): ProtocolPoolIds | undefined {
+    const key = getCanonicalPairKey(coinTypeA, coinTypeB);
+    return POOL_REGISTRY[key];
+  }
+
+  private async getCoinTypeBySymbol(symbol: string): Promise<string | undefined> {
+    const coin = await this.coinInfoProvider.getCoinBySymbol(symbol);
+    return coin?.coinType;
   }
 
   /**

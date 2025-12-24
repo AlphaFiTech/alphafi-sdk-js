@@ -7,7 +7,7 @@ import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } f
 import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
-import { ClmmPoolUtil, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
+import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction } from '@mysten/sui/transactions';
 
@@ -293,6 +293,40 @@ export class LpStrategy extends BaseStrategy<
     return { amountA, amountB };
   }
 
+  private getLiquidity(amount: string, isAmountA: boolean): LiquidityInput {
+    const upperBound = 443636;
+    let lowerTick = this.investorObject.lowerTick;
+    let upperTick = this.investorObject.upperTick;
+    if (lowerTick > upperBound) {
+      lowerTick = -~(lowerTick - 1);
+    }
+    if (upperTick > upperBound) {
+      upperTick = -~(upperTick - 1);
+    }
+    const currentSqrtPriceBN = new BN(this.parentPoolObject.currentSqrtPrice);
+
+    return ClmmPoolUtil.estLiquidityAndcoinAmountFromOneAmounts(
+      lowerTick,
+      upperTick,
+      new BN(`${Math.floor(parseFloat(amount))}`),
+      isAmountA,
+      false,
+      0.5,
+      currentSqrtPriceBN,
+    );
+  }
+
+  private getOtherAmount(amount: string, isAmountA: boolean): [string, string] {
+    const liquidity = this.getLiquidity(amount, isAmountA);
+    return [liquidity.coinAmountA.toString(), liquidity.coinAmountB.toString()];
+  }
+
+  private coinAmountToXToken(amount: string, isAmountA: boolean): string {
+    const liquidity = new Decimal(this.getLiquidity(amount, isAmountA).liquidityAmount.toString());
+    const exchangeRate = this.exchangeRate();
+    return liquidity.div(exchangeRate).floor().toString();
+  }
+
   /**
    * Parse pool object from blockchain response
    */
@@ -392,7 +426,32 @@ export class LpStrategy extends BaseStrategy<
   }
 
   async deposit(tx: Transaction, options: DepositOptions) {
-    return tx;
+    if (!options.isAmountA) {
+      throw new Error('isAmountA is required for AutobalanceLp strategy');
+    }
+    const [amountA, amountB] = this.getOtherAmount(options.amount.toString(), options.isAmountA);
+
+    // get Coin Objects
+    const coinA = await this.context.blockchain.getCoinObject(
+      tx,
+      this.poolLabel.assetA.type,
+      options.address,
+    );
+    const [depositCoinA] = tx.splitCoins(coinA, [amountA]);
+    tx.transferObjects([coinA], options.address);
+    const coinB = await this.context.blockchain.getCoinObject(
+      tx,
+      this.poolLabel.assetB.type,
+      options.address,
+    );
+    const [depositCoinB] = tx.splitCoins(coinB, [amountB]);
+    tx.transferObjects([coinB], options.address);
+
+    const receiptOption = this.context.blockchain.getOptionReceipt(
+      tx,
+      this.poolLabel.receipt.type,
+      this.receiptObjects.length > 0 ? this.receiptObjects[0].id : undefined,
+    );
   }
 
   async withdraw(tx: Transaction, options: WithdrawOptions) {
