@@ -51,7 +51,7 @@ export async function dryRunTransactionBlock(txb: Transaction) {
   txb.setSender(address);
   // txb.setGasBudget(1e9);
   try {
-    let serializedTxb = await txb.build({ client: suiClient });
+    const serializedTxb = await txb.build({ client: suiClient });
     suiClient
       .dryRunTransactionBlock({
         transactionBlock: serializedTxb,
@@ -153,8 +153,8 @@ async function main() {
     },
     2,
   );
-  fs.writeFileSync('scripts/poolsData.json', serializedRes);
-  console.log('Result written to scripts/poolsData.json');
+  // fs.writeFileSync('scripts/poolsData.json', serializedRes);
+  // console.log('Result written to scripts/poolsData.json');
   // console.log(res);
   // console.log(
   //   normalizeStructTag(
