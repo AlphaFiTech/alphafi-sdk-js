@@ -97,7 +97,6 @@ export interface ZapDepositQuoteOptions {
   poolId: string;
   inputCoinAmount: bigint;
   isInputA: boolean;
-  slippage: number;
 }
 
 /**
@@ -335,7 +334,6 @@ export class AlphaFiSDK {
       options.inputCoinAmount,
       options.isInputA,
       poolInfo.poolName as PoolName,
-      options.slippage,
     );
   }
 
