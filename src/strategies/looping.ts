@@ -8,6 +8,18 @@ import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction } from '@mysten/sui/transactions';
+import {
+  ALPHALEND_LENDING_PROTOCOL_ID,
+  CLOCK_PACKAGE_ID,
+  DISTRIBUTOR_OBJECT_ID,
+  GLOBAL_CONFIGS,
+  NAVI_CONFIG,
+  POOLS,
+  STSUI,
+  SUI_SYSTEM_STATE,
+  VERSIONS,
+} from '../utils/constants.js';
+import { AlphalendClient } from '@alphafi/alphalend-sdk';
 
 /**
  * Looping Strategy for leveraged positions with automated compounding
@@ -262,15 +274,767 @@ export class LoopingStrategy extends BaseStrategy<
       .filter((receipt) => receipt.poolId === this.poolLabel.poolId);
   }
 
+  private async getAvailableRewards(address: string): Promise<Record<string, any[]>> {
+    try {
+      // Call the integration API
+      const apiUrl = 'https://api.alphafi.xyz';
+      const response = await fetch(
+        `${apiUrl}/navi-params/rewards?address=${encodeURIComponent(address)}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error ||
+            errorData.message ||
+            `Failed to fetch rewards: ${response.status} ${response.statusText}`,
+        );
+      }
+
+      const data = await response.json();
+
+      // The API returns { address, rewards, timestamp }
+      // We just need the rewards object
+      return data.rewards || {};
+    } catch (error: any) {
+      console.error('Error fetching Navi rewards from API:', error);
+      throw new Error(`Failed to fetch Navi rewards: ${error.message}`);
+    }
+  }
+
+  private async collectAndSwapRewardsTxb(
+    tx: Transaction,
+    rewardCoinSet: Set<string>,
+    claimableRewards: any[] | undefined,
+  ) {
+    if (!claimableRewards) {
+      return;
+    }
+    const [navxCoin, vsuiCoin, stsuiCoin] = await this.context.getCoinsBySymbols([
+      'NAVX',
+      'vSUI',
+      'stSUI',
+    ]);
+
+    for (const reward of claimableRewards) {
+      if (rewardCoinSet.has(reward.rewardCoinType) === false) {
+        if (this.poolLabel.supplyAsset.name === 'vSUI') {
+          if (reward.rewardCoinType === navxCoin.coinType) {
+            tx.moveCall({
+              target: `${this.poolLabel.packageId}::alphafi_navi_sui_vsui_investor::collect_reward_with_two_swaps_v2`,
+              typeArguments: [navxCoin.coinType],
+              arguments: [
+                tx.object(this.poolLabel.investorId),
+                tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+                tx.object(CLOCK_PACKAGE_ID),
+                tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+                tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+                tx.object(NAVI_CONFIG.REWARDS_POOL.NAVX),
+                tx.object(NAVI_CONFIG.VOLO.STAKE_POOL),
+                tx.object(NAVI_CONFIG.VOLO.METADATA),
+                tx.object(SUI_SYSTEM_STATE),
+                tx.object(
+                  await this.context.getPoolIdBySymbolsAndProtocol('NAVX', 'vSUI', 'cetus'),
+                ),
+                tx.object(await this.context.getPoolIdBySymbolsAndProtocol('vSUI', 'SUI', 'cetus')),
+                tx.object(GLOBAL_CONFIGS.CETUS),
+              ],
+            });
+          } else if (reward.rewardCoinType === vsuiCoin.coinType) {
+            tx.moveCall({
+              target: `${this.poolLabel.packageId}::alphafi_navi_sui_vsui_investor::collect_reward_with_no_swap`,
+              arguments: [
+                tx.object(this.poolLabel.investorId),
+                tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+                tx.object(CLOCK_PACKAGE_ID),
+                tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+                tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+                tx.object(NAVI_CONFIG.REWARDS_POOL.vSUI),
+              ],
+            });
+          }
+        } else if (this.poolLabel.supplyAsset.name === 'HASUI') {
+          if (reward.rewardCoinType === navxCoin.coinType) {
+            tx.moveCall({
+              target: `${this.poolLabel.packageId}::alphafi_navi_hasui_sui_investor::collect_reward_with_two_swaps`,
+              typeArguments: [navxCoin.coinType],
+              arguments: [
+                tx.object(this.poolLabel.investorId),
+                tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+                tx.object(CLOCK_PACKAGE_ID),
+                tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+                tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+                tx.object(NAVI_CONFIG.REWARDS_POOL.NAVX),
+                tx.object(NAVI_CONFIG.HAEDEL_STAKING),
+                tx.object(SUI_SYSTEM_STATE),
+                tx.object(await this.context.getPoolIdBySymbolsAndProtocol('NAVX', 'SUI', 'cetus')),
+                tx.object(
+                  await this.context.getPoolIdBySymbolsAndProtocol('HASUI', 'SUI', 'cetus'),
+                ),
+                tx.object(GLOBAL_CONFIGS.CETUS),
+              ],
+            });
+          } else if (reward.rewardCoinType === vsuiCoin.coinType) {
+            tx.moveCall({
+              target: `${this.poolLabel.packageId}::alphafi_navi_hasui_sui_investor::collect_reward_with_two_swaps`,
+              typeArguments: [vsuiCoin.coinType],
+              arguments: [
+                tx.object(this.poolLabel.investorId),
+                tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+                tx.object(CLOCK_PACKAGE_ID),
+                tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+                tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+                tx.object(NAVI_CONFIG.REWARDS_POOL.vSUI),
+                tx.object(NAVI_CONFIG.HAEDEL_STAKING),
+                tx.object(SUI_SYSTEM_STATE),
+                tx.object(await this.context.getPoolIdBySymbolsAndProtocol('vSUI', 'SUI', 'cetus')),
+                tx.object(
+                  await this.context.getPoolIdBySymbolsAndProtocol('HASUI', 'SUI', 'cetus'),
+                ),
+                tx.object(GLOBAL_CONFIGS.CETUS),
+              ],
+            });
+          }
+        } else if (this.poolLabel.supplyAsset.name === 'stSUI') {
+          if (reward.rewardCoinType === navxCoin.coinType) {
+            tx.moveCall({
+              target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_two_swaps_bluefin`,
+              typeArguments: [navxCoin.coinType],
+              arguments: [
+                tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+                tx.object(this.poolLabel.investorId),
+                tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+                tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+                tx.object(NAVI_CONFIG.REWARDS_POOL.NAVX),
+                tx.object(STSUI.LST_INFO),
+                tx.object(SUI_SYSTEM_STATE),
+                tx.object(
+                  await this.context.getPoolIdBySymbolsAndProtocol('NAVX', 'SUI', 'bluefin'),
+                ),
+                tx.object(GLOBAL_CONFIGS.BLUEFIN),
+                tx.object(CLOCK_PACKAGE_ID),
+              ],
+            });
+          } else if (reward.rewardCoinType === vsuiCoin.coinType) {
+            tx.moveCall({
+              target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_two_swaps`,
+              typeArguments: [vsuiCoin.coinType],
+              arguments: [
+                tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+                tx.object(this.poolLabel.investorId),
+                tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+                tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+                tx.object(NAVI_CONFIG.REWARDS_POOL.vSUI),
+                tx.object(STSUI.LST_INFO),
+                tx.object(SUI_SYSTEM_STATE),
+                tx.object(await this.context.getPoolIdBySymbolsAndProtocol('vSUI', 'SUI', 'cetus')),
+                tx.object(GLOBAL_CONFIGS.CETUS),
+                tx.object(CLOCK_PACKAGE_ID),
+              ],
+            });
+          } else if (reward.rewardCoinType === stsuiCoin.coinType) {
+            tx.moveCall({
+              target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_no_swap`,
+              arguments: [
+                tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+                tx.object(this.poolLabel.investorId),
+                tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+                tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+                tx.object(NAVI_CONFIG.REWARDS_POOL.stSUI),
+                tx.object(CLOCK_PACKAGE_ID),
+              ],
+            });
+          }
+        } else if (this.poolLabel.supplyAsset.name === 'USDC') {
+          if (reward.rewardCoinType === navxCoin.coinType) {
+            tx.moveCall({
+              target: `${this.poolLabel.packageId}::alphafi_navi_native_usdc_usdt_investor::collect_reward_with_two_swaps`,
+              typeArguments: [navxCoin.coinType],
+              arguments: [
+                tx.object(this.poolLabel.investorId),
+                tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+                tx.object(CLOCK_PACKAGE_ID),
+                tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+                tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+                tx.object(NAVI_CONFIG.REWARDS_POOL.NAVX),
+                tx.object(await this.context.getPoolIdBySymbolsAndProtocol('NAVX', 'SUI', 'cetus')),
+                tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus')),
+                tx.object(GLOBAL_CONFIGS.CETUS),
+              ],
+            });
+          } else if (reward.rewardCoinType === vsuiCoin.coinType) {
+            tx.moveCall({
+              target: `${this.poolLabel.packageId}::alphafi_navi_native_usdc_usdt_investor::collect_reward_with_two_swaps`,
+              typeArguments: [vsuiCoin.coinType],
+              arguments: [
+                tx.object(this.poolLabel.investorId),
+                tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+                tx.object(CLOCK_PACKAGE_ID),
+                tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+                tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+                tx.object(NAVI_CONFIG.REWARDS_POOL.vSUI),
+                tx.object(await this.context.getPoolIdBySymbolsAndProtocol('vSUI', 'SUI', 'cetus')),
+                tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus')),
+                tx.object(GLOBAL_CONFIGS.CETUS),
+              ],
+            });
+          }
+        }
+        rewardCoinSet.add(reward.reward_coin_type);
+      }
+    }
+  }
+
+  private async collectAndSwapRewards(tx: Transaction) {
+    const rewardCoinSet = new Set<string>();
+
+    if (this.poolLabel.supplyAsset.name === 'vSUI') {
+      const claimableRewards = await this.getAvailableRewards(
+        NAVI_CONFIG.ACCOUNT_ADDRESSES.SUI_VSUI_LOOP,
+      );
+      await this.collectAndSwapRewardsTxb(
+        tx,
+        rewardCoinSet,
+        claimableRewards[this.poolLabel.supplyAsset.type],
+      );
+      await this.collectAndSwapRewardsTxb(
+        tx,
+        rewardCoinSet,
+        claimableRewards[
+          '0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'
+        ],
+      );
+    } else if (this.poolLabel.supplyAsset.name === 'HASUI') {
+      const claimableRewards = await this.getAvailableRewards(
+        NAVI_CONFIG.ACCOUNT_ADDRESSES.HASUI_SUI_LOOP,
+      );
+      await this.collectAndSwapRewardsTxb(
+        tx,
+        rewardCoinSet,
+        claimableRewards[this.poolLabel.supplyAsset.type],
+      );
+      await this.collectAndSwapRewardsTxb(
+        tx,
+        rewardCoinSet,
+        claimableRewards[
+          '0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'
+        ],
+      );
+    } else if (this.poolLabel.supplyAsset.name === 'stSUI') {
+      const claimableRewards = await this.getAvailableRewards('');
+      await this.collectAndSwapRewardsTxb(
+        tx,
+        rewardCoinSet,
+        claimableRewards[this.poolLabel.supplyAsset.type],
+      );
+      await this.collectAndSwapRewardsTxb(
+        tx,
+        rewardCoinSet,
+        claimableRewards[
+          '0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'
+        ],
+      );
+    } else if (this.poolLabel.supplyAsset.name === 'USDC') {
+      const claimableRewards = await this.getAvailableRewards(
+        NAVI_CONFIG.ACCOUNT_ADDRESSES.USDC_USDT_LOOP,
+      );
+      await this.collectAndSwapRewardsTxb(
+        tx,
+        rewardCoinSet,
+        claimableRewards[this.poolLabel.supplyAsset.type],
+      );
+      await this.collectAndSwapRewardsTxb(
+        tx,
+        rewardCoinSet,
+        claimableRewards[this.poolLabel.borrowAsset.type],
+      );
+    }
+  }
+
   async deposit(tx: Transaction, options: DepositOptions) {
-    return tx;
+    // get Coin Object
+    const coin = await this.context.blockchain.getCoinObject(
+      tx,
+      this.poolLabel.supplyAsset.type,
+      options.address,
+    );
+    const [depositCoin] = tx.splitCoins(coin, [options.amount]);
+    tx.transferObjects([coin], options.address);
+
+    const receiptOption = this.context.blockchain.getOptionReceipt(
+      tx,
+      this.poolLabel.poolId,
+      options.address,
+    );
+
+    if (this.poolLabel.parentProtocol === 'Alphalend') {
+      const [alphaCoin, blueCoin] = await this.context.getCoinsBySymbols(['ALPHA', 'BLUE']);
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_one_swap`,
+        typeArguments: [alphaCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(this.poolLabel.investorId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('ALPHA', 'STSUI', 'bluefin')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_no_swap_v2`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(this.poolLabel.investorId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_two_swaps_v2`,
+        typeArguments: [blueCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(this.poolLabel.investorId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'cetus')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::user_deposit_v3`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          receiptOption,
+          tx.object(this.poolLabel.poolId),
+          depositCoin,
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      return;
+    }
+
+    await this.collectAndSwapRewards(tx);
+
+    if (this.poolLabel.supplyAsset.name === 'vSUI') {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_vsui_pool::user_deposit_v3`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          receiptOption,
+          tx.object(this.poolLabel.poolId),
+          depositCoin,
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
+          tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.vSUI),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.SUI),
+          tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+          tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('vSUI', 'SUI', 'cetus')),
+          tx.object(NAVI_CONFIG.VOLO.STAKE_POOL),
+          tx.object(NAVI_CONFIG.VOLO.METADATA),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(NAVI_CONFIG.KRIYA.VSUI_SUI_POOL),
+          tx.object(NAVI_CONFIG.KRIYA.VERSION),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (this.poolLabel.supplyAsset.name === 'HASUI') {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_hasui_sui_pool::user_deposit_v2`, // change package id for testing
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[2]), // change version object id for testing
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          receiptOption,
+          tx.object(this.poolLabel.poolId),
+          depositCoin,
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
+          tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.HASUI),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.SUI),
+          tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+          tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('HASUI', 'SUI', 'cetus')),
+          tx.object(NAVI_CONFIG.HAEDEL_STAKING),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (this.poolLabel.supplyAsset.name === 'stSUI') {
+      const [alphaCoin] = await this.context.getCoinsBySymbols(['ALPHA']);
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_one_swap`,
+        typeArguments: [alphaCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(this.poolLabel.investorId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('ALPHA', 'STSUI', 'bluefin')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_no_swap_v2`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(this.poolLabel.investorId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::user_deposit_v3`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          receiptOption,
+          tx.object(this.poolLabel.poolId),
+          depositCoin,
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (this.poolLabel.supplyAsset.name === 'USDC') {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_native_usdc_usdt_pool::user_deposit_v3`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          receiptOption,
+          tx.object(this.poolLabel.poolId),
+          depositCoin,
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
+          tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.USDC),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.USDT),
+          tx.object(NAVI_CONFIG.INCENTIVE_V1_ID),
+          tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
+          tx.object(NAVI_CONFIG.FUNDS_POOLS.vSUI),
+          tx.object(NAVI_CONFIG.FUNDS_POOLS.NAVX),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('vSUI', 'SUI', 'cetus')),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('NAVX', 'SUI', 'cetus')),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus')),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDC', 'USDT', 'cetus')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDT', 'USDC', 'bluefin')),
+          tx.pure.bool(true),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (this.poolLabel.supplyAsset.name === 'USDT') {
+      const [navxCoin] = await this.context.getCoinsBySymbols(['NAVX']);
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_usdt_usdc_pool::user_deposit_v3`,
+        typeArguments: [navxCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          receiptOption,
+          tx.object(this.poolLabel.poolId),
+          depositCoin,
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
+          tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.USDT),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.USDC),
+          tx.object(NAVI_CONFIG.INCENTIVE_V1_ID),
+          tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
+          tx.object(NAVI_CONFIG.FUNDS_POOLS.vSUI),
+          tx.object(NAVI_CONFIG.FUNDS_POOLS.NAVX),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('vSUI', 'SUI', 'cetus')),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDC', 'USDT', 'cetus')),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus')),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('NAVX', 'SUI', 'cetus')),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+  }
+
+  private coinAmountToXToken(amount: string): string {
+    const exchangeRate = this.exchangeRate();
+    return new Decimal(amount).div(exchangeRate).floor().toString();
   }
 
   async withdraw(tx: Transaction, options: WithdrawOptions) {
-    return tx;
+    if (this.receiptObjects.length === 0) {
+      throw new Error('No receipt found');
+    }
+
+    let xtokenAmount = this.coinAmountToXToken(options.amount);
+    if (options.withdrawMax) {
+      xtokenAmount = this.receiptObjects[0].xTokenBalance;
+    }
+
+    const noneAlphaReceipt = tx.moveCall({
+      target: `0x1::option::none`,
+      typeArguments: [
+        '0x9bbd650b8442abb082c20f3bc95a9434a8d47b4bef98b0832dab57c1a8ba7123::alphapool::Receipt',
+      ],
+      arguments: [],
+    });
+
+    if (this.poolLabel.parentProtocol === 'Alphalend') {
+      const [stsuiCoin, suiCoin, alphaCoin, blueCoin] = await this.context.getCoinsBySymbols([
+        'stSUI',
+        'SUI',
+        'ALPHA',
+        'BLUE',
+      ]);
+      const alphalendClient = new AlphalendClient('mainnet', this.context.blockchain.suiClient);
+      await alphalendClient.updatePrices(tx, [stsuiCoin.coinType, suiCoin.coinType]);
+
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_one_swap`,
+        typeArguments: [alphaCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(this.poolLabel.investorId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('ALPHA', 'STSUI', 'bluefin')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_no_swap_v2`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(this.poolLabel.investorId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_two_swaps_v2`,
+        typeArguments: [blueCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(this.poolLabel.investorId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'cetus')),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      const [stsui_coin] = tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::user_withdraw_v3`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.receiptObjects[0].id),
+          noneAlphaReceipt,
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(this.poolLabel.poolId),
+          tx.pure.u64(xtokenAmount),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `0x2::transfer::public_transfer`,
+        typeArguments: [`0x2::coin::Coin<${suiCoin.coinType}>`],
+        arguments: [stsui_coin, tx.pure.address(options.address)],
+      });
+      return;
+    }
+
+    if (this.poolLabel.supplyAsset.name === 'vSUI') {
+      const [vsui_coin] = tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_vsui_pool::user_withdraw_v3`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.receiptObjects[0].id),
+          noneAlphaReceipt,
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(this.poolLabel.poolId),
+          tx.pure.u64(xtokenAmount),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
+          tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.vSUI),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.SUI),
+          tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+          tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('vSUI', 'SUI', 'cetus')),
+          tx.object(NAVI_CONFIG.VOLO.STAKE_POOL),
+          tx.object(NAVI_CONFIG.VOLO.METADATA),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(NAVI_CONFIG.KRIYA.VSUI_SUI_POOL),
+          tx.object(NAVI_CONFIG.KRIYA.VERSION),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `0x2::transfer::public_transfer`,
+        typeArguments: [`0x2::coin::Coin<${this.poolLabel.borrowAsset.type}>`],
+        arguments: [vsui_coin, tx.pure.address(options.address)],
+      });
+    } else if (this.poolLabel.supplyAsset.name === 'HASUI') {
+      const [hasuiCoin] = tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_hasui_sui_pool::user_withdraw_v2`, // change package id for testing
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[2]), // change  version object id for testing
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.receiptObjects[0].id),
+          noneAlphaReceipt,
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(this.poolLabel.poolId),
+          tx.pure.u64(xtokenAmount),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
+          tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.HASUI),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.SUI),
+          tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+          tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('HASUI', 'SUI', 'cetus')),
+          tx.object(NAVI_CONFIG.HAEDEL_STAKING),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `0x2::transfer::public_transfer`,
+        typeArguments: [`0x2::coin::Coin<${this.poolLabel.supplyAsset.type}>`],
+        arguments: [hasuiCoin, tx.pure.address(options.address)],
+      });
+    } else if (this.poolLabel.supplyAsset.name === 'stSUI') {
+      const [stsui_coin] = tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::user_withdraw_v3`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.receiptObjects[0].id),
+          noneAlphaReceipt,
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(this.poolLabel.poolId),
+          tx.pure.u64(xtokenAmount),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `0x2::transfer::public_transfer`,
+        typeArguments: [`0x2::coin::Coin<${this.poolLabel.supplyAsset.type}>`],
+        arguments: [stsui_coin, tx.pure.address(options.address)],
+      });
+    } else if (this.poolLabel.supplyAsset.name === 'USDC') {
+      const [usdcCoin] = tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_native_usdc_usdt_pool::user_withdraw_v4`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.receiptObjects[0].id),
+          noneAlphaReceipt,
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(this.poolLabel.poolId),
+          tx.pure.u256(xtokenAmount),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
+          tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.USDC),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.USDT),
+          tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+          tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDC', 'USDT', 'cetus')),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDT', 'USDC', 'bluefin')),
+          tx.pure.bool(true),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `0x2::transfer::public_transfer`,
+        typeArguments: [`0x2::coin::Coin<${this.poolLabel.supplyAsset.type}>`],
+        arguments: [usdcCoin, tx.pure.address(options.address)],
+      });
+    } else if (this.poolLabel.supplyAsset.name === 'USDT') {
+      const [usdtCoin] = tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_usdt_usdc_pool::user_withdraw_v3`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.receiptObjects[0].id),
+          noneAlphaReceipt,
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(this.poolLabel.poolId),
+          tx.pure.u256(xtokenAmount),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
+          tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.USDT),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.USDC),
+          tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+          tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDC', 'USDT', 'cetus')),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `0x2::transfer::public_transfer`,
+        typeArguments: [`0x2::coin::Coin<${this.poolLabel.supplyAsset.type}>`],
+        arguments: [usdtCoin, tx.pure.address(options.address)],
+      });
+    }
   }
 
-  async claimRewards(tx: Transaction, poolId: string, address: string) {
+  async claimRewards(tx: Transaction, _poolId: string, _address: string) {
     return tx;
   }
 }

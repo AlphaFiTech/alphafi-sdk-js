@@ -388,7 +388,6 @@ export class AlphaFiSDK {
       options.inputCoinAmount,
       options.isInputA,
       poolLabel.poolName as PoolName,
-      options.slippage,
     );
   }
 

@@ -6,6 +6,9 @@ export const VERSIONS = {
   ALPHA_EMBER: '0xc342914b4f32bad056c137480887b07c519b0f8431ae4e61bb10a6cde1f54f80',
   AUTOBALANCE_LP: '0x80aa0d48c8c5dd7ebaf96c7bec846651eb7e199ff03913edd830e6d00049890d',
   ALPHALEND_VERSION: '0x66b34c1d2d0aa4198e1a2ba172cb4a80d0cfd501a376d5c3782365d0c8282abe',
+  ALPHA_NAVI_V2: '0xd912c62a88d526233bf456e77802a5c370cd625e4327c76662e68450b396a797',
+  SLUSH: '0x146d1785834528d08a44cac4a59c6a981d43cc13b1d07818e7fa3d29318ca00f',
+  MMT: '0x2375a0b1ec12010aaea3b2545acfa2ad34cfbba03ce4b59f4c39e1e25eed1b2a',
   ALPHA_VERSIONS: {
     1: '0xf9c533b483c656d29aad9b2ee48ea418dde9504fb42c8294298bf523026bf043',
     2: '0xb89716c470af0d16505ff5621e2111f73ac97247c093948660548c3548845aa8',
@@ -21,7 +24,14 @@ export const POOLS = {
 
 export const IMAGE_URLS = {
   ALPHAFI_RECEIPT: 'https://images.alphafi.xyz/ALPHAFI-POSITION.png',
+  SLUSH_POSITION_CAP: 'https://images.alphafi.xyz/ALPHALEND-SLUSH-POSITIONCAP.png',
 };
+
+export const STSUI = {
+  LST_INFO: '0x1adb343ab351458e151bc392fbf1558b3332467f23bda45ae67cd355a57fd5f5',
+};
+
+export const SUI_SYSTEM_STATE = '0x5';
 
 export const CLOCK_PACKAGE_ID = '0x6';
 
@@ -44,3 +54,178 @@ export const GLOBAL_CONFIGS = {
 
 export const ALPHALEND_LENDING_PROTOCOL_ID =
   '0x01d9cf05d65fa3a9bb7163095139120e3c4e414dfbab153a49779a7d14010b93';
+
+export const BUCKET_CONFIG = {
+  PROTOCOL_ID: '0x9e3dab13212b27f5434416939db5dec6a319d15b89a84fd074d03ece6350d3df',
+  FOUNTAIN_ID: '0xbdf91f558c2b61662e5839db600198eda66d502e4c10c4fc5c683f9caca13359',
+  FLASK_ID: '0xc6ecc9731e15d182bc0a46ebe1754a779a4bfb165c201102ad51a36838a1a7b8',
+};
+
+export const NAVI_CONFIG = {
+  ORACLE_CONFIG: '0x1afe1cb83634f581606cc73c4487ddd8cc39a944b951283af23f7d69d5589478',
+  PRICE_ORACLE_ID: '0x1568865ed9a0b5ec414220e8f79b3d04c77acc82358f6e5ae4635687392ffbef',
+  SUPRA_ORACLE_HOLDER: '0xaa0315f0748c1f24ddb2b45f7939cff40f7a8104af5ccbc4a1d32f870c0b4105',
+  INCENTIVE_V3_ID: '0x62982dad27fb10bb314b3384d5de8d2ac2d72ab2dbeae5d801dbdb9efa816c80',
+  INCENTIVE_V2_ID: '0xf87a8acb8b81d14307894d12595541a73f19933f88e1326d5be349c7a6f7559c',
+  INCENTIVE_V1_ID: '0xaaf735bf83ff564e1b219a0d644de894ef5bdc4b2250b126b2a46dd002331821',
+  NAVI_STORAGE_ID: '0xbb4e2f4b6205c2e2a2db47aeb4f830796ec7c005f88537ee775986639bc442fe',
+  HAEDEL_STAKING: '0x47b224762220393057ebf4f70501b6e657c3e56684737568439a04f80849b2ca',
+  VOLO: {
+    STAKE_POOL: '0x2d914e23d82fedef1b5f56a32d5c64bdcc3087ccfea2b4d6ea51a71f587840e5',
+    METADATA: '0x680cd26af32b2bde8d3361e804c53ec1d1cfe24c7f039eb7f549e8dfde389a60',
+  },
+  KRIYA: {
+    VERSION: '0xf5145a7ac345ca8736cf8c76047d00d6d378f30e81be6f6eb557184d9de93c78',
+    VSUI_SUI_POOL: '0xf1b6a7534027b83e9093bec35d66224daa75ea221d555c79b499f88c93ea58a9',
+  },
+  NAVI_POOLS: {
+    HASUI: '0x6fd9cb6ebd76bc80340a9443d72ea0ae282ee20e2fd7544f6ffcd2c070d9557a',
+    vSUI: '0x9790c2c272e15b6bf9b341eb531ef16bcc8ed2b20dfda25d060bf47f5dd88d01',
+    SUI: '0x96df0fce3c471489f4debaaa762cf960b3d97820bd1f3f025ff8190730e958c5',
+    USDC: '0xa3582097b4c57630046c0c49a88bfc6b202a3ec0a9db5597c31765f7563755a8',
+    USDT: '0x0e060c3b5b8de00fb50511b7a45188c8e34b6995c01f69d98ea5a466fe10d103',
+  },
+  REWARDS_POOL: {
+    NAVX: '0x1a3f9fcfdfac10e92c99220203f7c4bb502558692f0be0f2cb5f788b4e12a6b5',
+    DEEP: '0xc889d78b634f954979e80e622a2ae0fece824c0f6d9590044378a2563035f32f',
+    vSUI: '0x7093cf7549d5e5b35bfde2177223d1050f71655c7f676a5e610ee70eb4d93b5c',
+    stSUI: '0x65a952a1f239c48d8c6fc80de1d3bb248ce6905d1c3897c2ef52948fc7df3616',
+  },
+  FUNDS_POOLS: {
+    vSUI: '0xe2b5ada45273676e0da8ae10f8fe079a7cec3d0f59187d3d20b1549c275b07ea',
+    NAVX: '0x9dae0cf104a193217904f88a48ce2cf0221e8cd9073878edd05101d6b771fa09',
+  },
+  ACCOUNT_ADDRESSES: {
+    USDC_USDT_LOOP: '0x522fff4c498a045af792aaf8d74fbad3a63f0ccd269068e661d526bc8a719275',
+    SUI_VSUI_LOOP: '0xc2c0f74aa59b2cde7ccb3840c902e40dd09b87f3229e5e4d5f448436ee2d9097',
+    HASUI_SUI_LOOP: '0x3d1c9fbaf2b70c1f7f15a903d08d6b5555b6a8a898d5e6abd1b9dbe8741290f9',
+    USDT_USDC_LOOP: '0xe13ed1239c70b8ffb56f6925b1b181ed0946429eb6b759519de347706231eae6',
+    ALPHALEND_SUI_STSUI_LOOP: '0xc78959333708a02d4b2b1fa46990238ab4fa31321f5abee252d91b3bf3feeaa4',
+    suiUSDT: '0x3422136aec9054a8b029d775dff1b39fe2d3938376fb41e6e4b31cbb8a822305',
+    NAVX: '0x9181c72e61c9efb247b65c6245b39e80ee3479d30c8f2ae4d053af22302b42a8',
+    AUSD: '0x6792adbab0ca3a5eb33174731d740b19aa71a07cbd6c6d2d6f3cc531d82a3c37',
+    ETH: '0x7032647d08b61b2bab4fe66242cf9fb5bbf0fe5f180c11eee4a3a8b2a7fdfead',
+    NS: '0xa0f5335696fb4ca79db88cc79e0f652b31e764b79e891be1251f2cd834f4bea9',
+    stSUI: '0x9f053ed5997f1d68c4cf05ebd1323f926cdd29a2a0489470d9bc0830dc791acd',
+    wBTC: '0x21de2ee32a785b60fe7e90a30a1f8634565949755dedf489357fd0dbc6fa2dfb',
+    SUI: '0x512bf98e20e137811657e976acee3ca37086d87bc0b0073ffd0f289d0342eccc',
+    USDY: '0xbb89a675f772e1780419b0e870fc12982e588f41377a286f239fd8a9843913bd',
+    USDC: '0x02bf11dd1e42865a977b219c031483b3c1eda9b862736953443efe30bfda65bd',
+    vSUI: '0xe8be7259aaa1ec87c72c77098a271508dcfffb2e0b02abe514928d49a276ba9e',
+    WETH: '0xd7565045f34c17890679e28032c5139e09e3a2883a8edb2c45b6ac92e5aabae4',
+    WUSDC: '0x57b3a18b87a74fbf26ebda9a5670de6740d587b8009d5d9a31ef589c61b050f0',
+    USDT: '0xa7bcc625ed51fd190b87d945f8399f8b28a728a082d9d80d783075d992397746',
+    DEEP: '0x6cca5232e4e6a6d34c52ed633215b83cad7445720e76620822bf9287c3f0c708',
+    WAL: '0x13bdd7177faa8868bf26090fb67b5f0b1aa4dbd9a021dee9ea20421b496511f9',
+  },
+  ASSET_MAP: {
+    SUI: '0',
+    wUSDC: '1',
+    USDT: '2',
+    WETH: '3',
+    CETUS: '4',
+    vSUI: '5',
+    HASUI: '6',
+    USDC: '10',
+    USDY: '12',
+    AUSD: '9',
+    ETH: '11',
+    NS: '13',
+    NAVX: '7',
+    stSUI: '20',
+    wBTC: '21',
+    suiUSDT: '19',
+    DEEP: '15',
+    WAL: '24',
+  },
+  PRICE_FEED: {
+    SUI: {
+      feedId: '0x2cab9b151ca1721624b09b421cc57d0bb26a1feb5da1f821492204b098ec35c9',
+      pythPriceInfo: '0x23d7315113f5b1d3ba7a83604c44b94d79f4fd69af77f804fc7f920a6dc65744',
+    },
+    wUSDC: {
+      feedId: '0x70a79226dda5c080378b639d1bb540ddea64761629aa4ad7355d79266d55af61',
+      pythPriceInfo: '0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a',
+    },
+    USDC: {
+      feedId: '0xe120611435395f144b4bcc4466a00b6b26d7a27318f96e148648852a9dd6b31c',
+      pythPriceInfo: '0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a',
+    },
+    USDT: {
+      feedId: '0xf72d8933873bb4e5bfa1edbfa9ff6443ec5fac25c1d99ba2ef37f50a125826f3',
+      pythPriceInfo: '0x2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b',
+    },
+    WETH: {
+      feedId: '0x44d92366eba1f1652ec81f34585406726bef267565a2db1664ffd5ef18e21693',
+      pythPriceInfo: '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
+    },
+    CETUS: {
+      feedId: '0x5ac98fc1e6723af2a6d9a68a5d771654a6043f9c4d2b836b2d5fb4832a3be4f2',
+      pythPriceInfo: '0xe5b274b2611143df055d6e7cd8d93fe1961716bcd4dca1cad87a83bc1e78c1ef',
+    },
+    NAVX: {
+      feedId: '0x4324c797d2f19eff517c24adec8b92aa2d282e44f3a5cafb36d6c4b30d7f2dca',
+      pythPriceInfo: '0x88250f854c019ef4f88a5c073d52a18bb1c6ac437033f5932cd017d24917ab46',
+    },
+    WBTC: {
+      feedId: '0x1bf4727242a61d892feef6616d3e40a3bd24b64b5deb884054e86cb9360556c4',
+      pythPriceInfo: '0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43',
+    },
+    AUSD: {
+      feedId: '0x9a0656e1e10a0cdf3f03dce9db9ad931f51dc6eac2e52ebfbf535dfbcf8100ef',
+      pythPriceInfo: '0xd9912df360b5b7f21a122f15bdd5e27f62ce5e72bd316c291f7c86620e07fb2a',
+    },
+    ETH: {
+      feedId: '0x9a6ffc707270286e98e8d0f654ce38f69efbc302ac98e2deb11fbad2211600f0',
+      pythPriceInfo: '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
+    },
+    USDY: {
+      feedId: '0x11ddf2ac1868d493e2487deeb2a0c2791bb7ca69632c8c5fefe85e09390be093',
+      pythPriceInfo: '0xe393449f6aff8a4b6d3e1165a7c9ebec103685f3b41e60db4277b5b6d10e7326',
+    },
+    NS: {
+      feedId: '0xc771ec0ca245857f30195ce05197a7b3ab41c58c1e8abe0661919d90675ad63d',
+      pythPriceInfo: '0xbb5ff26e47a3a6cc7ec2fce1db996c2a145300edc5acaabe43bf9ff7c5dd5d32',
+    },
+    DEEP: {
+      feedId: '0x4558092b08ad1b33b0eb536f91a4655693c2390ac568f06de6f6fad827888600',
+      pythPriceInfo: '0x29bdd5248234e33bd93d3b81100b5fa32eaa5997843847e2c2cb16d7c6d9f7ff',
+    },
+    BLUE: {
+      feedId: '0xd8286c11df7e49496ee75622ae4132c56385c30b4bedb392e36c0699a52a1d52',
+      pythPriceInfo: '0x04cfeb7b143eb9c48e9b074125c1a3447b85f59c31164dc20c1beaa6f21f2b6b',
+    },
+    BUCK: {
+      feedId: '0x93c1b815f64ef7c4311d74ff7c0ca1e47739c3ac31fdee0068c30887633ba2fb',
+      pythPriceInfo: '0xfdf28a46570252b25fd31cb257973f865afc5ca2f320439e45d95e0394bc7382',
+    },
+    suiUSDT: {
+      feedId: '0xdeba21105ff41300f8829aaeba45fdec25d1533a64d504ef0348ff005da3fbe5',
+      pythPriceInfo: '0x2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b',
+    },
+    stSUI: {
+      feedId: '0xd7a8c920db9f8b5c3c300307d88fca53684fd15b760977dbf8f0adc6e55783bd',
+      pythPriceInfo: '0x23d7315113f5b1d3ba7a83604c44b94d79f4fd69af77f804fc7f920a6dc65744',
+    },
+    wBTC: {
+      feedId: '0x4e4666c82c476f0b51b27c5ed8c77ab960aa5e4c3a48796e179d721b471e3b7e',
+      pythPriceInfo: '0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43',
+    },
+    vSUI: {
+      feedId: '0x086bb5540047b3c77ae5e2f9b811c7ef085517a73510f776753c8ee83d19e62c',
+      pythPriceInfo: '0x23d7315113f5b1d3ba7a83604c44b94d79f4fd69af77f804fc7f920a6dc65744',
+    },
+    HASUI: {
+      feedId: '0xac934a2a2d406085e7f73b460221fe1b11935864605ba58cdbb8e21c15f12acd',
+      pythPriceInfo: '0x23d7315113f5b1d3ba7a83604c44b94d79f4fd69af77f804fc7f920a6dc65744',
+    },
+    DMC: {
+      feedId: '0x8abfa63ae82ca2fbc271861375e497166d8792580fb7c2ffcf014d2a131433f0',
+      pythPriceInfo: '0x5c0be5cc32bdf53fd3b5a567744dd1145c4f82b269906ceda03dbb6f06d9371b',
+    },
+  },
+};
+
+export const PYTH_STATE_ID = '0x1f9310238ee9298fb703c3419030b35b22bb1cc37113e3bb5007c99aec79e5b8';
+export const WORMHOLE_STATE_ID =
+  '0xaeab97f96cf9877fee2883315d459552b2b921edc16d7ceac6eab944dd88919c';

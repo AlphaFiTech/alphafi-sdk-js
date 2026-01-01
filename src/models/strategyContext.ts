@@ -5,7 +5,7 @@
  */
 
 import { Blockchain } from './blockchain.js';
-import { CoinInfoProvider } from './coinInfoProvider.js';
+import { CoinInfo, CoinInfoProvider } from './coinInfoProvider.js';
 import { PoolLabel } from '../strategies/strategy.js';
 import { Decimal } from 'decimal.js';
 import { AlphalendClient } from '@alphafi/alphalend-sdk';
@@ -138,6 +138,19 @@ export class StrategyContext {
     return this.coinInfoProvider.getPriceByType(coinType);
   }
 
+  async getCoinsBySymbols(symbols: string[]): Promise<CoinInfo[]> {
+    const coins = await Promise.all(
+      symbols.map(async (symbol) => {
+        const coin = await this.coinInfoProvider.getCoinBySymbol(symbol);
+        if (!coin) {
+          throw new Error(`Coin not found: ${symbol}`);
+        }
+        return coin;
+      }),
+    );
+    return coins;
+  }
+
   /**
    * Get APR/APY data for a pool (falls back to zeros).
    */
@@ -153,18 +166,35 @@ export class StrategyContext {
   }
 
   /**
+   * Get pool ID by coin symbols and protocol.
+   */
+  async getPoolIdBySymbolsAndProtocol(
+    symbolA: string,
+    symbolB: string,
+    protocol: 'cetus' | 'bluefin' | 'mmt',
+  ): Promise<string> {
+    const poolIds = await this.getPoolIdsBySymbols(symbolA, symbolB);
+    const poolId = poolIds[protocol as keyof ProtocolPoolIds];
+    if (!poolId) {
+      throw new Error(
+        `Pool for protocol: ${protocol} not found for coin pair: ${symbolA} or ${symbolB}`,
+      );
+    }
+    return poolId;
+  }
+
+  /**
    * Lookup pool IDs by coin symbols (order-agnostic).
    * Returns undefined if either symbol is unknown or no pool mapping exists.
    */
-  async getPoolIdsBySymbols(
-    symbolA: string,
-    symbolB: string,
-  ): Promise<ProtocolPoolIds | undefined> {
+  async getPoolIdsBySymbols(symbolA: string, symbolB: string): Promise<ProtocolPoolIds> {
     const [typeA, typeB] = await Promise.all([
       this.getCoinTypeBySymbol(symbolA),
       this.getCoinTypeBySymbol(symbolB),
     ]);
-    if (!typeA || !typeB) return undefined;
+    if (!typeA || !typeB) {
+      throw new Error(`Coin not found: ${symbolA} or ${symbolB}`);
+    }
     return this.getPoolIdsByTypes(typeA, typeB);
   }
 
@@ -172,8 +202,11 @@ export class StrategyContext {
    * Lookup pool IDs by coin types (order-agnostic).
    * Returns undefined if no pool mapping exists.
    */
-  getPoolIdsByTypes(coinTypeA: string, coinTypeB: string): ProtocolPoolIds | undefined {
+  getPoolIdsByTypes(coinTypeA: string, coinTypeB: string): ProtocolPoolIds {
     const key = getCanonicalPairKey(coinTypeA, coinTypeB);
+    if (!POOL_REGISTRY[key]) {
+      throw new Error(`Pool not found for coin pair: ${coinTypeA} or ${coinTypeB}`);
+    }
     return POOL_REGISTRY[key];
   }
 
@@ -402,7 +435,7 @@ export class StrategyContext {
   /**
    * Fetch and cache slush position caps for a user.
    */
-  private async getSlushPositionCaps(userAddress: string): Promise<SlushPositionCap[]> {
+  async getSlushPositionCaps(userAddress: string): Promise<SlushPositionCap[]> {
     const cached = this.slushPositionCapsCache.get(userAddress);
     if (cached) {
       return cached;
