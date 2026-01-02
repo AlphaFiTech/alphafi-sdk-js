@@ -37,6 +37,27 @@ export type PoolDetails = {
 };
 
 export const poolDetailsMap: Record<string, PoolDetails> = {
+  [conf[CONF_ENV].ALPHA_SLUSH_STSUI_LOOP_POOL_ID]: {
+    poolName: 'ALPHALEND-SLUSH-STSUI-LOOP',
+    packageId: conf[CONF_ENV].ALPHA_SLUSH_LATEST_PACKAGE_ID,
+    packageNumber: 12,
+    parentProtocolName: 'ALPHALEND',
+    parentPoolId: '',
+    poolId: conf[CONF_ENV].ALPHA_SLUSH_STSUI_LOOP_POOL_ID,
+    investorId: conf[CONF_ENV].ALPHAFI_SLUSH_STSUI_LOOP_INVESTOR,
+    receipt: {
+      name: '',
+      type: '',
+    },
+    assetTypes: [coinsList['STSUI'].type],
+    events: {
+      autoCompoundingEventType: '',
+      liquidityChangeEventType: '',
+      rebalanceEventType: undefined,
+    },
+    strategyType: 'DOUBLE-ASSET-LOOPING',
+    retired: false,
+  },
   [conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WBTC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_ALPHALEND_LATEST_PACKAGE_ID,
     poolName: 'ALPHALEND-SINGLE-LOOP-WBTC',

@@ -141,21 +141,20 @@ async function deposit() {
     address,
   });
   const tx = await sdk.deposit({
-    poolId: getConf().ALPHAFI_ALPHALEND_SINGLE_LOOP_DEEP_POOL, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
-    amount: 10000n,
+    poolId: getConf().ALPHA_SLUSH_STSUI_LOOP_POOL_ID, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    amount: 100_000_000n,
   });
   // dryRunTransactionBlock(tx);
   executeTransactionBlock(tx);
 }
-// deposit();
 
 async function withdraw() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
   const tx = await sdk.withdraw({
-    poolId: getConf().ALPHAFI_ALPHALEND_SINGLE_LOOP_WBTC_POOL, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
-    amount: '1000',
-    withdrawMax: false,
+    poolId: getConf().ALPHA_SLUSH_STSUI_LOOP_POOL_ID, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    amount: '100000',
+    withdrawMax: true,
   });
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx);
@@ -169,5 +168,6 @@ async function claimAirdrop() {
   dryRunTransactionBlock(tx);
   // executeTransactionBlock(tx);
 }
-claimAirdrop();
-// withdraw();
+// claimAirdrop();
+withdraw();
+// deposit();
