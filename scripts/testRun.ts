@@ -43,7 +43,11 @@ export function getExecStuff() {
 
   const suiClient = getSuiClient(process.env.NETWORK);
 
-  return { address, keypair, suiClient };
+  return {
+    address,
+    keypair,
+    suiClient,
+  };
 }
 
 export async function dryRunTransactionBlock(txb: Transaction) {
@@ -141,7 +145,7 @@ async function deposit() {
     address,
   });
   const tx = await sdk.deposit({
-    poolId: getConf().ALPHAFI_ALPHALEND_SINGLE_LOOP_DEEP_POOL, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    poolId: getConf().ALPHAFI_LYF_STSUI_SUI_POOL, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
     amount: 10000n,
   });
   // dryRunTransactionBlock(tx);
@@ -153,9 +157,9 @@ async function withdraw() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
   const tx = await sdk.withdraw({
-    poolId: getConf().ALPHAFI_ALPHALEND_SINGLE_LOOP_WBTC_POOL, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    poolId: getConf().ALPHAFI_LYF_STSUI_SUI_POOL, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
     amount: '1000',
-    withdrawMax: false,
+    withdrawMax: true,
   });
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx);
@@ -169,5 +173,6 @@ async function claimAirdrop() {
   dryRunTransactionBlock(tx);
   // executeTransactionBlock(tx);
 }
-claimAirdrop();
-// withdraw();
+// claimAirdrop();
+withdraw();
+// deposit();

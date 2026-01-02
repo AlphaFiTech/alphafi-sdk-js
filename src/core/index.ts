@@ -224,7 +224,7 @@ export class AlphaFiSDK {
         );
       } else {
         const receipt = await getReceipts(poolInfo.poolName as PoolName, this.config.address, true);
-        if (!receipt) {
+        if (!receipt || receipt.length == 0) {
           throw new Error(`Receipt with ID ${poolInfo.poolId} not found`);
         }
         xTokens = receipt[0].content.fields.xTokenBalance;
