@@ -7,9 +7,17 @@ import { AlphaMiningData, BaseStrategy, ProtocolType, NameType } from './strateg
 import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
-import { ClmmPoolUtil, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
+import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction } from '@mysten/sui/transactions';
+import {
+  CLOCK_PACKAGE_ID,
+  DISTRIBUTOR_OBJECT_ID,
+  GLOBAL_CONFIGS,
+  STSUI,
+  SUI_SYSTEM_STATE,
+  VERSIONS,
+} from '../utils/constants.js';
 
 /**
  * FungibleLp Strategy for dual-asset liquidity pools with fungible tokens
@@ -284,6 +292,40 @@ export class FungibleLpStrategy extends BaseStrategy<
     return { tokenAAmount: amountA, tokenBAmount: amountB, usdValue };
   }
 
+  private getLiquidity(amount: string, isAmountA: boolean): LiquidityInput {
+    const upperBound = 443636;
+    let lowerTick = this.investorObject.lowerTick;
+    let upperTick = this.investorObject.upperTick;
+    if (lowerTick > upperBound) {
+      lowerTick = -~(lowerTick - 1);
+    }
+    if (upperTick > upperBound) {
+      upperTick = -~(upperTick - 1);
+    }
+    const currentSqrtPriceBN = new BN(this.parentPoolObject.currentSqrtPrice);
+
+    return ClmmPoolUtil.estLiquidityAndcoinAmountFromOneAmounts(
+      lowerTick,
+      upperTick,
+      new BN(`${Math.floor(parseFloat(amount))}`),
+      isAmountA,
+      false,
+      0.5,
+      currentSqrtPriceBN,
+    );
+  }
+
+  private getOtherAmount(amount: string, isAmountA: boolean): [string, string] {
+    const liquidity = this.getLiquidity(amount, isAmountA);
+    return [liquidity.coinAmountA.toString(), liquidity.coinAmountB.toString()];
+  }
+
+  private coinAmountToXToken(amount: string, isAmountA: boolean): string {
+    const liquidity = new Decimal(this.getLiquidity(amount, isAmountA).liquidityAmount.toString());
+    const exchangeRate = this.exchangeRate();
+    return liquidity.div(exchangeRate).floor().toString();
+  }
+
   /**
    * Parse pool object from blockchain response
    */
@@ -361,11 +403,100 @@ export class FungibleLpStrategy extends BaseStrategy<
   }
 
   async deposit(tx: Transaction, options: DepositOptions) {
-    return tx;
+    if (!options.isAmountA) {
+      throw new Error('isAmountA is required for AutobalanceLp strategy');
+    }
+    const [amountA, amountB] = this.getOtherAmount(options.amount.toString(), options.isAmountA);
+
+    // get Coin Objects
+    const coinA = await this.context.blockchain.getCoinObject(
+      tx,
+      this.poolLabel.assetA.type,
+      options.address,
+    );
+    const [depositCoinA] = tx.splitCoins(coinA, [amountA]);
+    tx.transferObjects([coinA], options.address);
+
+    const coinB = await this.context.blockchain.getCoinObject(
+      tx,
+      this.poolLabel.assetB.type,
+      options.address,
+    );
+    const [depositCoinB] = tx.splitCoins(coinB, [amountB]);
+    tx.transferObjects([coinB], options.address);
+
+    const [blueCoin] = await this.context.getCoinsBySymbols(['BLUE']);
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_bluefin_stsui_sui_ft_pool::user_deposit`,
+      typeArguments: [
+        this.poolLabel.assetA.type,
+        this.poolLabel.assetB.type,
+        this.poolLabel.fungibleCoin.type,
+        blueCoin.coinType,
+      ],
+      arguments: [
+        tx.object(VERSIONS.FUNGIBLE_LP),
+        tx.object(this.poolLabel.poolId),
+        depositCoinA,
+        depositCoinB,
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(this.poolLabel.investorId),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('stSUI', 'SUI', 'bluefin')),
+        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin')),
+        tx.object(STSUI.LST_INFO),
+        tx.object(SUI_SYSTEM_STATE),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
   }
 
   async withdraw(tx: Transaction, options: WithdrawOptions) {
-    return tx;
+    if (!options.isAmountA) {
+      throw new Error('isAmountA is required for AutobalanceLp strategy');
+    }
+    if (this.xTokenBalance.isZero()) {
+      throw new Error('No xToken balance found!');
+    }
+
+    let xTokenAmount = '0';
+    if (options.withdrawMax) {
+      xTokenAmount = this.xTokenBalance.toString();
+    } else {
+      xTokenAmount = this.coinAmountToXToken(options.amount.toString(), options.isAmountA);
+    }
+
+    const fungibleCoin = await this.context.blockchain.getCoinObject(
+      tx,
+      this.poolLabel.fungibleCoin.type,
+      options.address,
+    );
+    const [withdrawFungibleCoin] = tx.splitCoins(fungibleCoin, [xTokenAmount]);
+    tx.transferObjects([fungibleCoin], options.address);
+
+    const [blueCoin] = await this.context.getCoinsBySymbols(['BLUE']);
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_bluefin_stsui_sui_ft_pool::user_withdraw`,
+      typeArguments: [
+        this.poolLabel.assetA.type,
+        this.poolLabel.assetB.type,
+        this.poolLabel.fungibleCoin.type,
+        blueCoin.coinType,
+      ],
+      arguments: [
+        tx.object(VERSIONS.FUNGIBLE_LP),
+        withdrawFungibleCoin,
+        tx.object(this.poolLabel.poolId),
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(this.poolLabel.investorId),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('stSUI', 'SUI', 'bluefin')),
+        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin')),
+        tx.object(STSUI.LST_INFO),
+        tx.object(SUI_SYSTEM_STATE),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
   }
 
   async claimRewards(tx: Transaction, poolId: string, address: string) {

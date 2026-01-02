@@ -10,6 +10,15 @@ import BN from 'bn.js';
 import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction } from '@mysten/sui/transactions';
+import {
+  CLOCK_PACKAGE_ID,
+  DISTRIBUTOR_OBJECT_ID,
+  GLOBAL_CONFIGS,
+  POOLS,
+  STSUI,
+  SUI_SYSTEM_STATE,
+  VERSIONS,
+} from '../utils/constants.js';
 
 /**
  * LP Strategy for dual-asset liquidity pools
@@ -425,6 +434,1245 @@ export class LpStrategy extends BaseStrategy<
       .filter((receipt) => receipt.poolId === this.poolLabel.poolId);
   }
 
+  async depositBluefinSuiFirstTx(
+    tx: Transaction,
+    receiptOption: any,
+    depositCoinA: any,
+    depositCoinB: any,
+  ) {
+    const [blueCoin, suiCoin] = await this.context.getCoinsBySymbols(['BLUE', 'SUI']);
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_first_pool::user_deposit_v2`,
+      typeArguments: [
+        this.poolLabel.assetA.type,
+        this.poolLabel.assetB.type,
+        blueCoin.coinType,
+        suiCoin.coinType,
+      ],
+      arguments: [
+        tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+        tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+        receiptOption,
+        tx.object(this.poolLabel.poolId),
+        depositCoinA,
+        depositCoinB,
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(this.poolLabel.investorId),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.object(GLOBAL_CONFIGS.CETUS),
+        tx.object(this.poolLabel.parentPoolId),
+        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+        tx.object(
+          await this.context.getPoolIdBySymbolsAndProtocol(
+            this.poolLabel.assetA.name,
+            this.poolLabel.assetB.name,
+            'cetus',
+          ),
+        ),
+        tx.object(STSUI.LST_INFO),
+        tx.object(SUI_SYSTEM_STATE),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+  }
+
+  async withdrawBluefinSuiFirstTx(tx: Transaction, noneAlphaReceipt: any, xTokensAmount: string) {
+    const [blueCoin, suiCoin] = await this.context.getCoinsBySymbols(['BLUE', 'SUI']);
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_first_pool::user_withdraw_v2`,
+      typeArguments: [
+        this.poolLabel.assetA.type,
+        this.poolLabel.assetB.type,
+        blueCoin.coinType,
+        suiCoin.coinType,
+      ],
+      arguments: [
+        tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+        tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+        tx.object(this.receiptObjects[0].id),
+        noneAlphaReceipt,
+        tx.object(POOLS.ALPHA_LEGACY),
+        tx.object(this.poolLabel.poolId),
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(this.poolLabel.investorId),
+        tx.pure.u128(xTokensAmount),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.object(GLOBAL_CONFIGS.CETUS),
+        tx.object(this.poolLabel.parentPoolId),
+        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+        tx.object(
+          await this.context.getPoolIdBySymbolsAndProtocol(
+            this.poolLabel.assetA.name,
+            this.poolLabel.assetB.name,
+            'cetus',
+          ),
+        ),
+        tx.object(STSUI.LST_INFO),
+        tx.object(SUI_SYSTEM_STATE),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+  }
+
+  async depositBluefinSuiSecondTx(
+    tx: Transaction,
+    receiptOption: any,
+    depositCoinA: any,
+    depositCoinB: any,
+  ) {
+    const [deepCoin, blueCoin, suiCoin] = await this.context.getCoinsBySymbols([
+      'DEEP',
+      'BLUE',
+      'SUI',
+    ]);
+    if (this.poolLabel.poolName === 'BLUEFIN-STSUI-SUI') {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_stsui_sui_pool::user_deposit`,
+        typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, blueCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          receiptOption,
+          tx.object(this.poolLabel.poolId),
+          depositCoinA,
+          depositCoinB,
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_second_pool::user_deposit_v2`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          this.poolLabel.assetA.name === 'BLUE' ? deepCoin.coinType : blueCoin.coinType,
+          suiCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          receiptOption,
+          tx.object(this.poolLabel.poolId),
+          depositCoinA,
+          depositCoinB,
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetA.name === 'BLUE' ? 'DEEP' : 'BLUE',
+              'bluefin',
+            ),
+          ),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              this.poolLabel.assetA.name,
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+  }
+
+  async withdrawBluefinSuiSecondTx(tx: Transaction, noneAlphaReceipt: any, xTokensAmount: string) {
+    const [blueCoin, suiCoin, deepCoin] = await this.context.getCoinsBySymbols([
+      'BLUE',
+      'SUI',
+      'DEEP',
+    ]);
+
+    if (this.poolLabel.poolName === 'BLUEFIN-STSUI-SUI') {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_stsui_sui_pool::user_withdraw`,
+        typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, blueCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.receiptObjects[0].id),
+          noneAlphaReceipt,
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(this.poolLabel.poolId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.pure.u128(xTokensAmount),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_second_pool::user_withdraw_v2`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          deepCoin.coinType,
+          suiCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.receiptObjects[0].id),
+          noneAlphaReceipt,
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(this.poolLabel.poolId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.pure.u128(xTokensAmount),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetA.name === 'BLUE' ? 'DEEP' : 'BLUE',
+              'bluefin',
+            ),
+          ),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              this.poolLabel.assetA.name,
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+  }
+
+  async depositBluefinType1Tx(
+    tx: Transaction,
+    receiptOption: any,
+    depositCoinA: any,
+    depositCoinB: any,
+  ) {
+    const [blueCoin, suiCoin, deepCoin] = await this.context.getCoinsBySymbols([
+      'BLUE',
+      'SUI',
+      'DEEP',
+    ]);
+    if (this.poolLabel.poolName === 'BLUEFIN-STSUI-USDC') {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::user_deposit`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          blueCoin.coinType,
+          suiCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          receiptOption,
+          tx.object(this.poolLabel.poolId),
+          depositCoinA,
+          depositCoinB,
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              this.poolLabel.assetA.name,
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'USDC', 'cetus')),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (
+      this.poolLabel.poolName === 'BLUEFIN-SUIBTC-USDC' ||
+      this.poolLabel.poolName === 'BLUEFIN-LBTC-SUIBTC'
+    ) {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_investor::collect_and_swap_rewards_to_token_b_bluefin`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          blueCoin.coinType,
+          suiCoin.coinType,
+          deepCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.BLUEFIN_V2),
+          tx.object(this.poolLabel.investorId),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'DEEP', 'bluefin')),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetB.name,
+              'bluefin',
+            ),
+          ),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::user_deposit`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          blueCoin.coinType,
+          suiCoin.coinType,
+          deepCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.BLUEFIN_V2),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          receiptOption,
+          tx.object(this.poolLabel.poolId),
+          depositCoinA,
+          depositCoinB,
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'DEEP', 'bluefin')),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              this.poolLabel.assetA.name,
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_investor::collect_and_swap_rewards_to_token_b_bluefin`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          blueCoin.coinType,
+          suiCoin.coinType,
+        ],
+        arguments: [
+          tx.object(this.poolLabel.investorId),
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'USDC', 'bluefin')),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::user_deposit_v2`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          blueCoin.coinType,
+          suiCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          receiptOption,
+          tx.object(this.poolLabel.poolId),
+          depositCoinA,
+          depositCoinB,
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              this.poolLabel.assetA.name,
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ), // cetus pool with same tokens
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ), // cetus pool with assetB, SUI
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+  }
+
+  async withdrawBluefinType1Tx(tx: Transaction, noneAlphaReceipt: any, xTokensAmount: string) {
+    const [blueCoin, suiCoin, deepCoin] = await this.context.getCoinsBySymbols([
+      'BLUE',
+      'SUI',
+      'DEEP',
+    ]);
+
+    if (this.poolLabel.poolName === 'BLUEFIN-STSUI-USDC') {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::user_withdraw`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          blueCoin.coinType,
+          suiCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.receiptObjects[0].id),
+          noneAlphaReceipt,
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(this.poolLabel.poolId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.pure.u128(xTokensAmount),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              this.poolLabel.assetA.name,
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'USDC', 'cetus')),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (
+      this.poolLabel.poolName === 'BLUEFIN-SUIBTC-USDC' ||
+      this.poolLabel.poolName === 'BLUEFIN-LBTC-SUIBTC'
+    ) {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_investor::collect_and_swap_rewards_to_token_b_bluefin`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          blueCoin.coinType,
+          suiCoin.coinType,
+          deepCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.BLUEFIN_V2),
+          tx.object(this.poolLabel.investorId),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'DEEP', 'bluefin')),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetB.name,
+              'bluefin',
+            ),
+          ),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::user_withdraw`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          blueCoin.coinType,
+          suiCoin.coinType,
+          deepCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.BLUEFIN_V2),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.receiptObjects[0].id),
+          noneAlphaReceipt,
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(this.poolLabel.poolId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.pure.u128(xTokensAmount),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'DEEP', 'bluefin')),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              this.poolLabel.assetA.name,
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_investor::collect_and_swap_rewards_to_token_b_bluefin`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          blueCoin.coinType,
+          suiCoin.coinType,
+        ],
+        arguments: [
+          tx.object(this.poolLabel.investorId),
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'USDC', 'bluefin')),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::user_withdraw_v2`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          blueCoin.coinType,
+          suiCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.receiptObjects[0].id),
+          noneAlphaReceipt,
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(this.poolLabel.poolId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.pure.u128(xTokensAmount),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              this.poolLabel.assetA.name,
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ), // cetus pool with same tokens
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ), // cetus pool with assetB, SUI
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+  }
+
+  async depositBluefinType2Tx(
+    tx: Transaction,
+    receiptOption: any,
+    depositCoinA: any,
+    depositCoinB: any,
+  ) {
+    const [blueCoin, suiCoin, deepCoin] = await this.context.getCoinsBySymbols([
+      'BLUE',
+      'SUI',
+      'DEEP',
+    ]);
+
+    if (
+      this.poolLabel.poolName === 'BLUEFIN-STSUI-ETH' ||
+      this.poolLabel.poolName === 'BLUEFIN-STSUI-WSOL'
+    ) {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_2_pool::user_deposit`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          blueCoin.coinType,
+          suiCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          receiptOption,
+          tx.object(this.poolLabel.poolId),
+          depositCoinA,
+          depositCoinB,
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetA.name === 'BLUE' ? 'DEEP' : 'BLUE',
+              'bluefin',
+            ),
+          ),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              this.poolLabel.assetA.name,
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ), // same asset cetus pool
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ), // cetus pool with assetB, SUI
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_2_pool::user_deposit_v2`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          this.poolLabel.assetA.type === 'BLUE' ? deepCoin.coinType : blueCoin.coinType,
+          suiCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          receiptOption,
+          tx.object(this.poolLabel.poolId),
+          depositCoinA,
+          depositCoinB,
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetA.name === 'BLUE' ? 'DEEP' : 'BLUE',
+              'bluefin',
+            ),
+          ),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              this.poolLabel.assetA.name,
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ), // same asset cetus pool
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ), // cetus pool with assetB, SUI
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+  }
+
+  async withdrawBluefinType2Tx(tx: Transaction, noneAlphaReceipt: any, xTokensAmount: string) {
+    const [blueCoin, suiCoin, deepCoin] = await this.context.getCoinsBySymbols([
+      'BLUE',
+      'SUI',
+      'DEEP',
+    ]);
+
+    if (
+      this.poolLabel.poolName === 'BLUEFIN-STSUI-ETH' ||
+      this.poolLabel.poolName === 'BLUEFIN-STSUI-WSOL'
+    ) {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_2_pool::user_withdraw`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          blueCoin.coinType,
+          suiCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.receiptObjects[0].id),
+          noneAlphaReceipt,
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(this.poolLabel.poolId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.pure.u128(xTokensAmount),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetA.name === 'BLUE' ? 'DEEP' : 'BLUE',
+              'bluefin',
+            ),
+          ),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              this.poolLabel.assetA.name,
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ), // same asset cetus pool
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ), // cetus pool with assetB, SUI
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_2_pool::user_withdraw_v2`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          blueCoin.coinType,
+          suiCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.receiptObjects[0].id),
+          noneAlphaReceipt,
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(this.poolLabel.poolId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.pure.u128(xTokensAmount),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetA.name === 'BLUE' ? 'DEEP' : 'BLUE',
+              'bluefin',
+            ),
+          ),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              this.poolLabel.assetA.name,
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ), // same asset cetus pool
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ), // cetus pool with assetB, SUI
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+  }
+
+  async depositBluefinStsuiTx(
+    tx: Transaction,
+    receiptOption: any,
+    depositCoinA: any,
+    depositCoinB: any,
+  ) {
+    const [blueCoin, suiCoin, deepCoin] = await this.context.getCoinsBySymbols([
+      'BLUE',
+      'SUI',
+      'DEEP',
+    ]);
+
+    if (
+      this.poolLabel.poolName === 'BLUEFIN-ALPHA-STSUI' ||
+      this.poolLabel.poolName === 'BLUEFIN-WAL-STSUI'
+    ) {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_stsui_second_pool::user_deposit`,
+        typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, blueCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.STSUI),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          receiptOption,
+          tx.object(this.poolLabel.poolId),
+          depositCoinA,
+          depositCoinB,
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId), // parent-pool id
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetA.name,
+              'cetus',
+            ),
+          ), // cetus pool with assetA, SUI
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetA.name,
+              'bluefin',
+            ),
+          ), // bluefin pool with assetA, SUI
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.pure.bool(true),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_stsui_first_pool::user_deposit`,
+        typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, blueCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.STSUI),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          receiptOption,
+          tx.object(this.poolLabel.poolId),
+          depositCoinA,
+          depositCoinB,
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId), // parent-pool id
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ), // cetus pool with assetB, SUI
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetB.name,
+              'bluefin',
+            ),
+          ), // bluefin pool with assetB, SUI
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.pure.bool(true),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+  }
+
+  async withdrawBluefinStsuiTx(tx: Transaction, noneAlphaReceipt: any, xTokensAmount: string) {
+    const [blueCoin, suiCoin, deepCoin] = await this.context.getCoinsBySymbols([
+      'BLUE',
+      'SUI',
+      'DEEP',
+    ]);
+
+    if (
+      this.poolLabel.poolName === 'BLUEFIN-ALPHA-STSUI' ||
+      this.poolLabel.poolName === 'BLUEFIN-WAL-STSUI'
+    ) {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_stsui_second_pool::user_withdraw`,
+        typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, blueCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.STSUI),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.receiptObjects[0].id),
+          noneAlphaReceipt,
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(this.poolLabel.poolId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.pure.u128(xTokensAmount),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId), // parent-pool id
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetA.name,
+              'cetus',
+            ),
+          ), // cetus pool with assetA, SUI
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetA.name,
+              'bluefin',
+            ),
+          ), // bluefin pool with assetA, SUI
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.pure.bool(true),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_stsui_first_pool::user_withdraw`,
+        typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, blueCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.STSUI),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.receiptObjects[0].id),
+          noneAlphaReceipt,
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(this.poolLabel.poolId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.pure.u128(xTokensAmount),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId), // parent-pool id
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'BLUE', 'bluefin')),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ), // cetus pool with assetB, SUI
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetB.name,
+              'bluefin',
+            ),
+          ), // bluefin pool with assetB, SUI
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.pure.bool(true),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+  }
+
+  async depositCetusTx(tx: Transaction, receiptOption: any, depositCoinA: any, depositCoinB: any) {
+    if (
+      this.poolLabel.poolName == 'WUSDC-WBTC' ||
+      this.poolLabel.poolName == 'USDC-USDT' ||
+      this.poolLabel.poolName == 'USDC-WUSDC' ||
+      this.poolLabel.poolName == 'USDC-ETH'
+    ) {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_cetus_pool_base_a::user_deposit`,
+        typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          receiptOption,
+          tx.object(this.poolLabel.poolId),
+          depositCoinA,
+          depositCoinB,
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetA.name,
+              'cetus',
+            ),
+          ),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'CETUS', 'cetus')),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              this.poolLabel.assetA.name,
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_cetus_pool::user_deposit`,
+        typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          receiptOption,
+          tx.object(this.poolLabel.poolId),
+          depositCoinA,
+          depositCoinB,
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'CETUS', 'cetus')),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+  }
+
+  async withdrawCetusTx(tx: Transaction, noneAlphaReceipt: any, xTokensAmount: string) {
+    if (
+      this.poolLabel.poolName == 'WUSDC-WBTC' ||
+      this.poolLabel.poolName == 'USDC-USDT' ||
+      this.poolLabel.poolName == 'USDC-WUSDC' ||
+      this.poolLabel.poolName == 'USDC-ETH'
+    ) {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_cetus_pool_base_a::user_withdraw`,
+        typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.receiptObjects[0].id),
+          noneAlphaReceipt,
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(this.poolLabel.poolId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.pure.u128(xTokensAmount),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetA.name,
+              'cetus',
+            ),
+          ),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'CETUS', 'cetus')),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_cetus_pool::user_withdraw`,
+        typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.receiptObjects[0].id),
+          noneAlphaReceipt,
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(this.poolLabel.poolId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(this.poolLabel.investorId),
+          tx.pure.u128(xTokensAmount),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              'SUI',
+              this.poolLabel.assetB.name,
+              'cetus',
+            ),
+          ),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'CETUS', 'cetus')),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+  }
+
+  async depositCetusAlphaSuiTx(
+    tx: Transaction,
+    receiptOption: any,
+    depositCoinA: any,
+    depositCoinB: any,
+  ) {
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_cetus_sui_pool::user_deposit`,
+      typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+      arguments: [
+        tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+        receiptOption,
+        tx.object(this.poolLabel.poolId),
+        depositCoinA,
+        depositCoinB,
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(this.poolLabel.investorId),
+        tx.object(GLOBAL_CONFIGS.CETUS),
+        tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'CETUS', 'cetus')),
+        tx.object(
+          await this.context.getPoolIdBySymbolsAndProtocol(
+            this.poolLabel.assetA.name,
+            this.poolLabel.assetB.name,
+            'cetus',
+          ),
+        ),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+  }
+
+  async withdrawCetusAlphaSuiTx(tx: Transaction, noneAlphaReceipt: any, xTokensAmount: string) {
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_cetus_sui_pool::user_withdraw`,
+      typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+      arguments: [
+        tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+        tx.object(this.receiptObjects[0].id),
+        noneAlphaReceipt,
+        tx.object(POOLS.ALPHA_LEGACY),
+        tx.object(this.poolLabel.poolId),
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(this.poolLabel.investorId),
+        tx.pure.u128(xTokensAmount),
+        tx.object(GLOBAL_CONFIGS.CETUS),
+        tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'CETUS', 'cetus')),
+        tx.object(
+          await this.context.getPoolIdBySymbolsAndProtocol(
+            this.poolLabel.assetA.name,
+            this.poolLabel.assetB.name,
+            'cetus',
+          ),
+        ),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+  }
+
+  async depositCetusSuiTx(
+    tx: Transaction,
+    receiptOption: any,
+    depositCoinA: any,
+    depositCoinB: any,
+  ) {
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_cetus_sui_pool::user_deposit`,
+      typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+      arguments: [
+        tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+        tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+        receiptOption,
+        tx.object(this.poolLabel.poolId),
+        depositCoinA,
+        depositCoinB,
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(this.poolLabel.investorId),
+        tx.object(GLOBAL_CONFIGS.CETUS),
+        tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+        tx.object(
+          await this.context.getPoolIdBySymbolsAndProtocol(
+            this.poolLabel.assetA.name,
+            this.poolLabel.assetB.name,
+            'cetus',
+          ),
+        ),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+  }
+
+  async withdrawCetusSuiTx(tx: Transaction, noneAlphaReceipt: any, xTokensAmount: string) {
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_cetus_sui_pool::user_withdraw`,
+      typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+      arguments: [
+        tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+        tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+        tx.object(this.receiptObjects[0].id),
+        noneAlphaReceipt,
+        tx.object(POOLS.ALPHA_LEGACY),
+        tx.object(this.poolLabel.poolId),
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(this.poolLabel.investorId),
+        tx.pure.u128(xTokensAmount),
+        tx.object(GLOBAL_CONFIGS.CETUS),
+        tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+        tx.object(
+          await this.context.getPoolIdBySymbolsAndProtocol(
+            this.poolLabel.assetA.name,
+            this.poolLabel.assetB.name,
+            'cetus',
+          ),
+        ),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+  }
+
   async deposit(tx: Transaction, options: DepositOptions) {
     if (!options.isAmountA) {
       throw new Error('isAmountA is required for AutobalanceLp strategy');
@@ -452,10 +1700,81 @@ export class LpStrategy extends BaseStrategy<
       this.poolLabel.receipt.type,
       this.receiptObjects.length > 0 ? this.receiptObjects[0].id : undefined,
     );
+
+    if (this.poolLabel.parentProtocol === 'Cetus') {
+      if (this.poolLabel.assetA.name === 'CETUS' && this.poolLabel.assetB.name === 'SUI') {
+        await this.depositCetusSuiTx(tx, receiptOption, depositCoinA, depositCoinB);
+      } else if (this.poolLabel.assetB.name === 'SUI') {
+        await this.depositCetusAlphaSuiTx(tx, receiptOption, depositCoinA, depositCoinB);
+      } else {
+        await this.depositCetusTx(tx, receiptOption, depositCoinA, depositCoinB);
+      }
+    } else if (this.poolLabel.parentProtocol === 'Bluefin') {
+      if (
+        this.poolLabel.poolName === 'BLUEFIN-NAVX-VSUI' ||
+        this.poolLabel.poolName === 'BLUEFIN-ALPHA-USDC' ||
+        this.poolLabel.poolName === 'BLUEFIN-BLUE-USDC'
+      ) {
+        await this.depositBluefinType2Tx(tx, receiptOption, depositCoinA, depositCoinB);
+      } else if (this.poolLabel.assetA.name === 'SUI') {
+        await this.depositBluefinSuiFirstTx(tx, receiptOption, depositCoinA, depositCoinB);
+      } else if (this.poolLabel.assetB.name === 'SUI') {
+        await this.depositBluefinSuiSecondTx(tx, receiptOption, depositCoinA, depositCoinB);
+      } else if (this.poolLabel.assetA.name === 'stSUI' || this.poolLabel.assetB.name === 'stSUI') {
+        await this.depositBluefinStsuiTx(tx, receiptOption, depositCoinA, depositCoinB);
+      } else {
+        await this.depositBluefinType1Tx(tx, receiptOption, depositCoinA, depositCoinB);
+      }
+    }
   }
 
   async withdraw(tx: Transaction, options: WithdrawOptions) {
-    return tx;
+    if (!options.isAmountA) {
+      throw new Error('isAmountA is required for AutobalanceLp strategy');
+    }
+    if (this.receiptObjects.length === 0) {
+      throw new Error('No receipt found!');
+    }
+    let xTokenAmount = '0';
+    if (options.withdrawMax) {
+      xTokenAmount = this.receiptObjects[0].xTokenBalance;
+    } else {
+      xTokenAmount = this.coinAmountToXToken(options.amount.toString(), options.isAmountA);
+    }
+
+    const noneAlphaReceipt = tx.moveCall({
+      target: `0x1::option::none`,
+      typeArguments: [
+        '0x9bbd650b8442abb082c20f3bc95a9434a8d47b4bef98b0832dab57c1a8ba7123::alphapool::Receipt',
+      ],
+      arguments: [],
+    });
+
+    if (this.poolLabel.parentProtocol === 'Cetus') {
+      if (this.poolLabel.assetA.name === 'CETUS' && this.poolLabel.assetB.name === 'SUI') {
+        await this.withdrawCetusSuiTx(tx, noneAlphaReceipt, xTokenAmount);
+      } else if (this.poolLabel.assetB.name === 'SUI') {
+        await this.withdrawCetusAlphaSuiTx(tx, noneAlphaReceipt, xTokenAmount);
+      } else {
+        await this.withdrawCetusTx(tx, noneAlphaReceipt, xTokenAmount);
+      }
+    } else if (this.poolLabel.parentProtocol === 'Bluefin') {
+      if (
+        this.poolLabel.poolName === 'BLUEFIN-NAVX-VSUI' ||
+        this.poolLabel.poolName === 'BLUEFIN-ALPHA-USDC' ||
+        this.poolLabel.poolName === 'BLUEFIN-BLUE-USDC'
+      ) {
+        await this.withdrawBluefinType2Tx(tx, noneAlphaReceipt, xTokenAmount);
+      } else if (this.poolLabel.assetA.name === 'SUI') {
+        await this.withdrawBluefinSuiFirstTx(tx, noneAlphaReceipt, xTokenAmount);
+      } else if (this.poolLabel.assetB.name === 'SUI') {
+        await this.withdrawBluefinSuiSecondTx(tx, noneAlphaReceipt, xTokenAmount);
+      } else if (this.poolLabel.assetA.name === 'stSUI' || this.poolLabel.assetB.name === 'stSUI') {
+        await this.withdrawBluefinStsuiTx(tx, noneAlphaReceipt, xTokenAmount);
+      } else {
+        await this.withdrawBluefinType1Tx(tx, noneAlphaReceipt, xTokenAmount);
+      }
+    }
   }
 
   async claimRewards(tx: Transaction, poolId: string, address: string) {

@@ -7,9 +7,20 @@ import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } f
 import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
-import { ClmmPoolUtil, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
+import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction } from '@mysten/sui/transactions';
+import {
+  ALPHALEND_LENDING_PROTOCOL_ID,
+  CLOCK_PACKAGE_ID,
+  DISTRIBUTOR_OBJECT_ID,
+  GLOBAL_CONFIGS,
+  POOLS,
+  SUI_SYSTEM_STATE,
+  VERSIONS,
+} from '../utils/constants.js';
+import { AlphalendClient } from '@alphafi/alphalend-sdk';
+import { getConf as getStsuiConf } from '@alphafi/stsui-sdk';
 
 /**
  * Lyf Strategy for dual-asset pools using alphalend for leverage
@@ -306,6 +317,44 @@ export class LyfStrategy extends BaseStrategy<
     return { amountA, amountB };
   }
 
+  private getLiquidity(amount: string, isAmountA: boolean): LiquidityInput {
+    const upperBound = 443636;
+    let lowerTick = this.investorObject.lowerTick;
+    let upperTick = this.investorObject.upperTick;
+    if (lowerTick > upperBound) {
+      lowerTick = -~(lowerTick - 1);
+    }
+    if (upperTick > upperBound) {
+      upperTick = -~(upperTick - 1);
+    }
+    const currentSqrtPriceBN = new BN(this.parentPoolObject.currentSqrtPrice);
+
+    return ClmmPoolUtil.estLiquidityAndcoinAmountFromOneAmounts(
+      lowerTick,
+      upperTick,
+      new BN(`${Math.floor(parseFloat(amount))}`),
+      isAmountA,
+      false,
+      0.5,
+      currentSqrtPriceBN,
+    );
+  }
+
+  private getOtherAmount(amount: string, isAmountA: boolean): [string, string] {
+    const liquidity = this.getLiquidity(amount, isAmountA);
+    return [liquidity.coinAmountA.toString(), liquidity.coinAmountB.toString()];
+  }
+
+  private coinAmountToXToken(amount: string, isAmountA: boolean): string {
+    const liquidity = new Decimal(
+      this.getLiquidity(amount, isAmountA).liquidityAmount.toString(),
+    ).div(
+      new Decimal(1).minus(new Decimal(this.investorObject.currentDebtToSupplyRatio).div(1e18)),
+    );
+    const exchangeRate = this.exchangeRate();
+    return liquidity.div(exchangeRate).floor().toString();
+  }
+
   /**
    * Parse pool object from blockchain response
    */
@@ -426,12 +475,215 @@ export class LyfStrategy extends BaseStrategy<
     };
   }
 
+  private async collectAndSwapRewards(tx: Transaction) {
+    const [blueCoin, suiCoin, alphaCoin, stsuiCoin] = await this.context.getCoinsBySymbols([
+      'BLUE',
+      'SUI',
+      'ALPHA',
+      'stSUI',
+    ]);
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
+      typeArguments: [
+        this.poolLabel.assetA.type,
+        this.poolLabel.assetB.type,
+        blueCoin.coinType,
+        suiCoin.coinType,
+      ],
+      arguments: [
+        tx.object(VERSIONS.LYF_LP),
+        tx.object(this.poolLabel.poolId),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(this.poolLabel.parentPoolId),
+        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin')),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.pure.bool(true),
+        tx.pure.bool(true),
+        tx.pure.bool(true),
+        tx.object(SUI_SYSTEM_STATE),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
+      typeArguments: [
+        this.poolLabel.assetA.type,
+        this.poolLabel.assetB.type,
+        blueCoin.coinType,
+        suiCoin.coinType,
+      ],
+      arguments: [
+        tx.object(VERSIONS.LYF_LP),
+        tx.object(this.poolLabel.poolId),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(this.poolLabel.parentPoolId),
+        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin')),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.pure.bool(true),
+        tx.pure.bool(true),
+        tx.pure.bool(false),
+        tx.object(SUI_SYSTEM_STATE),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
+      typeArguments: [
+        this.poolLabel.assetA.type,
+        this.poolLabel.assetB.type,
+        alphaCoin.coinType,
+        stsuiCoin.coinType,
+      ],
+      arguments: [
+        tx.object(VERSIONS.LYF_LP),
+        tx.object(this.poolLabel.poolId),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(this.poolLabel.parentPoolId),
+        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('ALPHA', 'stSUI', 'bluefin')),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.pure.bool(true),
+        tx.pure.bool(true),
+        tx.pure.bool(false),
+        tx.object(SUI_SYSTEM_STATE),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+  }
+
   async deposit(tx: Transaction, options: DepositOptions) {
-    return tx;
+    if (!options.isAmountA) {
+      throw new Error('isAmountA is required for AutobalanceLp strategy');
+    }
+    const [amountA, amountB] = this.getOtherAmount(options.amount.toString(), options.isAmountA);
+
+    // get Coin Objects
+    const coinA = await this.context.blockchain.getCoinObject(
+      tx,
+      this.poolLabel.assetA.type,
+      options.address,
+    );
+    const [depositCoinA] = tx.splitCoins(coinA, [amountA]);
+    tx.transferObjects([coinA], options.address);
+
+    const coinB = await this.context.blockchain.getCoinObject(
+      tx,
+      this.poolLabel.assetB.type,
+      options.address,
+    );
+    const [depositCoinB] = tx.splitCoins(coinB, [amountB]);
+    tx.transferObjects([coinB], options.address);
+
+    const receiptOption = this.context.blockchain.getOptionReceipt(
+      tx,
+      this.poolLabel.receipt.type,
+      this.receiptObjects.length > 0 ? this.receiptObjects[0].id : undefined,
+    );
+
+    await this.collectAndSwapRewards(tx);
+
+    const alphalendClient = new AlphalendClient('mainnet', this.context.blockchain.suiClient);
+    await alphalendClient.updatePrices(tx, [
+      this.poolLabel.assetA.type,
+      this.poolLabel.assetB.type,
+    ]);
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_lyf_pool::user_deposit`,
+      typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+      arguments: [
+        tx.object(VERSIONS.LYF_LP),
+        tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+        receiptOption,
+        tx.object(this.poolLabel.poolId),
+        depositCoinA,
+        depositCoinB,
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.object(this.poolLabel.parentPoolId),
+        tx.object(SUI_SYSTEM_STATE),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
   }
 
   async withdraw(tx: Transaction, options: WithdrawOptions) {
-    return tx;
+    if (!options.isAmountA) {
+      throw new Error('isAmountA is required for AutobalanceLp strategy');
+    }
+    if (this.receiptObjects.length === 0) {
+      throw new Error('No receipt found!');
+    }
+    let xTokenAmount = '0';
+    if (options.withdrawMax) {
+      xTokenAmount = this.receiptObjects[0].xTokenBalance;
+    } else {
+      xTokenAmount = this.coinAmountToXToken(options.amount.toString(), options.isAmountA);
+    }
+
+    await this.collectAndSwapRewards(tx);
+
+    const noneAlphaReceipt = tx.moveCall({
+      target: `0x1::option::none`,
+      typeArguments: [
+        '0x9bbd650b8442abb082c20f3bc95a9434a8d47b4bef98b0832dab57c1a8ba7123::alphapool::Receipt',
+      ],
+      arguments: [],
+    });
+
+    const [lyfReceiptOption, lyfBalanceA, lyfBalanceB] = tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_lyf_pool::withdraw`,
+      typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+      arguments: [
+        tx.object(VERSIONS.LYF_LP),
+        tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+        tx.object(this.receiptObjects[0].id),
+        noneAlphaReceipt,
+        tx.object(POOLS.ALPHA_LEGACY),
+        tx.object(this.poolLabel.poolId),
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.pure.u128(xTokenAmount),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.object(this.poolLabel.parentPoolId),
+        tx.object(SUI_SYSTEM_STATE),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+    if (this.receiptObjects[0].xTokenBalance !== xTokenAmount) {
+      const [lyfReceipt] = tx.moveCall({
+        target: `0x1::option::extract`,
+        typeArguments: [this.poolLabel.receipt.type],
+        arguments: [lyfReceiptOption],
+      });
+      tx.transferObjects([lyfReceipt], options.address);
+    }
+    tx.moveCall({
+      target: `0x1::option::destroy_none`,
+      typeArguments: [this.poolLabel.receipt.type],
+      arguments: [lyfReceiptOption],
+    });
+
+    const lyfCoinA = tx.moveCall({
+      target: `0x2::coin::from_balance`,
+      typeArguments: [this.poolLabel.assetA.type],
+      arguments: [lyfBalanceA],
+    });
+    const lyfCoinB = tx.moveCall({
+      target: `0x2::coin::from_balance`,
+      typeArguments: [this.poolLabel.assetB.type],
+      arguments: [lyfBalanceB],
+    });
+    const [sui] = tx.moveCall({
+      target: getStsuiConf().STSUI_LATEST_PACKAGE_ID + '::liquid_staking::redeem',
+      arguments: [
+        tx.object(getStsuiConf().LST_INFO),
+        lyfCoinA,
+        tx.object(getStsuiConf().SUI_SYSTEM_STATE_OBJECT_ID),
+      ],
+      typeArguments: [getStsuiConf().STSUI_COIN_TYPE],
+    });
+    tx.mergeCoins(sui, [lyfCoinB]);
+    tx.transferObjects([sui], options.address);
   }
 
   async claimRewards(tx: Transaction, poolId: string, address: string) {
@@ -523,6 +775,7 @@ export interface LyfPoolLabel {
   strategyType: 'Lyf';
   parentProtocol: ProtocolType;
   parentPoolId: string;
+  investorId: string;
   receipt: NameType;
   zapAsset: NameType;
   assetA: NameType;
