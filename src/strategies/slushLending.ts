@@ -44,6 +44,10 @@ export class SlushLendingStrategy extends BaseStrategy<
     return this.poolLabel;
   }
 
+  getOtherAmount(_amount: string, _isAmountA: boolean): [string, string] {
+    throw new Error('getOtherAmount is not supported for single-asset SlushLending strategy');
+  }
+
   updateReceipts(receipts: any[]): void {
     this.receiptObjects = this.parseReceiptObjects(receipts);
   }
@@ -443,7 +447,7 @@ export class SlushLendingStrategy extends BaseStrategy<
   }
 
   async claimRewards(tx: Transaction, _poolId: string, _address: string) {
-    return tx;
+    // TODO: Implement claim rewards logic
   }
 }
 

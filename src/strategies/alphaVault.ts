@@ -45,6 +45,10 @@ export class AlphaVaultStrategy extends BaseStrategy<
     return this.poolLabel;
   }
 
+  getOtherAmount(_amount: string, _isAmountA: boolean): [string, string] {
+    throw new Error('getOtherAmount is not supported for single-asset AlphaVault strategy');
+  }
+
   updateReceipts(legacyReceipts: any[], receipts: any[]): void {
     this.legacyReceiptObjects = this.parseLegacyReceiptObjects(legacyReceipts);
     this.receiptObjects = this.parseReceiptObjects(receipts);
@@ -771,7 +775,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
     }
   }
 
-  withdraw(tx: Transaction, options: WithdrawOptions) {
+  async withdraw(tx: Transaction, options: WithdrawOptions) {
     throw new Error('Withdraw is not supported for AlphaVault strategy');
   }
 
@@ -796,7 +800,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
     tx.transferObjects([coin], address);
   }
 
-  claimRewards(tx: Transaction, poolId: string, address: string) {
+  async claimRewards(tx: Transaction, poolId: string, address: string) {
     throw new Error('Claim rewards is not supported for AlphaVault strategy');
   }
 }

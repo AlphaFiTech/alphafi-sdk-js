@@ -117,6 +117,10 @@ export class Blockchain {
 
   /** Get multiple objects in batches using GraphQL. */
   async multiGetObjects(objectIds: string[]): Promise<Map<string, any>> {
+    if (objectIds.length === 0) {
+      return new Map();
+    }
+
     const query = graphql(`
       query multiGetObjects($objectIds: [ObjectKey!]!) {
         multiGetObjects(keys: $objectIds) {
@@ -182,6 +186,10 @@ export class Blockchain {
 
   /** Get receipt objects for multiple types in batches. */
   async multiGetReceipts(address: string, types: string[]) {
+    if (types.length === 0) {
+      return new Map();
+    }
+
     const batches: string[][] = [];
     for (let i = 0; i < types.length; i += 10) {
       batches.push(types.slice(i, i + 10));

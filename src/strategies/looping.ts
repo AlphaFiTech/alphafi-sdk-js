@@ -20,6 +20,7 @@ import {
   VERSIONS,
 } from '../utils/constants.js';
 import { AlphalendClient } from '@alphafi/alphalend-sdk';
+import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
 
 /**
  * Looping Strategy for leveraged positions with automated compounding
@@ -51,6 +52,10 @@ export class LoopingStrategy extends BaseStrategy<
 
   getPoolLabel(): LoopingPoolLabel {
     return this.poolLabel;
+  }
+
+  getOtherAmount(_amount: string, _isAmountA: boolean): [string, string] {
+    throw new Error('getOtherAmount is not supported for single-asset Looping strategy');
   }
 
   updateReceipts(receipts: any[]): void {
@@ -785,8 +790,51 @@ export class LoopingStrategy extends BaseStrategy<
     }
   }
 
-  private coinAmountToXToken(amount: string): string {
+  private async fetchVoloExchangeRate(): Promise<NaviVoloData> {
+    const apiUrl = 'https://open-api.naviprotocol.io/api/volo/stats';
+    const default_volo_data: NaviVoloData = {
+      data: {
+        operatorBalance: '',
+        collectableFee: '',
+        pendingStakes: '',
+        poolTotalRewards: '0',
+        unstakeTicketSupply: '',
+        totalStaked: '',
+        activeStake: '',
+        calcTotalRewards: '',
+        currentEpoch: '',
+        validators: {},
+        exchangeRate: (1 / 0.973).toString(),
+        totalSupply: '',
+        apy: '',
+        sortedValidators: [''],
+        maxInstantUnstake: '',
+        maxNoFeeUnstake: '',
+      },
+      code: 0,
+    };
+    try {
+      const response = await fetch(apiUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = (await response.json()) as NaviVoloData;
+      return data;
+    } catch (error) {
+      console.log('error in api', error);
+      return default_volo_data;
+    }
+  }
+
+  private async coinAmountToXToken(amount: Decimal): Promise<string> {
     const exchangeRate = this.exchangeRate();
+    if (this.poolLabel.poolName === 'NAVI-LOOP-SUI-VSUI') {
+      const voloExchRate = await this.fetchVoloExchangeRate();
+      amount = amount.div(parseFloat(voloExchRate.data.exchangeRate));
+    } else if (this.poolLabel.poolName === 'ALPHALEND-LOOP-SUI-STSUI') {
+      const suiTostSuiExchangeRate = await stSuiExchangeRate(getStSuiConf().LST_INFO, true);
+      amount = amount.div(suiTostSuiExchangeRate);
+    }
     return new Decimal(amount).div(exchangeRate).floor().toString();
   }
 
@@ -795,7 +843,7 @@ export class LoopingStrategy extends BaseStrategy<
       throw new Error('No receipt found');
     }
 
-    let xtokenAmount = this.coinAmountToXToken(options.amount);
+    let xtokenAmount = await this.coinAmountToXToken(new Decimal(options.amount));
     if (options.withdrawMax) {
       xtokenAmount = this.receiptObjects[0].xTokenBalance;
     }
@@ -1035,7 +1083,7 @@ export class LoopingStrategy extends BaseStrategy<
   }
 
   async claimRewards(tx: Transaction, _poolId: string, _address: string) {
-    return tx;
+    // TODO: Implement claim rewards logic
   }
 }
 
@@ -1119,4 +1167,26 @@ export interface LoopingPoolLabel {
   isActive: boolean;
   poolName: string;
   isNative: boolean;
+}
+
+export interface NaviVoloData {
+  data: {
+    operatorBalance: string;
+    collectableFee: string;
+    pendingStakes: string;
+    poolTotalRewards: string;
+    unstakeTicketSupply: string;
+    totalStaked: string;
+    activeStake: string;
+    calcTotalRewards: string;
+    currentEpoch: string;
+    validators: object;
+    exchangeRate: string;
+    totalSupply: string;
+    apy: string;
+    sortedValidators: string[];
+    maxInstantUnstake: string;
+    maxNoFeeUnstake: string;
+  };
+  code: number;
 }

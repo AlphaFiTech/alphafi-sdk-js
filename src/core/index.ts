@@ -6,29 +6,14 @@ import { Transaction } from '@mysten/sui/transactions';
 import { Protocol } from '../models/protocol.js';
 import { Portfolio } from '../models/portfolio.js';
 import {
-  depositSingleAssetTxb,
-  depositDoubleAssetTxb,
   PoolName,
-  withdrawTxb,
-  coinAmountToXTokensSingleAsset,
-  coinAmountToXTokensDoubleAsset,
-  getAmounts,
-  fetchVoloExchangeRate,
-  getInvestor,
-  NaviInvestor,
   zapDepositTxb,
   zapDepositQuoteTxb,
-  getReceipts,
   claimRewardTxb,
-  getDoubleAssetVaultBalance,
-  depositAlphaTx,
   initiateWithdrawAlpha,
   claimWithdrawAlphaTx,
   claimAirdropTx,
-  getSlushUserTotalXtokens,
 } from '@alphafi/alphafi-sdk-upstream';
-import { Decimal } from 'decimal.js';
-import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
 import { StrategyContext } from '../models/strategyContext.js';
 import { CetusSwap } from '../models/swap.js';
 import type { PoolData, UserPortfolioData } from '../models/types.js';
@@ -65,7 +50,6 @@ export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 export class AlphaFiSDK {
   private config: AlphaFiSDKConfig;
   private strategyContext: StrategyContext;
-  // private transactionManager: TransactionManager;
   private protocol: Protocol;
   private portfolio: Portfolio;
   private isInitialized: boolean = false;
@@ -140,47 +124,24 @@ export class AlphaFiSDK {
       throw new Error(`Pool with ID ${options.poolId} not found`);
     }
 
+    const tx = new Transaction();
     if (poolLabel.strategyType === 'Lyf') {
-      const tx = await zapDepositTxb(
+      const lyfTx = await zapDepositTxb(
         options.amount,
         false,
         poolLabel.poolName as PoolName,
         0.005,
         options.address,
       );
-      if (!tx) {
+      if (!lyfTx) {
         throw new Error(`Failed to create LYF SUI deposit transaction`);
       }
+      return lyfTx;
+    } else {
+      const strategy = await this.portfolio.getPoolStrategy(options.address, options.poolId);
+      await strategy.deposit(tx, options);
       return tx;
-    } else if (poolLabel.strategyType === 'AlphaVault') {
-      return await depositAlphaTx(
-        options.amount.toString(),
-        options.address,
-        this.config.suiClient,
-      );
-    } else if (
-      poolLabel.strategyType === 'Lending' ||
-      poolLabel.strategyType === 'Looping' ||
-      poolLabel.strategyType === 'SingleAssetLooping'
-    ) {
-      return await depositSingleAssetTxb(
-        poolLabel.poolName as PoolName,
-        options.address,
-        options.amount.toString(),
-      );
-    } else if (
-      poolLabel.strategyType === 'Lp' ||
-      poolLabel.strategyType === 'FungibleLp' ||
-      poolLabel.strategyType === 'AutobalanceLp'
-    ) {
-      return await depositDoubleAssetTxb(
-        poolLabel.poolName as PoolName,
-        options.address,
-        options.amount.toString(),
-        options.isAmountA ?? false,
-      );
     }
-    throw new Error(`Unsupported pool type for pool ${options.poolId}`);
   }
 
   /**
@@ -194,32 +155,8 @@ export class AlphaFiSDK {
    */
   async estimateLpAmounts(options: EstimateLpAmountsOptions): Promise<[string, string]> {
     await this.ensureInitialized();
-    const poolLabel = this.strategyContext.poolLabels.get(options.poolId);
-    if (!poolLabel) {
-      throw new Error(`Pool with ID ${options.poolId} not found`);
-    }
-
-    if (
-      poolLabel.strategyType === 'AlphaVault' ||
-      poolLabel.strategyType === 'Lending' ||
-      poolLabel.strategyType === 'Looping' ||
-      poolLabel.strategyType === 'SingleAssetLooping' ||
-      poolLabel.strategyType === 'Lyf'
-    ) {
-      throw new Error(`Pool with ID ${options.poolId} is not a double asset pool`);
-    } else if (
-      poolLabel.strategyType === 'Lp' ||
-      poolLabel.strategyType === 'FungibleLp' ||
-      poolLabel.strategyType === 'AutobalanceLp'
-    ) {
-      return await getAmounts(
-        poolLabel.poolName as PoolName,
-        options.isAmountA,
-        options.amount,
-        false,
-      );
-    }
-    throw new Error(`Unsupported pool type for pool ${options.poolId}`);
+    const strategy = await this.protocol.getSinglePoolStrategy(options.poolId);
+    return strategy.getOtherAmount(options.amount, options.isAmountA);
   }
 
   /**
@@ -234,102 +171,10 @@ export class AlphaFiSDK {
    */
   async withdraw(options: WithdrawOptions): Promise<Transaction> {
     await this.ensureInitialized(options.address);
-    const poolLabel = this.strategyContext.poolLabels.get(options.poolId);
-    if (!poolLabel) {
-      throw new Error(`Pool with ID ${options.poolId} not found`);
-    }
-
-    let xTokens = '0';
-    if (options.withdrawMax) {
-      if (poolLabel.poolName.toString().includes('ALPHALEND-SLUSH')) {
-        xTokens = await getSlushUserTotalXtokens(poolLabel.poolName as PoolName, options.address);
-      } else {
-        const receipt = await getReceipts(poolLabel.poolName as PoolName, options.address, true);
-        if (!receipt) {
-          throw new Error(`Receipt with ID ${poolLabel.poolId} not found`);
-        }
-        xTokens = receipt[0].content.fields.xTokenBalance;
-      }
-    } else if (
-      poolLabel.strategyType === 'Looping' ||
-      poolLabel.strategyType === 'SingleAssetLooping'
-    ) {
-      const decimals =
-        poolLabel.parentProtocol === 'Navi'
-          ? 9 -
-            (poolLabel.strategyType === 'Looping'
-              ? await this.strategyContext.getCoinDecimals(poolLabel.supplyAsset.type)
-              : await this.strategyContext.getCoinDecimals(poolLabel.asset.type))
-          : 0;
-      let withdrawCoin2Tokens = new Decimal(options.amount).mul(10 ** decimals);
-
-      if (poolLabel.poolName === 'NAVI-LOOP-SUI-VSUI') {
-        const voloExchRate = await fetchVoloExchangeRate(true);
-        withdrawCoin2Tokens = withdrawCoin2Tokens.div(parseFloat(voloExchRate.data.exchangeRate));
-      } else if (poolLabel.poolName === 'ALPHALEND-LOOP-SUI-STSUI') {
-        const suiTostSuiExchangeRate = await stSuiExchangeRate(getStSuiConf().LST_INFO, true);
-        withdrawCoin2Tokens = withdrawCoin2Tokens.div(suiTostSuiExchangeRate);
-      }
-
-      const investor_details = (await getInvestor(
-        poolLabel.poolName as PoolName,
-        true,
-      )) as NaviInvestor;
-      const debtToSupplyRatio = new Decimal(
-        investor_details.content.fields.current_debt_to_supply_ratio,
-      );
-      const normalisedDebtToSupplyRatio = new Decimal(1).minus(
-        new Decimal(debtToSupplyRatio).div(1e20),
-      );
-
-      options.amount = new Decimal(withdrawCoin2Tokens)
-        .div(normalisedDebtToSupplyRatio)
-        .floor()
-        .toString();
-      xTokens = await coinAmountToXTokensSingleAsset(
-        options.amount,
-        poolLabel.poolName as PoolName,
-      );
-    } else if (poolLabel.strategyType === 'Lyf') {
-      const receipt = await getReceipts(poolLabel.poolName as PoolName, options.address, true);
-      const xTokenBalance = new Decimal(receipt[0].content.fields.xTokenBalance);
-      const exchangeRate = await stSuiExchangeRate(getStSuiConf().LST_INFO, true);
-      const balance = await getDoubleAssetVaultBalance(
-        options.address,
-        poolLabel.poolName as PoolName,
-      );
-      const totalSuiTokens = new Decimal(balance?.coinA ?? 0)
-        .mul(exchangeRate)
-        .add(new Decimal(balance?.coinB ?? 0));
-
-      xTokens = new Decimal(xTokenBalance)
-        .mul(options.amount)
-        .div(totalSuiTokens)
-        .floor()
-        .toString();
-    } else if (poolLabel.strategyType === 'AlphaVault' || poolLabel.strategyType === 'Lending') {
-      const decimals =
-        poolLabel.parentProtocol === 'Navi'
-          ? 9 - (await this.strategyContext.getCoinDecimals(poolLabel.asset.type))
-          : 0;
-      options.amount = new Decimal(options.amount).mul(10 ** decimals).toString();
-      xTokens = await coinAmountToXTokensSingleAsset(
-        options.amount,
-        poolLabel.poolName as PoolName,
-      );
-    } else if (
-      poolLabel.strategyType === 'Lp' ||
-      poolLabel.strategyType === 'FungibleLp' ||
-      poolLabel.strategyType === 'AutobalanceLp'
-    ) {
-      xTokens = await coinAmountToXTokensDoubleAsset(
-        options.amount,
-        poolLabel.poolName as PoolName,
-        options.isAmountA ?? true,
-      );
-    }
-
-    return await withdrawTxb(xTokens.toString(), poolLabel.poolName as PoolName, options.address);
+    const tx = new Transaction();
+    const strategy = await this.portfolio.getPoolStrategy(options.address, options.poolId);
+    strategy.withdraw(tx, options);
+    return tx;
   }
 
   /**

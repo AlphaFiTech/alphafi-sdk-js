@@ -317,7 +317,7 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     );
   }
 
-  private getOtherAmount(amount: string, isAmountA: boolean): [string, string] {
+  getOtherAmount(amount: string, isAmountA: boolean): [string, string] {
     const liquidity = this.getLiquidity(amount, isAmountA);
     return [liquidity.coinAmountA.toString(), liquidity.coinAmountB.toString()];
   }

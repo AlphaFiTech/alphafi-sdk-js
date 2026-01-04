@@ -40,6 +40,12 @@ export class Portfolio {
     return resMap;
   }
 
+  async getPoolStrategy(userAddress: string, poolId: string): Promise<Strategy> {
+    const strategy = await this.protocol.getSinglePoolStrategy(poolId);
+    await this.updateStrategiesWithReceipts(userAddress, new Map([[poolId, strategy]]));
+    return strategy;
+  }
+
   /** Calculate user's complete portfolio including net worth, aggregated APY, and alpha rewards. */
   async getUserPortfolio(
     userAddress: string,
@@ -88,15 +94,16 @@ export class Portfolio {
   }
 
   /** Update strategies with user's receipt objects and positions. */
-  private async updateStrategiesWithReceipts(
-    userAddress: string,
-    strategies: Map<string, Strategy>,
-  ) {
+  async updateStrategiesWithReceipts(userAddress: string, strategies: Map<string, Strategy>) {
     const poolLabels = Array.from(strategies.values()).map((strategy) => strategy.getPoolLabel());
     const receiptTypes: string[] = [];
+
+    let [hasSlushLending, hasFungibleLp, hasAlphaVault] = [false, false, false];
     poolLabels.forEach((poolLabel) => {
       switch (poolLabel.strategyType) {
         case 'AlphaVault':
+          hasAlphaVault = true;
+          break;
         case 'AutobalanceLp':
         case 'Lending':
         case 'Looping':
@@ -106,7 +113,10 @@ export class Portfolio {
           receiptTypes.push(poolLabel.receipt.type);
           break;
         case 'FungibleLp':
+          hasFungibleLp = true;
+          break;
         case 'SlushLending':
+          hasSlushLending = true;
           break;
         default:
           break;
@@ -114,10 +124,14 @@ export class Portfolio {
     });
 
     const [slushPositions, alphafiPositions, receiptObjects, coinBalances] = await Promise.all([
-      this.strategyContext.getAllSlushPositions(userAddress),
-      this.strategyContext.getPositionsFromAlphaFiReceipts(userAddress),
+      hasSlushLending
+        ? this.strategyContext.getAllSlushPositions(userAddress)
+        : Promise.resolve(new Map()),
+      hasAlphaVault
+        ? this.strategyContext.getPositionsFromAlphaFiReceipts(userAddress)
+        : Promise.resolve(new Map()),
       this.strategyContext.blockchain.multiGetReceipts(userAddress, receiptTypes),
-      this.getWalletCoins(userAddress),
+      hasFungibleLp ? this.getWalletCoins(userAddress) : Promise.resolve(new Map()),
     ]);
 
     strategies.forEach((strategy, poolId) => {

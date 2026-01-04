@@ -49,6 +49,10 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
     return this.poolLabel;
   }
 
+  getOtherAmount(_amount: string, _isAmountA: boolean): [string, string] {
+    throw new Error('getOtherAmount is not supported for single-asset SingleAssetLooping strategy');
+  }
+
   updateReceipts(receipts: any[]) {
     this.receiptObjects = this.parseReceiptObjects(receipts);
   }
@@ -682,7 +686,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
   }
 
   async claimRewards(tx: Transaction, _poolId: string, _address: string) {
-    return tx;
+    // TODO: Implement claim rewards logic
   }
 }
 

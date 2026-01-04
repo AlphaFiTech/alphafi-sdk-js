@@ -141,12 +141,21 @@ export interface Strategy<TPool = any, TInvestor = any, TParentPool = any, TRece
   getAlphaMiningRewardsToClaim(distributor: DistributorObject): Decimal;
 
   /**
+   * Get the other amount for a given amount and isAmountA flag.
+   *
+   * @param amount - The amount to get the other amount for
+   * @param isAmountA - Whether the amount is amount A
+   * @returns The other amount
+   */
+  getOtherAmount(amount: string, isAmountA: boolean): [string, string];
+
+  /**
    * Deposit assets into the pool.
    *
    * @param options - The options for the deposit
    * @returns Transaction to deposit assets into the pool
    */
-  deposit(tx: Transaction, options: DepositOptions): void;
+  deposit(tx: Transaction, options: DepositOptions): Promise<void>;
 
   /**
    * Withdraw assets from the pool.
@@ -154,7 +163,7 @@ export interface Strategy<TPool = any, TInvestor = any, TParentPool = any, TRece
    * @param options - The options for the withdrawal
    * @returns Transaction to withdraw assets from the pool
    */
-  withdraw(tx: Transaction, options: WithdrawOptions): void;
+  withdraw(tx: Transaction, options: WithdrawOptions): Promise<void>;
 
   /**
    * Claim rewards for a specific pool.
@@ -163,7 +172,7 @@ export interface Strategy<TPool = any, TInvestor = any, TParentPool = any, TRece
    * @param address - The address of the user to claim rewards for
    * @returns Transaction to claim rewards for the specified pool
    */
-  claimRewards(tx: Transaction, poolId: string, address: string): void;
+  claimRewards(tx: Transaction, poolId: string, address: string): Promise<void>;
 
   /**
    * Create an AlphaFi receipt.
@@ -191,9 +200,10 @@ export abstract class BaseStrategy<TPool = any, TInvestor = any, TParentPool = a
   abstract getData(): Promise<PoolData>;
   abstract getBalance(userAddress: string): Promise<PoolBalance>;
   abstract getPoolLabel(): PoolLabel;
-  abstract deposit(tx: Transaction, options: DepositOptions): void;
-  abstract withdraw(tx: Transaction, options: WithdrawOptions): void;
-  abstract claimRewards(tx: Transaction, poolId: string, address: string): void;
+  abstract getOtherAmount(amount: string, isAmountA: boolean): [string, string];
+  abstract deposit(tx: Transaction, options: DepositOptions): Promise<void>;
+  abstract withdraw(tx: Transaction, options: WithdrawOptions): Promise<void>;
+  abstract claimRewards(tx: Transaction, poolId: string, address: string): Promise<void>;
 
   createAlphaFiReceipt(tx: Transaction) {
     return tx.moveCall({

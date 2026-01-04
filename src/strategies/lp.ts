@@ -325,7 +325,7 @@ export class LpStrategy extends BaseStrategy<
     );
   }
 
-  private getOtherAmount(amount: string, isAmountA: boolean): [string, string] {
+  getOtherAmount(amount: string, isAmountA: boolean): [string, string] {
     const liquidity = this.getLiquidity(amount, isAmountA);
     return [liquidity.coinAmountA.toString(), liquidity.coinAmountB.toString()];
   }
@@ -1778,7 +1778,7 @@ export class LpStrategy extends BaseStrategy<
   }
 
   async claimRewards(tx: Transaction, poolId: string, address: string) {
-    return tx;
+    // TODO: Implement claim rewards logic
   }
 }
 

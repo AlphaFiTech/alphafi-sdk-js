@@ -29,6 +29,15 @@ export class Protocol {
     this.strategies = new Map<string, Strategy>();
   }
 
+  /** Get pool data from strategies, optionally filtered by type. */
+  async getPoolsData(strategiesType?: StrategyType[]): Promise<Map<string, PoolData>> {
+    const strategies = await this.getStrategies(strategiesType);
+    const poolsData = await Promise.all(
+      Array.from(strategies.values()).map((strategy) => strategy.getData()),
+    );
+    return new Map(poolsData.map((poolData) => [poolData.poolId, poolData]));
+  }
+
   /** Get initialized strategies, optionally filtered by type. */
   async getStrategies(strategiesType?: StrategyType[]): Promise<Map<string, Strategy>> {
     await this.ensureInitialized(strategiesType);
@@ -42,15 +51,6 @@ export class Protocol {
         .filter((strategy) => strategiesType.includes(strategy.getPoolLabel().strategyType))
         .map((strategy) => [strategy.getPoolLabel().poolId, strategy]),
     );
-  }
-
-  /** Get pool data from strategies, optionally filtered by type. */
-  async getPoolsData(strategiesType?: StrategyType[]): Promise<Map<string, PoolData>> {
-    const strategies = await this.getStrategies(strategiesType);
-    const poolsData = await Promise.all(
-      Array.from(strategies.values()).map((strategy) => strategy.getData()),
-    );
-    return new Map(poolsData.map((poolData) => [poolData.poolId, poolData]));
   }
 
   /** Ensure strategies are initialized and refreshed if stale. Handles concurrent calls. */
@@ -82,7 +82,7 @@ export class Protocol {
 
   /** Build and cache strategies for specified types. */
   private async init(strategiesType: StrategyType[]) {
-    const newStrategies = await this.buildPoolStrategies(strategiesType);
+    const newStrategies = await this.getPoolStrategiesByStrategyTypes(strategiesType);
 
     newStrategies.forEach((strategy, poolId) => {
       this.strategies.set(poolId, strategy);
@@ -122,14 +122,26 @@ export class Protocol {
     return requestedTypes.filter((type) => !this.isTypeFresh(type));
   }
 
-  /** Build strategies from on-chain data for specified types. */
-  private async buildPoolStrategies(
-    strategiesType: StrategyType[],
+  async getSinglePoolStrategy(poolId: string): Promise<Strategy> {
+    const poolLabel = this.strategyContext.poolLabels.get(poolId);
+    if (!poolLabel) {
+      throw new Error(`Pool label not found for poolId: ${poolId}`);
+    }
+    const strategy = await this.buildPoolStrategies([poolLabel]);
+    return strategy.get(poolLabel.poolId)!;
+  }
+
+  async getPoolStrategiesByStrategyTypes(
+    strategyTypes: StrategyType[],
   ): Promise<Map<string, Strategy>> {
     const poolLabels: PoolLabel[] = Array.from(this.strategyContext.poolLabels.values()).filter(
-      (poolLabel) => strategiesType.includes(poolLabel.strategyType),
+      (poolLabel) => strategyTypes.includes(poolLabel.strategyType),
     );
+    return this.buildPoolStrategies(poolLabels);
+  }
 
+  /** Build strategies from on-chain data for specified types. */
+  private async buildPoolStrategies(poolLabels: PoolLabel[]): Promise<Map<string, Strategy>> {
     const poolIds = poolLabels.map((poolLabel) => poolLabel.poolId);
     const investorIds = poolLabels
       .filter((poolLabel) => 'investorId' in poolLabel && poolLabel.investorId)
