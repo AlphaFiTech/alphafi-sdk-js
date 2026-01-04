@@ -87,8 +87,6 @@ export interface ZapDepositQuoteOptions {
   inputCoinAmount: bigint;
   /** True if input token is token A, false for token B */
   isInputA: boolean;
-  /** Maximum acceptable slippage as decimal (e.g., 0.005 = 0.5%) */
-  slippage: number;
 }
 
 /**

@@ -47,15 +47,17 @@ console.log('Portfolio:', {
   alphaRewards: portfolio.alphaRewardsToClaim.toString(),
 });
 
-// Deposit into a pool
+// Build an unsigned deposit transaction
 const depositTx = await sdk.deposit({
   poolId: '0x...', // Pool ID
   address: userAddress,
   amount: 1000000000n, // 1 SUI in base units
   isAmountA: true, // For LP pools: which token this amount represents
 });
+// Sign & execute with your wallet / client
+// await suiClient.signAndExecuteTransactionBlock({ transactionBlock: depositTx, signer });
 
-// Withdraw from a pool
+// Build an unsigned withdraw transaction
 const withdrawTx = await sdk.withdraw({
   poolId: '0x...',
   address: userAddress,
@@ -63,16 +65,23 @@ const withdrawTx = await sdk.withdraw({
   withdrawMax: false, // Set to true to withdraw entire position
 });
 
-// Claim all rewards
+// Claim all rewards (builds unsigned transaction)
 const claimTx = await sdk.claim({
   address: userAddress,
 });
 ```
 
-> **Note**: The SDK uses `bigint` for deposit amounts to ensure precision with large numbers.
-> Use the `n` suffix to create bigint literals (e.g., `1000000000n` for 1 SUI).
-> Withdrawal amounts use strings for flexibility. All monetary values in responses are Decimal objects
-> for precise arithmetic.
+> **How transactions work**: `deposit`, `withdraw`, `zapDeposit`, swaps, and reward helpers return
+> **unsigned** `Transaction` objects from `@mysten/sui/transactions`. You must sign and execute them
+> with your wallet or client of choice.
+>
+> **Amounts & precision**:
+>
+> - Deposits and zap inputs use `bigint` in base units (`1000000000n` = 1 SUI).
+> - Withdraw inputs and most quotes use `string` for flexibility across strategies.
+> - Responses return `Decimal` instances (from `decimal.js`) to avoid floating-point errors.
+>
+> **API status**: This SDK is pre-release; breaking changes are expected until the first stable version.
 
 ## Supported Protocols
 
@@ -154,7 +163,7 @@ console.log({
 
 ##### deposit(options: DepositOptions): Promise\<Transaction>
 
-Deposit assets into a DeFi pool to start earning yield.
+Build an **unsigned** transaction to deposit assets into a DeFi pool.
 
 ```typescript
 interface DepositOptions {
@@ -167,7 +176,7 @@ interface DepositOptions {
 
 ##### withdraw(options: WithdrawOptions): Promise\<Transaction>
 
-Withdraw assets from a DeFi pool.
+Build an **unsigned** transaction to withdraw assets from a DeFi pool.
 
 ```typescript
 interface WithdrawOptions {
@@ -193,7 +202,7 @@ interface EstimateLpAmountsOptions {
 
 ##### claim(options: ClaimOptions): Promise\<Transaction>
 
-Claim accumulated rewards from all pools.
+Build an **unsigned** transaction to claim accumulated rewards (all pools or a specific pool).
 
 ```typescript
 interface ClaimOptions {
@@ -315,10 +324,9 @@ const lpPools = await sdk.getPoolsData(['Lp', 'AutobalanceLp']);
 
 // Explore pool details
 for (const [poolId, poolData] of allPools) {
-  console.log(`${poolData.name} (${poolData.strategyType}):`, {
-    apy: `${poolData.apr.apy}%`,
-    tvl: `$${poolData.tvl}`,
-    assets: poolData.assets.map((asset) => asset.symbol),
+  console.log(`${poolData.poolName} (${poolId})`, {
+    apy: poolData.apr.apy.toString(),
+    tvl: poolData.tvl, // contains alphafi and parent TVL; see types section
   });
 }
 ```
@@ -346,30 +354,61 @@ const userAddress = process.env.USER_ADDRESS;
 ### Key Response Types
 
 ```typescript
-// Pool data structure
-interface PoolData {
-  poolId: string;
-  name: string;
-  strategyType: StrategyType;
-  apr: { apy: Decimal };
-  tvl: Decimal;
-  assets: Array<{
-    symbol: string;
-    type: string;
-    decimals: number;
-  }>;
-  // ... additional fields
-}
+type AprData = {
+  baseApr: Decimal;
+  alphaMiningApr: Decimal;
+  apy: Decimal;
+  lastAutocompounded: Date;
+};
 
-// Portfolio data structure
-interface UserPortfolioData {
-  netWorth: Decimal; // Total USD value
-  aggregatedApy: Decimal; // Weighted average APY
-  alphaRewardsToClaim: Decimal; // Claimable ALPHA rewards
-  poolBalances: Map<string, PoolBalance>; // Individual pool balances
-}
+type SingleTvl = { tokenAmount: Decimal; usdValue: Decimal };
+type DoubleTvl = { tokenAmountA: Decimal; tokenAmountB: Decimal; usdValue: Decimal };
+type TvlData =
+  | { alphafi: SingleTvl; parent: SingleTvl }
+  | { alphafi: DoubleTvl; parent: DoubleTvl };
 
-// Strategy types
+type PoolData =
+  | {
+      poolId: string;
+      poolName: string;
+      apr: AprData;
+      tvl: TvlData;
+      lpBreakdown: { token1Amount: Decimal; token2Amount: Decimal; totalLiquidity: Decimal };
+      parentLpBreakdown: { token1Amount: Decimal; token2Amount: Decimal; totalLiquidity: Decimal };
+      currentLPPoolPrice: Decimal;
+      positionRange: { lowerPrice: Decimal; upperPrice: Decimal };
+    }
+  | {
+      poolId: string;
+      poolName: string;
+      apr: AprData;
+      tvl: TvlData;
+    };
+
+type PoolBalance =
+  | { tokenAAmount: Decimal; tokenBAmount: Decimal; usdValue: Decimal }
+  | { tokenAmount: Decimal; usdValue: Decimal }
+  | {
+      stakedAlphaAmount: Decimal;
+      stakedAlphaUsdValue: Decimal;
+      pendingDeposits: Decimal;
+      withdrawals: {
+        ticketId: string;
+        alphaAmount: string;
+        status: number; // 0 pending, 1 accepted, 2 claimable
+        withdrawalEtaTimestamp: number;
+      }[];
+      claimableAirdrop: Decimal;
+      totalAirdropClaimed: Decimal;
+    };
+
+type UserPortfolioData = {
+  netWorth: Decimal;
+  aggregatedApy: Decimal;
+  alphaRewardsToClaim: Decimal;
+  poolBalances: Map<string, PoolBalance>;
+};
+
 type StrategyType =
   | 'Lending'
   | 'Lp'
