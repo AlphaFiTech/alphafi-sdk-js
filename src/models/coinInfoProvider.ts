@@ -4,14 +4,8 @@
 
 import { normalizeStructTag } from '@mysten/sui/utils';
 import { Decimal } from 'decimal.js';
-
-export type CoinInfo = {
-  coinType: string;
-  symbol: string;
-  decimals: number;
-  coingeckoPrice?: Decimal;
-  pythPrice?: Decimal;
-};
+import { SingletonCache } from '../utils/cache.js';
+import { CoinInfo } from './types.js';
 
 type GraphQLResponse = {
   data: {
@@ -27,61 +21,44 @@ type GraphQLResponse = {
 
 export class CoinInfoProvider {
   private readonly apiUrl: string = 'https://api.alphalend.xyz/public/graphql';
-  private readonly coinInfoByType: Map<string, CoinInfo>;
-  private lastFetchedAt: number | null;
-  private readonly maxAgeMs: number = 2 * 60 * 1000; // Cache TTL
+  private readonly cache: SingletonCache<Map<string, CoinInfo>>;
 
   constructor() {
-    this.coinInfoByType = new Map();
-    this.lastFetchedAt = null;
+    // 5 minute TTL for coin data
+    this.cache = new SingletonCache<Map<string, CoinInfo>>(5 * 60 * 1000);
   }
 
-  /** Initialize coin data cache. */
-  async init(): Promise<void> {
-    await this.ensureInitialized();
+  /** Get all coin metadata with caching and promise deduplication. */
+  async getAllCoins(): Promise<Map<string, CoinInfo>> {
+    return this.cache.getOrFetch(() => this.fetchFromApi());
   }
 
-  /** Fetch fresh data if cache is stale. */
-  private async ensureInitialized(): Promise<void> {
-    const now = Date.now();
-    const isStale = this.lastFetchedAt == null || now - this.lastFetchedAt > this.maxAgeMs;
-    if (isStale) {
-      const coins = await this.fetchFromApi();
-      this.coinInfoByType.clear();
-      Array.from(coins.values()).forEach((coin) => {
-        this.coinInfoByType.set(coin.coinType, coin);
-      });
-      this.lastFetchedAt = now;
-    }
-  }
-
+  /** Get coin metadata by symbol. */
   async getCoinBySymbol(symbol: string): Promise<CoinInfo | undefined> {
-    await this.ensureInitialized();
-    return Array.from(this.coinInfoByType.values()).find(
+    const coins = await this.getAllCoins();
+    return Array.from(coins.values()).find(
       (coin) => coin.symbol.toUpperCase() === symbol.toUpperCase(),
     );
   }
 
-  /** Get all coin metadata. */
-  async getAllCoins(): Promise<Map<string, CoinInfo>> {
-    await this.ensureInitialized();
-    return this.coinInfoByType;
-  }
-
   /** Get coin metadata by type. */
   async getCoinByType(coinType: string): Promise<CoinInfo | undefined> {
-    await this.ensureInitialized();
-    return this.coinInfoByType.get(normalizeStructTag(coinType));
+    const coins = await this.getAllCoins();
+    return coins.get(normalizeStructTag(coinType));
   }
 
   /** Get coin price (Pyth preferred, fallback to CoinGecko). */
   async getPriceByType(coinType: string): Promise<Decimal> {
-    await this.ensureInitialized();
     const coin = await this.getCoinByType(normalizeStructTag(coinType));
     if (!coin) throw new Error(`Coin not found: ${coinType}`);
     const price = coin.pythPrice ?? coin.coingeckoPrice;
     if (!price) throw new Error(`No price available for: ${coinType}`);
     return price;
+  }
+
+  /** Clear the cache to force fresh data on next request. */
+  clear(): void {
+    this.cache.clear();
   }
 
   /** Fetch coin data from AlphaLend GraphQL API. */

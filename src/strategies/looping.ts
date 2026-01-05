@@ -104,11 +104,15 @@ export class LoopingStrategy extends BaseStrategy<
    * Get comprehensive pool data including TVL and APR information
    */
   async getData(): Promise<PoolData> {
-    const [alphafi, parent] = await Promise.all([this.getTvl(), this.getParentTvl()]);
+    const [alphafi, parent, apr] = await Promise.all([
+      this.getTvl(),
+      this.getParentTvl(),
+      this.context.getAprData(this.poolLabel.poolId),
+    ]);
     return {
       poolId: this.poolLabel.poolId,
       poolName: this.poolLabel.poolName,
-      apr: this.context.getAprData(this.poolLabel.poolId),
+      apr,
       tvl: {
         alphafi,
         parent,
@@ -152,10 +156,10 @@ export class LoopingStrategy extends BaseStrategy<
     const coinType = this.poolLabel.supplyAsset.type;
     const price = await this.context.getCoinPrice(coinType);
     if (protocol === 'Navi') {
-      const tokenAmountUsd = this.context.getNaviTvlByPoolId(this.poolLabel.poolId);
+      const tokenAmountUsd = await this.context.getNaviTvlByPoolId(this.poolLabel.poolId);
       return { tokenAmount: tokenAmountUsd.div(price), usdValue: tokenAmountUsd };
     } else if (protocol === 'Alphalend') {
-      const tokenAmount = this.context.getAlphaLendTvl(coinType);
+      const tokenAmount = await this.context.getAlphaLendTvl(coinType);
       return { tokenAmount, usdValue: tokenAmount.mul(price) };
     }
     throw new Error(`Unsupported parent protocol: ${protocol}`);
@@ -821,7 +825,7 @@ export class LoopingStrategy extends BaseStrategy<
       const data = (await response.json()) as NaviVoloData;
       return data;
     } catch (error) {
-      console.log('error in api', error);
+      console.error('error in api', error);
       return default_volo_data;
     }
   }

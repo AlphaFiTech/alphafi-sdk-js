@@ -14,7 +14,6 @@ import {
   CLOCK_PACKAGE_ID,
   GLOBAL_CONFIGS,
   IMAGE_URLS,
-  PACKAGE_IDS,
   SUI_SYSTEM_STATE,
   VERSIONS,
 } from '../utils/constants.js';
@@ -83,11 +82,15 @@ export class SlushLendingStrategy extends BaseStrategy<
    * Get comprehensive pool data including TVL and APR information
    */
   async getData(): Promise<PoolData> {
-    const [_alphafi, parent] = await Promise.all([this.getTvl(), this.getParentTvl()]);
+    const [_alphafi, parent, apr] = await Promise.all([
+      this.getTvl(),
+      this.getParentTvl(),
+      this.context.getAprData(this.poolLabel.poolId),
+    ]);
     return {
       poolId: this.poolLabel.poolId,
       poolName: this.poolLabel.poolName,
-      apr: this.context.getAprData(this.poolLabel.poolId),
+      apr,
       tvl: {
         alphafi: parent,
         parent,
@@ -120,7 +123,7 @@ export class SlushLendingStrategy extends BaseStrategy<
       throw new Error(`Unsupported parent protocol for SlushLending: ${protocol}`);
     }
     const [tokenAmount, price] = await Promise.all([
-      Promise.resolve(this.context.getAlphaLendTvl(this.poolLabel.asset.type)),
+      this.context.getAlphaLendTvl(this.poolLabel.asset.type),
       this.context.getCoinPrice(this.poolLabel.asset.type),
     ]);
     return { tokenAmount, usdValue: tokenAmount.mul(price) };

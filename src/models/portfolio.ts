@@ -54,6 +54,9 @@ export class Portfolio {
     const strategies = await this.protocol.getStrategies(strategiesType);
     await this.updateStrategiesWithReceipts(userAddress, strategies);
 
+    // Fetch APR map once for all strategies
+    const aprMap = await this.strategyContext.getAprMap();
+
     const balancesWithIds = await Promise.all(
       Array.from(strategies.entries()).map(async ([poolId, strategy]) => {
         const balance = await strategy.getBalance(userAddress);
@@ -68,7 +71,13 @@ export class Portfolio {
         'stakedAlphaUsdValue' in balance ? balance.stakedAlphaUsdValue : balance.usdValue;
 
       // Cap retired pool APY at 1000%
-      let apy = new Decimal(this.strategyContext.getAprData(poolId).apy);
+      const aprData = aprMap.get(poolId) || {
+        baseApr: new Decimal(0),
+        alphaMiningApr: new Decimal(0),
+        apy: new Decimal(0),
+        lastAutocompounded: new Date(),
+      };
+      let apy = new Decimal(aprData.apy);
       const isActive = (strategies.get(poolId)?.getPoolLabel() as any)?.isActive;
       if (isActive === false && apy.gt(1000)) {
         apy = new Decimal(1000);
@@ -80,21 +89,22 @@ export class Portfolio {
     aggregatedApy = netWorth.isZero() ? new Decimal(0) : aggregatedApy.div(netWorth);
 
     // Sum alpha rewards across all strategies
-    const distributor = this.strategyContext.getDistributorObject();
+    const distributor = await this.strategyContext.getDistributorObject();
     let alphaRewardsToClaim = new Decimal(0);
-    if (distributor) {
-      for (const strategy of strategies.values()) {
-        alphaRewardsToClaim = alphaRewardsToClaim.add(
-          strategy.getAlphaMiningRewardsToClaim(distributor),
-        );
-      }
+    for (const strategy of strategies.values()) {
+      alphaRewardsToClaim = alphaRewardsToClaim.add(
+        strategy.getAlphaMiningRewardsToClaim(distributor),
+      );
     }
 
     return { netWorth, aggregatedApy, alphaRewardsToClaim, poolBalances };
   }
 
   /** Update strategies with user's receipt objects and positions. */
-  async updateStrategiesWithReceipts(userAddress: string, strategies: Map<string, Strategy>) {
+  private async updateStrategiesWithReceipts(
+    userAddress: string,
+    strategies: Map<string, Strategy>,
+  ) {
     const poolLabels = Array.from(strategies.values()).map((strategy) => strategy.getPoolLabel());
     const receiptTypes: string[] = [];
 

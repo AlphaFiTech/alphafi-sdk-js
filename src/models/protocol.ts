@@ -1,5 +1,6 @@
 /**
  * Core protocol manager that handles strategy initialization and data retrieval.
+ * Uses per-pool caching for granular cache management.
  */
 import { StrategyContext } from './strategyContext.js';
 import { LpPoolLabel, LpStrategy } from '../strategies/lp.js';
@@ -16,17 +17,18 @@ import {
 } from '../strategies/singleAssetLooping.js';
 import { PoolLabel, Strategy, StrategyType } from '../strategies/strategy.js';
 import { PoolData } from './types.js';
+import { Cache } from '../utils/cache.js';
+
+// Cache TTL for strategies (5 minutes)
+const STRATEGY_CACHE_TTL_MS = 5 * 60 * 1000;
 
 export class Protocol {
   strategyContext: StrategyContext;
-  private strategies: Map<string, Strategy>;
-  private lastInitializedAtByType: Map<StrategyType, number> = new Map();
-  private initializationPromise: Promise<void> | null = null;
-  private static readonly STRATEGIES_TTL_MS = 5 * 60 * 1000; // Strategy cache TTL
+  private strategyCache: Cache<string, Strategy>;
 
   constructor(strategyContext: StrategyContext) {
     this.strategyContext = strategyContext;
-    this.strategies = new Map<string, Strategy>();
+    this.strategyCache = new Cache<string, Strategy>(STRATEGY_CACHE_TTL_MS);
   }
 
   /** Get pool data from strategies, optionally filtered by type. */
@@ -40,108 +42,78 @@ export class Protocol {
 
   /** Get initialized strategies, optionally filtered by type. */
   async getStrategies(strategiesType?: StrategyType[]): Promise<Map<string, Strategy>> {
-    await this.ensureInitialized(strategiesType);
+    const poolLabels = await this.strategyContext.getPoolLabels();
 
-    if (!strategiesType) {
-      return this.strategies;
-    }
+    // Filter by strategy types if specified
+    const filteredLabels = strategiesType
+      ? Array.from(poolLabels.values()).filter((label) =>
+          strategiesType.includes(label.strategyType),
+        )
+      : Array.from(poolLabels.values());
 
-    return new Map(
-      Array.from(this.strategies.values())
-        .filter((strategy) => strategiesType.includes(strategy.getPoolLabel().strategyType))
-        .map((strategy) => [strategy.getPoolLabel().poolId, strategy]),
-    );
-  }
+    // Get pool IDs that need to be built (not in cache or expired)
+    const poolIdsToBuild: string[] = [];
+    const cachedStrategies: Map<string, Strategy> = new Map();
 
-  /** Ensure strategies are initialized and refreshed if stale. Handles concurrent calls. */
-  private async ensureInitialized(strategiesType?: StrategyType[]) {
-    let typesToBuild = this.getTypesToBuild(strategiesType);
-
-    if (typesToBuild.length === 0) {
-      return;
-    }
-
-    this.clearStrategiesOfTypes(typesToBuild);
-
-    // Handle concurrent initialization
-    if (this.initializationPromise) {
-      await this.initializationPromise;
-      typesToBuild = this.getTypesToBuild(strategiesType);
-      if (typesToBuild.length === 0) {
-        return;
-      }
-      this.clearStrategiesOfTypes(typesToBuild);
-    }
-
-    this.initializationPromise = this.init(typesToBuild).finally(() => {
-      this.initializationPromise = null;
-    });
-
-    return this.initializationPromise;
-  }
-
-  /** Build and cache strategies for specified types. */
-  private async init(strategiesType: StrategyType[]) {
-    const newStrategies = await this.getPoolStrategiesByStrategyTypes(strategiesType);
-
-    newStrategies.forEach((strategy, poolId) => {
-      this.strategies.set(poolId, strategy);
-    });
-
-    const now = Date.now();
-    strategiesType.forEach((type) => this.lastInitializedAtByType.set(type, now));
-  }
-
-  /** Check if strategy type is within TTL. */
-  private isTypeFresh(type: StrategyType): boolean {
-    const lastInit = this.lastInitializedAtByType.get(type);
-    if (!lastInit) return false;
-    return Date.now() - lastInit < Protocol.STRATEGIES_TTL_MS;
-  }
-
-  /** Remove strategies of specified types from cache. */
-  private clearStrategiesOfTypes(types: StrategyType[]) {
-    const typeSet = new Set(types);
-    for (const [poolId, strategy] of this.strategies) {
-      if (typeSet.has(strategy.getPoolLabel().strategyType)) {
-        this.strategies.delete(poolId);
+    for (const label of filteredLabels) {
+      const cached = this.strategyCache.get(label.poolId);
+      if (cached) {
+        cachedStrategies.set(label.poolId, cached);
+      } else {
+        poolIdsToBuild.push(label.poolId);
       }
     }
-    types.forEach((type) => this.lastInitializedAtByType.delete(type));
+
+    // Build strategies for pools not in cache
+    if (poolIdsToBuild.length > 0) {
+      const labelsToBuild = poolIdsToBuild
+        .map((id) => poolLabels.get(id))
+        .filter((label): label is PoolLabel => label !== undefined);
+
+      const newStrategies = await this.buildPoolStrategies(labelsToBuild);
+
+      // Cache the new strategies
+      newStrategies.forEach((strategy, poolId) => {
+        this.strategyCache.set(poolId, strategy);
+        cachedStrategies.set(poolId, strategy);
+      });
+    }
+
+    return cachedStrategies;
   }
 
-  /** Get strategy types that need rebuilding (stale or never initialized). */
-  private getTypesToBuild(strategiesType?: StrategyType[]): StrategyType[] {
-    const requestedTypes =
-      strategiesType ??
-      Array.from(
-        new Set(
-          Array.from(this.strategyContext.poolLabels.values()).map((label) => label.strategyType),
-        ),
-      );
-    return requestedTypes.filter((type) => !this.isTypeFresh(type));
-  }
-
+  /** Get a single pool strategy by poolId. Uses cache with lazy loading. */
   async getSinglePoolStrategy(poolId: string): Promise<Strategy> {
-    const poolLabel = this.strategyContext.poolLabels.get(poolId);
+    // Check cache first
+    const cached = this.strategyCache.get(poolId);
+    if (cached) {
+      return cached;
+    }
+
+    // Build the strategy
+    const poolLabel = await this.strategyContext.getPoolLabel(poolId);
     if (!poolLabel) {
       throw new Error(`Pool label not found for poolId: ${poolId}`);
     }
-    const strategy = await this.buildPoolStrategies([poolLabel]);
-    return strategy.get(poolLabel.poolId)!;
+
+    const strategies = await this.buildPoolStrategies([poolLabel]);
+    const strategy = strategies.get(poolId);
+
+    if (!strategy) {
+      throw new Error(`Failed to build strategy for poolId: ${poolId}`);
+    }
+
+    // Cache and return
+    this.strategyCache.set(poolId, strategy);
+    return strategy;
   }
 
-  async getPoolStrategiesByStrategyTypes(
-    strategyTypes: StrategyType[],
-  ): Promise<Map<string, Strategy>> {
-    const poolLabels: PoolLabel[] = Array.from(this.strategyContext.poolLabels.values()).filter(
-      (poolLabel) => strategyTypes.includes(poolLabel.strategyType),
-    );
-    return this.buildPoolStrategies(poolLabels);
-  }
-
-  /** Build strategies from on-chain data for specified types. */
+  /** Build strategies from on-chain data for specified pool labels. */
   private async buildPoolStrategies(poolLabels: PoolLabel[]): Promise<Map<string, Strategy>> {
+    if (poolLabels.length === 0) {
+      return new Map();
+    }
+
     const poolIds = poolLabels.map((poolLabel) => poolLabel.poolId);
     const investorIds = poolLabels
       .filter((poolLabel) => 'investorId' in poolLabel && poolLabel.investorId)
@@ -264,5 +236,15 @@ export class Protocol {
       }
     });
     return resMap;
+  }
+
+  /** Clear the strategy cache. */
+  clearCache(): void {
+    this.strategyCache.clear();
+  }
+
+  /** Clear cache for a specific pool. */
+  clearPoolCache(poolId: string): void {
+    this.strategyCache.delete(poolId);
   }
 }

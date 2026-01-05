@@ -44,9 +44,7 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     this.poolLabel = poolLabel;
     this.poolObject = this.parsePoolObject(poolObject);
     this.investorObject = this.parseInvestorObject(investorObject);
-    console.log(parentPoolObject);
     this.parentPoolObject = this.parseParentPoolObject(parentPoolObject);
-    console.log('this.parentPoolObject', this.parentPoolObject);
     this.context = context;
   }
 
@@ -89,19 +87,27 @@ export class AutobalanceLpStrategy extends BaseStrategy<
    * Get comprehensive pool data including TVL, LP breakdown, price, and position range
    */
   async getData(): Promise<PoolData> {
-    const [alphafi, parent, lpBreakdown, parentLpBreakdown, currentLPPoolPrice, positionRange] =
-      await Promise.all([
-        this.getTvl(),
-        this.getParentTvl(),
-        this.getLpBreakdown(),
-        this.getParentLpBreakdown(),
-        this.getCurrentLPPoolPrice(),
-        this.getPositionRange(),
-      ]);
+    const [
+      alphafi,
+      parent,
+      lpBreakdown,
+      parentLpBreakdown,
+      currentLPPoolPrice,
+      positionRange,
+      apr,
+    ] = await Promise.all([
+      this.getTvl(),
+      this.getParentTvl(),
+      this.getLpBreakdown(),
+      this.getParentLpBreakdown(),
+      this.getCurrentLPPoolPrice(),
+      this.getPositionRange(),
+      this.context.getAprData(this.poolLabel.poolId),
+    ]);
     return {
       poolId: this.poolLabel.poolId,
       poolName: this.poolLabel.poolName,
-      apr: this.context.getAprData(this.poolLabel.poolId),
+      apr,
       tvl: {
         alphafi,
         parent,
@@ -433,7 +439,7 @@ export class AutobalanceLpStrategy extends BaseStrategy<
   }
 
   async deposit(tx: Transaction, options: DepositOptions) {
-    if (!options.isAmountA) {
+    if (options.isAmountA === undefined) {
       throw new Error('isAmountA is required for AutobalanceLp strategy');
     }
     const [amountA, amountB] = this.getOtherAmount(options.amount.toString(), options.isAmountA);
@@ -487,7 +493,7 @@ export class AutobalanceLpStrategy extends BaseStrategy<
   }
 
   async withdraw(tx: Transaction, options: WithdrawOptions) {
-    if (!options.isAmountA) {
+    if (options.isAmountA === undefined) {
       throw new Error('isAmountA is required for AutobalanceLp strategy');
     }
     if (this.receiptObjects.length === 0) {

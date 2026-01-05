@@ -33,7 +33,7 @@ export const POOL_REGISTRY: Record<string, ProtocolPoolIds> = {
     '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
     '0x27792d9fed7f9844eb4839566001bb6f6cb4804f66aa2da6fe1ee242d896881::coin::COIN',
   )]: {
-    bluefin: '0x31cc72ec8a332d5e0ecd65c8d5d778333e1c8432a8826a88a8c51eb4e7dc6fac',
+    bluefin: '0xe71aa89df60e737f1b687f8dfbd51e2a9b35706e9e5540ce9b053bd53fcb9ec3',
     cetus: '0xe0c526aa27d1729931d0051a318d795ad0299998898e4287d9da1bf095b49658',
   },
   [getCanonicalPairKey(
@@ -77,7 +77,7 @@ export const POOL_REGISTRY: Record<string, ProtocolPoolIds> = {
   },
   [getCanonicalPairKey(
     '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
-    '0x6864a6f921804860930db6ddbe2e16acdf8504495ea7481637a1c8b9a8fe54b::cetus::CETUS',
+    '0x06864a6f921804860930db6ddbe2e16acdf8504495ea7481637a1c8b9a8fe54b::cetus::CETUS',
   )]: {
     cetus: '0x2e041f3fd93646dcc877f783c1f2b7fa62d30271bdef1f21ef002cebf857bded',
   },
@@ -130,7 +130,7 @@ export const POOL_REGISTRY: Record<string, ProtocolPoolIds> = {
     '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
     '0xce7ff77a83ea0cb6fd39bd8748e2ec89a3f41e8efdc3f4eb123e0ca37b184db2::buck::BUCK',
   )]: {
-    bluefin: '0x58c4a8c5d18c61156e1a5a82811fbf71963a4de3f5d52292504646611a308888',
+    bluefin: '0xe63329f43a9474d421be85ff270bafc04667b811d215d4d4ee2512bcf2713896',
     cetus: '0x59cf0d333464ad29443d92bfd2ddfd1f794c5830141a5ee4a815d1ef3395bf6c',
   },
   [getCanonicalPairKey(
@@ -138,26 +138,26 @@ export const POOL_REGISTRY: Record<string, ProtocolPoolIds> = {
     '0xd0e89b2af5e4910726fbcd8b8dd37bb79b29e5f83f7491bca830e94f7f226d29::eth::ETH',
   )]: {
     bluefin: '0x788e945ce279153de07a6d392406487539060ee3d28046beb35c3024559ef863',
-    cetus: '0xc51752c87e7363dec32bb429cabcb7774aaabb45fa5d2c17edfbb59bd6d1deb0',
+    cetus: '0x7079378d20cb521acc9a77c0d69da0e4b65cc07b2a1666868c95444939c3929e',
   },
   [getCanonicalPairKey(
     '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
     '0xd1b72982e40348d069bb1ff701e634c117bb5f741f44dff91e472d3b01461e55::stsui::STSUI',
   )]: {
-    bluefin: '0x1cfae35ef073bb010bc8a52304ad0009596630e761939731131fa351a8ce1d03',
+    bluefin: '0x73549e0918d10727e324ebeed11ab81ab46f8fadb11078a0641f117d9097b725',
   },
   [getCanonicalPairKey(
     '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
     '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
   )]: {
-    bluefin: '0x981032320ffce3268777687711163f2cd3121a5ee7404cca4edbac7c60b027b2',
-    cetus: '0xcf994611fd4c48e277ce3ffd4d4364c914af2c3cbb05f7bf6facd371de688630',
+    bluefin: '0x3b585786b13af1d8ea067ab37101b6513a05d2f90cfe60e8b1d9e1b46a63c4fa',
+    cetus: '0xb8d7d9e66a60c239e7a60110efcf8de6c705580ed924d0dde141f4a0e2c90105',
   },
   [getCanonicalPairKey(
     '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
     '0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270::deep::DEEP',
   )]: {
-    bluefin: '0x7242459a663c4e59434252ceb27c228f6b1f21f2ba506f3b62d71b19a7421cc1',
+    bluefin: '0x1b06371d74082856a1be71760cf49f6a377d050eb57afd017f203e89b09c89a2',
     cetus: '0xe01243f37f712ef87e556afb9b1d03d0fae13f96d324ec912daffc339dfdcbd2',
     mmt: '0x9b06ea8e1a0ee5c86f0b47512a3337e3c9c4e235c4ec698d15b51b0a8ec3e5a9',
   },
@@ -165,7 +165,7 @@ export const POOL_REGISTRY: Record<string, ProtocolPoolIds> = {
     '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
     '0xe1b45a0e641b9955a20aa0ad1c1f4ad86aad8afb07296d4085e349a50e90bdca::blue::BLUE',
   )]: {
-    bluefin: '0x460ef4ac62dfd7bf39ed0edef08203918f4d41cf51bdf487ff26b03239ddbbb0',
+    bluefin: '0xde705d4f3ded922b729d9b923be08e1391dd4caeff8496326123934d0fb1c312',
     cetus: '0xde016b9e743142fa66783611434d6bc35b78b51ceb9fe574d0d00e71e41d01d7',
   },
   [getCanonicalPairKey(
@@ -198,7 +198,7 @@ export const POOL_REGISTRY: Record<string, ProtocolPoolIds> = {
     '0x2053d08c1e2bd02791056171aab0fd12bd7cd7efad2ab8f6b9c8902f14df2ff2::ausd::AUSD',
     '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
   )]: {
-    bluefin: '0x8ed765497eeedf7960af787c0c419cb2c01c471ab47682a0619e8588c06a9aa6',
+    bluefin: '0x881639630836b703aa3e04898f8a3740584859838d986619d0ee0f63a784c078',
     cetus: '0x0fea99ed9c65068638963a81587c3b8cafb71dc38c545319f008f7e9feb2b5f8',
   },
   [getCanonicalPairKey(
@@ -212,7 +212,7 @@ export const POOL_REGISTRY: Record<string, ProtocolPoolIds> = {
     '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
   )]: {
     bluefin: '0x38282481e3a024c50254c31ebfc4710e003fe1b219c0aa31482a860bd58c4ab0',
-    cetus: '0xaa57c66ba6ee8f2219376659f727f2b13d49ead66435aa99f57bb008a64a8042',
+    cetus: '0xf81d070f24bd2518a28193fc081774654cd8ad145559fa1fa0d7471cb3eecb27',
   },
   [getCanonicalPairKey(
     '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL',
@@ -224,21 +224,21 @@ export const POOL_REGISTRY: Record<string, ProtocolPoolIds> = {
     '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL',
     '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
   )]: {
-    bluefin: '0x632537311220d81af2f36b2ffab8a2020062f6daf7c64a188ca79672a23d4f4c',
+    bluefin: '0xbcc6909d2e85c06cf9cbfe5b292da36f5bfa0f314806474bbf6a0bf9744d37ce',
     cetus: '0x81310e6c4c8726179312c185af0d504eb2cf86a2d1af78a3d362a1b497021c71',
   },
   [getCanonicalPairKey(
     '0x375f70cf2ae4c00bf37117d0c85a2c71545e6ee05c4a5c7d282cd66a4504b068::usdt::USDT',
     '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
   )]: {
-    bluefin: '0xdef7d4ba7767de38bac1a7c12873a0c348416d417fa9b5a58e0a238fe7c3235b',
+    bluefin: '0x0bd95d012d60190a6713ae51f2d833b24ae70c5fb07fcfb41db40f25549878b1',
     cetus: '0xb8a67c149fd1bc7f9aca1541c61e51ba13bdded64c273c278e50850ae3bff073',
   },
   [getCanonicalPairKey(
     '0x3e8e9423d80e1774a7ca128fccd8bf5f1f7753be658c5e645929037f7c819040::lbtc::LBTC',
     '0xaafb102dd0902f5055cadecd687fb5b71ca82ef0e0285d90afde828ec58ca96b::btc::BTC',
   )]: {
-    bluefin: '0xae6f21271938fd58845c5f8f73f3b24e9daa13d60661cf5ac1ca0d9abcd30044',
+    bluefin: '0x715959c4a67cc6b8d2d4c0db628618d947a032041453a24c3a5315beb613331a',
     cetus: '0x0747352161108a1df5e7c9604037f942aaee4286cb994ad3499a244ad67f399b',
   },
   [getCanonicalPairKey(
@@ -255,7 +255,7 @@ export const POOL_REGISTRY: Record<string, ProtocolPoolIds> = {
   },
   [getCanonicalPairKey(
     '0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN',
-    '0x6864a6f921804860930db6ddbe2e16acdf8504495ea7481637a1c8b9a8fe54b::cetus::CETUS',
+    '0x06864a6f921804860930db6ddbe2e16acdf8504495ea7481637a1c8b9a8fe54b::cetus::CETUS',
   )]: {
     cetus: '0x238f7e4648e62751de29c982cbf639b4225547c31db7bd866982d7d56fc2c7a8',
   },
@@ -343,21 +343,21 @@ export const POOL_REGISTRY: Record<string, ProtocolPoolIds> = {
     '0xaafb102dd0902f5055cadecd687fb5b71ca82ef0e0285d90afde828ec58ca96b::btc::BTC',
     '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
   )]: {
-    bluefin: '0xabf7ed1ce07c23a769a7a383792884054a2c1be836f02e79d7e71b60cd9b319a',
+    bluefin: '0xf0e4772e80800550368973d1f8ab2c9a7241ace8df8770452ee2bf3e3e67b8a1',
     cetus: '0xa72776082624b0f5da55e385107fc0176114bfea5b281b880acae505a9bd1f1a',
   },
   [getCanonicalPairKey(
     '0xb45fcfcc2cc07ce0702cc2d229621e046c906ef14d9b25e8e4d25f6e8763fef7::send::SEND',
     '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
   )]: {
-    bluefin: '0xd5757d9f00db3f21a0fa38a86a5c1d52ae44828cc59f1798550e2ccf260b2a34',
+    bluefin: '0xbd5b29a952040ccd47ce2822bddd4aba3affaae9d6ccdaf65aded5528e39b837',
     cetus: '0x19eded65f7d310e3d9c659f6566087a28d02bc5e12db3bb34a69daa7ca5ae56a',
   },
   [getCanonicalPairKey(
     '0xc060006111016b8a020ad5b33834984a437aaa7d3c74c18e09a95d48aceab08c::coin::COIN',
     '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
   )]: {
-    bluefin: '0x141810da3657be7bdaa4d9799e6fdfe7f2bcd5e3cec7993faddbde95a14ebe24',
+    bluefin: '0x0321b68a0fca8c990710d26986ba433d06b351deba9384017cd6175f20466a8f',
     cetus: '0x6bd72983b0b5a77774af8c77567bb593b418ae3cd750a5926814fcd236409aaa',
   },
   [getCanonicalPairKey(
@@ -382,19 +382,19 @@ export const POOL_REGISTRY: Record<string, ProtocolPoolIds> = {
     '0xd1b72982e40348d069bb1ff701e634c117bb5f741f44dff91e472d3b01461e55::stsui::STSUI',
     '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
   )]: {
-    bluefin: '0x587c111f423e81c920262ac58f15f9097871263ef4f3af998297f36080a5c35d',
+    bluefin: '0x151d6959cb2a6d1a5b6cfec6d1eae690af0318e46e5fb3ec45dd4e3b67eebeda',
   },
   [getCanonicalPairKey(
     '0xd1b72982e40348d069bb1ff701e634c117bb5f741f44dff91e472d3b01461e55::stsui::STSUI',
     '0xe44df51c0b21a27ab915fa1fe2ca610cd3eaa6d9666fe5e62b988bf7f0bd8722::musd::MUSD',
   )]: {
-    bluefin: '0xb251e187a4e688dd3dbbf378e4aacfdd41de6a81e2a4bc10c7b80e056c1da630',
+    bluefin: '0x0da4bcb1669ae3b6ce80f024e3a2076e2c4e2cc899d4724fce94da0f729bc968',
   },
   [getCanonicalPairKey(
     '0xd1b72982e40348d069bb1ff701e634c117bb5f741f44dff91e472d3b01461e55::stsui::STSUI',
     '0xfe3afec26c59e874f3c1d60b8203cb3852d2bb2aa415df9548b8d688e6683f93::alpha::ALPHA',
   )]: {
-    bluefin: '0x430ab1a8ef98c1b438e15697c6320ff48d538ad3bc7d3fd9c1222cd60ce368b4',
+    bluefin: '0xd4051b5dc76ca354e48813268aa79de38b274878ef6a9d274066ae5a47f46cc6',
   },
   [getCanonicalPairKey(
     '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
@@ -406,14 +406,14 @@ export const POOL_REGISTRY: Record<string, ProtocolPoolIds> = {
     '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
     '0xe1b45a0e641b9955a20aa0ad1c1f4ad86aad8afb07296d4085e349a50e90bdca::blue::BLUE',
   )]: {
-    bluefin: '0x978d78252a4952d2cd3216a6fbac40c77aa329dfda0168cc51c76400d15afb2f',
+    bluefin: '0x3717c637003c4274f20cde8c4eeadbffa2bbf16d995a0fe0f7bf99c03cf52e61',
     cetus: '0xab9806a212de1355936cd88314d0539769baab27dc08f3169f35adbf9a188764',
   },
   [getCanonicalPairKey(
     '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
     '0xfe3afec26c59e874f3c1d60b8203cb3852d2bb2aa415df9548b8d688e6683f93::alpha::ALPHA',
   )]: {
-    bluefin: '0x42ce0942291f9f0e413f5bc9a72d4f439b57968ff5831941a63d8278b87e97db',
+    bluefin: '0x6595edf6d8c8b6894a5c6760843ae2fde81cb37d8586984dd1345b0f00bfecd8',
     cetus: '0x29e218b46e35b4cf8eedc7478b8795d2a9bcce9c61e11101b3a039ec93305126',
   },
   [getCanonicalPairKey(

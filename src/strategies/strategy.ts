@@ -3,8 +3,7 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { SingleTvl, DoubleTvl, PoolData, PoolBalance } from '../models/types.js';
-import { DistributorObject } from '../models/strategyContext.js';
+import { SingleTvl, DoubleTvl, PoolData, PoolBalance, DistributorObject } from '../models/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { IMAGE_URLS, PACKAGE_IDS } from '../utils/constants.js';

@@ -1,6 +1,8 @@
 /**
  * AlphaFi SDK - A comprehensive DeFi toolkit for the Sui blockchain.
  * Provides easy access to lending, LP farming, leveraged yield farming, and more.
+ *
+ * All data is lazily loaded on-demand with automatic caching.
  */
 import { Transaction } from '@mysten/sui/transactions';
 import { Protocol } from '../models/protocol.js';
@@ -38,7 +40,7 @@ export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 
 /**
  * Main AlphaFi SDK class - your gateway to DeFi on Sui.
- * Supports multiple DeFi strategies
+ * Supports multiple DeFi strategies with lazy-loaded data.
  *
  * @example
  * ```typescript
@@ -52,32 +54,12 @@ export class AlphaFiSDK {
   private strategyContext: StrategyContext;
   private protocol: Protocol;
   private portfolio: Portfolio;
-  private isInitialized: boolean = false;
-  private initializationPromise: Promise<void> | null = null;
 
   constructor(config: AlphaFiSDKConfig) {
     this.config = config;
     this.strategyContext = new StrategyContext(config.network, config.suiClient);
-
     this.protocol = new Protocol(this.strategyContext);
     this.portfolio = new Portfolio(this.protocol, this.strategyContext);
-  }
-
-  async ensureInitialized(userAddress?: string) {
-    if (this.isInitialized) {
-      return;
-    }
-    if (this.initializationPromise) {
-      return this.initializationPromise;
-    }
-
-    this.initializationPromise = this.init(userAddress);
-    return this.initializationPromise;
-  }
-
-  private async init(userAddress?: string) {
-    await this.strategyContext.init(userAddress);
-    this.isInitialized = true;
   }
 
   /**
@@ -87,7 +69,6 @@ export class AlphaFiSDK {
    * @returns Map of pool ID to pool data (APY, TVL, supported assets, etc.)
    */
   async getPoolsData(strategiesType?: StrategyType[]): Promise<Map<string, PoolData>> {
-    await this.ensureInitialized();
     return this.protocol.getPoolsData(strategiesType);
   }
 
@@ -102,7 +83,6 @@ export class AlphaFiSDK {
     address: string,
     strategiesType?: StrategyType[],
   ): Promise<UserPortfolioData> {
-    await this.ensureInitialized(address);
     return this.portfolio.getUserPortfolio(address, strategiesType);
   }
 
@@ -118,8 +98,7 @@ export class AlphaFiSDK {
    * @returns Transaction object ready for signing and execution
    */
   async deposit(options: DepositOptions): Promise<Transaction> {
-    await this.ensureInitialized(options.address);
-    const poolLabel = this.strategyContext.poolLabels.get(options.poolId);
+    const poolLabel = await this.strategyContext.getPoolLabel(options.poolId);
     if (!poolLabel) {
       throw new Error(`Pool with ID ${options.poolId} not found`);
     }
@@ -154,7 +133,6 @@ export class AlphaFiSDK {
    * @returns Tuple of [tokenA amount, tokenB amount] required for deposit
    */
   async estimateLpAmounts(options: EstimateLpAmountsOptions): Promise<[string, string]> {
-    await this.ensureInitialized();
     const strategy = await this.protocol.getSinglePoolStrategy(options.poolId);
     return strategy.getOtherAmount(options.amount, options.isAmountA);
   }
@@ -170,10 +148,9 @@ export class AlphaFiSDK {
    * @returns Transaction object ready for signing and execution
    */
   async withdraw(options: WithdrawOptions): Promise<Transaction> {
-    await this.ensureInitialized(options.address);
     const tx = new Transaction();
     const strategy = await this.portfolio.getPoolStrategy(options.address, options.poolId);
-    strategy.withdraw(tx, options);
+    await strategy.withdraw(tx, options);
     return tx;
   }
 
@@ -223,8 +200,7 @@ export class AlphaFiSDK {
    * @returns Tuple of [expected tokenA out, expected tokenB out] or undefined if quote fails
    */
   async zapDepositQuote(options: ZapDepositQuoteOptions): Promise<[string, string] | undefined> {
-    await this.ensureInitialized();
-    const poolLabel = this.strategyContext.poolLabels.get(options.poolId);
+    const poolLabel = await this.strategyContext.getPoolLabel(options.poolId);
     if (!poolLabel) {
       throw new Error(`Pool with ID ${options.poolId} not found`);
     }
@@ -246,8 +222,7 @@ export class AlphaFiSDK {
    * @returns Transaction object or undefined if zap fails
    */
   async zapDeposit(options: ZapDepositOptions): Promise<Transaction | undefined> {
-    await this.ensureInitialized(options.address);
-    const poolLabel = this.strategyContext.poolLabels.get(options.poolId);
+    const poolLabel = await this.strategyContext.getPoolLabel(options.poolId);
     if (!poolLabel) {
       throw new Error(`Pool with ID ${options.poolId} not found`);
     }
@@ -301,5 +276,20 @@ export class AlphaFiSDK {
   async cetusSwapTxb(options: CetusSwapOptions): Promise<Transaction> {
     const swap = new CetusSwap(this.config.network);
     return await swap.cetusSwapTokensTxb(options.router, options.slippage);
+  }
+
+  /**
+   * Clear all cached data. Useful for forcing fresh data.
+   */
+  clearCaches(): void {
+    this.strategyContext.clearAllCaches();
+  }
+
+  /**
+   * Clear cached data for a specific user.
+   * Call this after a user completes a transaction to refresh their portfolio.
+   */
+  clearUserCaches(userAddress: string): void {
+    this.strategyContext.clearUserCaches(userAddress);
   }
 }

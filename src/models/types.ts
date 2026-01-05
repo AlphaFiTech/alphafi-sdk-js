@@ -1,5 +1,13 @@
 import { Decimal } from 'decimal.js';
 
+export type CoinInfo = {
+  coinType: string;
+  symbol: string;
+  decimals: number;
+  coingeckoPrice?: Decimal;
+  pythPrice?: Decimal;
+};
+
 export type UserPortfolioData = {
   netWorth: Decimal;
   aggregatedApy: Decimal;
@@ -81,3 +89,56 @@ export type PoolBalance =
       claimableAirdrop: Decimal;
       totalAirdropClaimed: Decimal;
     };
+
+export type SlushPositionCap = {
+  id: string;
+  position_pool_map: Map<string, string>;
+  client_address: string;
+  image_url: string;
+};
+
+export type AlphaFiReceipt = {
+  id: string;
+  positionPoolMap: Array<{
+    key: string;
+    value: {
+      poolId: string;
+      partnerCapId: string;
+    };
+  }>;
+  clientAddress: string;
+  imageUrl: string;
+};
+
+export type DistributorObject = {
+  airdropWallet: string;
+  airdropWalletBalance: string;
+  dustWalletAddress: string;
+  feeWallet: string;
+  id: string;
+  nextHalvingTimestamp: string;
+  onholdReceiptsWalletAddress: string;
+  poolAllocator: {
+    id: string;
+    members: {
+      key: string;
+      value: {
+        poolData: {
+          key: string;
+          value: {
+            lastUpdateTime: string;
+            pendingRewards: string;
+            weight: string;
+          };
+        }[];
+      };
+    }[];
+    rewards: { id: string; size: string };
+    totalWeights: Array<{ key: string; value: string }>;
+  };
+  rewardUnlock: string[];
+  startTimestamp: string;
+  target: string;
+  teamWalletAddress: string;
+  teamWalletBalance: string;
+};

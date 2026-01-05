@@ -106,11 +106,14 @@ export class AlphaVaultStrategy extends BaseStrategy<
    * Get pool summary data including APR and TVL
    */
   async getData(): Promise<PoolData> {
-    const alphafi = await this.getTvl();
+    const [alphafi, apr] = await Promise.all([
+      this.getTvl(),
+      this.context.getAprData(this.poolLabel.poolId),
+    ]);
     return {
       poolId: this.poolLabel.poolId,
       poolName: this.poolLabel.poolName,
-      apr: this.context.getAprData(this.poolLabel.poolId),
+      apr,
       tvl: {
         alphafi,
         parent: alphafi,

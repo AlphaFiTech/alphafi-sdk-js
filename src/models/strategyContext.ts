@@ -1,15 +1,16 @@
 /**
  * StrategyContext
  *
- * Shared services + cached on-chain/API data used by strategies.
+ * Shared services + lazily-loaded cached on-chain/API data used by strategies.
+ * All data is loaded on-demand with automatic caching and TTL expiration.
  */
 
 import { Blockchain } from './blockchain.js';
-import { CoinInfo, CoinInfoProvider } from './coinInfoProvider.js';
+import { CoinInfoProvider } from './coinInfoProvider.js';
 import { PoolLabel } from '../strategies/strategy.js';
 import { Decimal } from 'decimal.js';
 import { AlphalendClient } from '@alphafi/alphalend-sdk';
-import { AprData } from './types.js';
+import { AlphaFiReceipt, AprData, CoinInfo, DistributorObject, SlushPositionCap } from './types.js';
 import { normalizeStructTag } from '@mysten/sui/utils';
 import { SuiClient } from '@mysten/sui/client/index.js';
 import {
@@ -18,59 +19,17 @@ import {
   SLUSH_POSITION_CAP_TYPE,
 } from '../utils/constants.js';
 import { getCanonicalPairKey, POOL_REGISTRY, ProtocolPoolIds } from '../utils/poolMap.js';
+import { Cache, SingletonCache } from '../utils/cache.js';
 
-interface SlushPositionCap {
-  id: string;
-  position_pool_map: Map<string, string>;
-  client_address: string;
-  image_url: string;
-}
-
-interface AlphaFiReceipt {
-  id: string;
-  positionPoolMap: Array<{
-    key: string;
-    value: {
-      poolId: string;
-      partnerCapId: string;
-    };
-  }>;
-  clientAddress: string;
-  imageUrl: string;
-}
-
-export interface DistributorObject {
-  airdropWallet: string;
-  airdropWalletBalance: string;
-  dustWalletAddress: string;
-  feeWallet: string;
-  id: string;
-  nextHalvingTimestamp: string;
-  onholdReceiptsWalletAddress: string;
-  poolAllocator: {
-    id: string;
-    members: {
-      key: string;
-      value: {
-        poolData: {
-          key: string;
-          value: {
-            lastUpdateTime: string;
-            pendingRewards: string;
-            weight: string;
-          };
-        }[];
-      };
-    }[];
-    rewards: { id: string; size: string };
-    totalWeights: Array<{ key: string; value: string }>;
-  };
-  rewardUnlock: string[];
-  startTimestamp: string;
-  target: string;
-  teamWalletAddress: string;
-  teamWalletBalance: string;
-}
+// Cache TTL constants (in milliseconds)
+const CACHE_TTL = {
+  APR_DATA: 10 * 60 * 1000, // 10 minutes - APR changes frequently
+  POOL_LABELS: 5 * 60 * 1000, // 5 minutes - config rarely changes
+  TVL_DATA: 10 * 60 * 1000, // 10 minutes - TVL changes moderately
+  DISTRIBUTOR: 10 * 60 * 1000, // 10 minutes - for accurate reward calculation
+  USER_DATA: 5 * 60 * 1000, // 5 minutes - user positions can change
+  COIN_INFO: 5 * 60 * 1000, // 5 minutes - coin info is stable
+};
 
 const ALPHAFI_NAVI_TVL_URL = 'https://api.alphafi.xyz/public/navi-params';
 const ALPHAFI_APR_URL = 'https://api.alphafi.xyz/public/apr';
@@ -79,84 +38,277 @@ const ALPHAFI_CONFIG_URL = 'https://api.alphafi.xyz/public/config';
 export class StrategyContext {
   blockchain: Blockchain;
   coinInfoProvider: CoinInfoProvider;
-  poolLabels: Map<string, PoolLabel>;
-  aprMap: Map<string, AprData>;
-  alphalendTvl: Map<string, Decimal>;
-  naviTvl: Map<string, Decimal>;
-  bucketTvl: Decimal;
-  private slushPositionCapsCache: Map<string, SlushPositionCap[]>;
-  private alphaFiReceiptsCache: Map<string, AlphaFiReceipt[]>;
-  distributorObjectCache: DistributorObject | null;
+
+  // Singleton caches for global data
+  private poolLabelsCache: SingletonCache<Map<string, PoolLabel>>;
+  private aprMapCache: SingletonCache<Map<string, AprData>>;
+  private alphalendTvlCache: SingletonCache<Map<string, Decimal>>;
+  private naviTvlCache: SingletonCache<Map<string, Decimal>>;
+  private bucketTvlCache: SingletonCache<Decimal>;
+  private distributorCache: SingletonCache<DistributorObject>;
+
+  // Per-user caches
+  private slushPositionCapsCache: Cache<string, SlushPositionCap[]>;
+  private alphaFiReceiptsCache: Cache<string, AlphaFiReceipt[]>;
+  private slushPositionsCache: Cache<string, Map<string, any[]>>;
+  private alphaFiPositionsCache: Cache<string, Map<string, any[]>>;
 
   constructor(network: 'mainnet' | 'testnet' | 'devnet' | 'localnet', suiClient: SuiClient) {
     this.blockchain = new Blockchain(suiClient, network);
     this.coinInfoProvider = new CoinInfoProvider();
 
-    // In-memory caches (populated by `init()`)
-    this.poolLabels = new Map<string, PoolLabel>();
-    this.aprMap = new Map<string, AprData>();
-    this.alphalendTvl = new Map<string, Decimal>();
-    this.naviTvl = new Map<string, Decimal>();
-    this.bucketTvl = new Decimal(0);
-    this.slushPositionCapsCache = new Map<string, SlushPositionCap[]>();
-    this.alphaFiReceiptsCache = new Map<string, AlphaFiReceipt[]>();
-    this.distributorObjectCache = null;
+    // Initialize singleton caches with appropriate TTLs
+    this.poolLabelsCache = new SingletonCache(CACHE_TTL.POOL_LABELS);
+    this.aprMapCache = new SingletonCache(CACHE_TTL.APR_DATA);
+    this.alphalendTvlCache = new SingletonCache(CACHE_TTL.TVL_DATA);
+    this.naviTvlCache = new SingletonCache(CACHE_TTL.TVL_DATA);
+    this.bucketTvlCache = new SingletonCache(CACHE_TTL.TVL_DATA);
+    this.distributorCache = new SingletonCache(CACHE_TTL.DISTRIBUTOR);
+
+    // Initialize per-user caches
+    this.slushPositionCapsCache = new Cache(CACHE_TTL.USER_DATA);
+    this.alphaFiReceiptsCache = new Cache(CACHE_TTL.USER_DATA);
+    this.slushPositionsCache = new Cache(CACHE_TTL.USER_DATA);
+    this.alphaFiPositionsCache = new Cache(CACHE_TTL.USER_DATA);
+  }
+
+  // ============================================================
+  // Pool Labels (lazy loaded)
+  // ============================================================
+
+  /**
+   * Get all pool labels. Lazily loaded and cached.
+   */
+  async getPoolLabels(): Promise<Map<string, PoolLabel>> {
+    return this.poolLabelsCache.getOrFetch(() => this.fetchPoolLabels());
   }
 
   /**
-   * Preload commonly-used caches. Pass `userAddress` to also warm user-specific caches.
+   * Get a specific pool label by ID.
    */
-  async init(userAddress?: string) {
-    const promises: Promise<unknown>[] = [
-      this.cacheAprData(),
-      this.cacheAlphaLendMarkets(),
-      this.cacheNaviTvlByPoolId(),
-      this.cacheBucketTvl(),
-      this.cachePoolLabelsFromConfig(),
-      this.cacheDistributorObject(),
-      this.coinInfoProvider.init(),
-    ];
-    if (userAddress) {
-      promises.push(this.getAlphaFiReceipts(userAddress));
-      promises.push(this.getAllSlushPositions(userAddress));
+  async getPoolLabel(poolId: string): Promise<PoolLabel | undefined> {
+    const labels = await this.getPoolLabels();
+    return labels.get(poolId);
+  }
+
+  private async fetchPoolLabels(): Promise<Map<string, PoolLabel>> {
+    const poolLabels = new Map<string, PoolLabel>();
+    const response = await fetch(ALPHAFI_CONFIG_URL);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch config: ${response.status} ${response.statusText}`);
     }
-    await Promise.all(promises);
+    const json = (await response.json()) as Record<
+      string,
+      {
+        strategy_type:
+          | 'AlphaVault'
+          | 'Lp'
+          | 'FungibleLp'
+          | 'AutobalanceLp'
+          | 'SlushLending'
+          | 'Lending'
+          | 'Looping'
+          | 'SingleAssetLooping'
+          | 'Lyf';
+        data: any;
+      }
+    >;
+
+    for (const [, entry] of Object.entries(json)) {
+      const st = entry.strategy_type;
+      const d = entry.data || {};
+
+      if (!d.pool_id) {
+        console.error('Pool ID is required for pool labels', d);
+        continue;
+      }
+
+      if (st === 'Lp' || st === 'AutobalanceLp') {
+        poolLabels.set(d.pool_id, {
+          poolId: d.pool_id,
+          packageId: d.package_id,
+          packageNumber: d.package_number,
+          strategyType: st,
+          parentProtocol: d.parent_protocol,
+          parentPoolId: d.parent_pool_id,
+          investorId: d.investor_id,
+          receipt: d.receipt,
+          assetA: d.asset_a,
+          assetB: d.asset_b,
+          events: {
+            autocompoundEventType: d.events?.autocompound_event_type,
+            rebalanceEventType: d.events?.rebalance_event_type,
+            liquidityChangeEventType: d.events?.liquidity_change_event_type,
+            afterTransactionEventType: d.events?.after_transaction_event_type ?? undefined,
+          },
+          isActive: d.is_active,
+          poolName: d.pool_name,
+          isNative: d.is_native,
+        } as PoolLabel);
+      } else if (st === 'FungibleLp') {
+        poolLabels.set(d.pool_id, {
+          poolId: d.pool_id,
+          packageId: d.package_id,
+          packageNumber: d.package_number,
+          strategyType: st,
+          parentProtocol: d.parent_protocol,
+          parentPoolId: d.parent_pool_id,
+          investorId: d.investor_id,
+          fungibleCoin: d.fungible_coin ?? d.asset_a ?? d.asset,
+          assetA: d.asset_a,
+          assetB: d.asset_b,
+          events: {
+            autocompoundEventType: d.events?.autocompound_event_type,
+            rebalanceEventType: d.events?.rebalance_event_type,
+            liquidityChangeEventType: d.events?.liquidity_change_event_type,
+          },
+          isActive: d.is_active,
+          poolName: d.pool_name,
+          isNative: d.is_native,
+        } as PoolLabel);
+      } else if (st === 'SlushLending') {
+        poolLabels.set(d.pool_id, {
+          poolId: d.pool_id,
+          packageId: d.package_id,
+          packageNumber: d.package_number,
+          strategyType: st,
+          parentProtocol: d.parent_protocol,
+          receipt: d.receipt,
+          asset: d.asset,
+          events: {
+            autocompoundEventType: d.events?.autocompound_event_type,
+            liquidityChangeEventType: d.events?.liquidity_change_event_type,
+          },
+          isActive: d.is_active,
+          poolName: d.pool_name,
+          isNative: d.is_native,
+        } as PoolLabel);
+      } else if (st === 'Lending') {
+        poolLabels.set(d.pool_id, {
+          poolId: d.pool_id,
+          packageId: d.package_id,
+          packageNumber: d.package_number,
+          strategyType: st,
+          parentProtocol: d.parent_protocol,
+          parentPoolId: d.parent_pool_id,
+          investorId: d.investor_id,
+          receipt: d.receipt,
+          asset: d.asset,
+          events: {
+            autocompoundEventType: d.events?.autocompound_event_type,
+            liquidityChangeEventType: d.events?.liquidity_change_event_type,
+          },
+          isActive: d.is_active,
+          poolName: d.pool_name,
+          isNative: d.is_native,
+        } as PoolLabel);
+      } else if (st === 'Looping') {
+        poolLabels.set(d.pool_id, {
+          poolId: d.pool_id,
+          packageId: d.package_id,
+          packageNumber: d.package_number,
+          strategyType: st,
+          parentProtocol: d.parent_protocol,
+          investorId: d.investor_id,
+          receipt: d.receipt,
+          supplyAsset: d.supply_asset,
+          borrowAsset: d.borrow_asset,
+          userDepositAsset: d.user_deposit_asset,
+          userWithdrawAsset: d.user_withdraw_asset,
+          events: {
+            autocompoundEventType: d.events?.autocompound_event_type,
+            liquidityChangeEventType: d.events?.liquidity_change_event_type,
+            checkRatioEventType: d.events?.check_ratio_event_type,
+          },
+          isActive: d.is_active,
+          poolName: d.pool_name,
+          isNative: d.is_native,
+        } as PoolLabel);
+      } else if (st === 'SingleAssetLooping') {
+        poolLabels.set(d.pool_id, {
+          poolId: d.pool_id,
+          packageId: d.package_id,
+          packageNumber: d.package_number,
+          strategyType: st,
+          parentProtocol: d.parent_protocol,
+          investorId: d.investor_id,
+          receipt: d.receipt,
+          asset: d.asset,
+          events: {
+            autocompoundEventType: d.events?.autocompound_event_type,
+            liquidityChangeEventType: d.events?.liquidity_change_event_type,
+          },
+          isActive: d.is_active,
+          poolName: d.pool_name,
+          isNative: d.is_native,
+        } as PoolLabel);
+      } else if (st === 'Lyf') {
+        poolLabels.set(d.pool_id, {
+          poolId: d.pool_id,
+          packageId: d.package_id,
+          packageNumber: d.package_number,
+          strategyType: st,
+          parentProtocol: d.parent_protocol,
+          parentPoolId: d.parent_pool_id,
+          receipt: d.receipt,
+          zapAsset: d.zap_asset,
+          assetA: d.asset_a,
+          assetB: d.asset_b,
+          events: {
+            autocompoundEventType: d.events?.autocompound_event_type,
+            rebalanceEventType: d.events?.rebalance_event_type,
+            liquidityChangeEventType: d.events?.liquidity_change_event_type,
+            afterTransactionEventType: d.events?.after_transaction_event_type ?? undefined,
+          },
+          isActive: d.is_active,
+          isNative: d.is_native,
+          poolName: d.pool_name,
+        } as PoolLabel);
+      } else if (st === 'AlphaVault') {
+        poolLabels.set(d.pool_id, {
+          poolId: d.pool_id,
+          investorId: d.investor_id,
+          packageId: d.package_id,
+          packageNumber: d.package_number,
+          strategyType: st,
+          parentProtocol: d.parent_protocol,
+          receipt: d.receipt,
+          asset: d.asset,
+          events: {
+            autocompoundEventType: d.events?.autocompound_event_type,
+            liquidityChangeEventType: d.events?.liquidity_change_event_type,
+            withdrawV2EventType: d.events?.withdraw_v2_event_type,
+            afterTransactionEventType: d.events?.after_transaction_event_type,
+            airdropAddEventType: d.events?.airdrop_add_event_type,
+          },
+          isActive: d.is_active,
+          poolName: d.pool_name,
+          isNative: d.is_native,
+        } as PoolLabel);
+      }
+    }
+
+    return poolLabels;
+  }
+
+  // ============================================================
+  // APR Data (lazy loaded)
+  // ============================================================
+
+  /**
+   * Get APR map. Lazily loaded and cached.
+   */
+  async getAprMap(): Promise<Map<string, AprData>> {
+    return this.aprMapCache.getOrFetch(() => this.fetchAprData());
   }
 
   /**
-   * Get coin decimals (defaults to 9 if unknown).
+   * Get APR/APY data for a specific pool.
    */
-  async getCoinDecimals(coinType: string): Promise<number> {
-    const info = await this.coinInfoProvider.getCoinByType(coinType);
-    return info?.decimals ?? 9;
-  }
-
-  /**
-   * Get coin price (USD).
-   */
-  async getCoinPrice(coinType: string): Promise<Decimal> {
-    return this.coinInfoProvider.getPriceByType(coinType);
-  }
-
-  async getCoinsBySymbols(symbols: string[]): Promise<CoinInfo[]> {
-    const coins = await Promise.all(
-      symbols.map(async (symbol) => {
-        const coin = await this.coinInfoProvider.getCoinBySymbol(symbol);
-        if (!coin) {
-          throw new Error(`Coin not found: ${symbol}`);
-        }
-        return coin;
-      }),
-    );
-    return coins;
-  }
-
-  /**
-   * Get APR/APY data for a pool (falls back to zeros).
-   */
-  getAprData(poolId: string): AprData {
+  async getAprData(poolId: string): Promise<AprData> {
+    const aprMap = await this.getAprMap();
     return (
-      this.aprMap.get(poolId) || {
+      aprMap.get(poolId) || {
         baseApr: new Decimal(0),
         alphaMiningApr: new Decimal(0),
         apy: new Decimal(0),
@@ -165,85 +317,35 @@ export class StrategyContext {
     );
   }
 
-  /**
-   * Get pool ID by coin symbols and protocol.
-   */
-  async getPoolIdBySymbolsAndProtocol(
-    symbolA: string,
-    symbolB: string,
-    protocol: 'cetus' | 'bluefin' | 'mmt',
-  ): Promise<string> {
-    const poolIds = await this.getPoolIdsBySymbols(symbolA, symbolB);
-    const poolId = poolIds[protocol as keyof ProtocolPoolIds];
-    if (!poolId) {
-      throw new Error(
-        `Pool for protocol: ${protocol} not found for coin pair: ${symbolA} or ${symbolB}`,
-      );
-    }
-    return poolId;
-  }
-
-  /**
-   * Lookup pool IDs by coin symbols (order-agnostic).
-   * Returns undefined if either symbol is unknown or no pool mapping exists.
-   */
-  async getPoolIdsBySymbols(symbolA: string, symbolB: string): Promise<ProtocolPoolIds> {
-    const [typeA, typeB] = await Promise.all([
-      this.getCoinTypeBySymbol(symbolA),
-      this.getCoinTypeBySymbol(symbolB),
-    ]);
-    if (!typeA || !typeB) {
-      throw new Error(`Coin not found: ${symbolA} or ${symbolB}`);
-    }
-    return this.getPoolIdsByTypes(typeA, typeB);
-  }
-
-  /**
-   * Lookup pool IDs by coin types (order-agnostic).
-   * Returns undefined if no pool mapping exists.
-   */
-  getPoolIdsByTypes(coinTypeA: string, coinTypeB: string): ProtocolPoolIds {
-    const key = getCanonicalPairKey(coinTypeA, coinTypeB);
-    if (!POOL_REGISTRY[key]) {
-      throw new Error(`Pool not found for coin pair: ${coinTypeA} or ${coinTypeB}`);
-    }
-    return POOL_REGISTRY[key];
-  }
-
-  private async getCoinTypeBySymbol(symbol: string): Promise<string | undefined> {
-    const coin = await this.coinInfoProvider.getCoinBySymbol(symbol);
-    return coin?.coinType;
-  }
-
-  /**
-   * Cache APR map from AlphaFi API.
-   */
-  private async cacheAprData() {
+  private async fetchAprData(): Promise<Map<string, AprData>> {
+    const aprMap = new Map<string, AprData>();
     const resp = await fetch(ALPHAFI_APR_URL);
     if (!resp.ok) {
       throw new Error(`Failed to fetch apr data: ${resp.status} ${resp.statusText}`);
     }
     const dataArr = (await resp.json()) as Map<string, AprData>;
     for (const [key, value] of Object.entries(dataArr)) {
-      this.aprMap.set(key, value);
+      aprMap.set(key, value);
     }
+    return aprMap;
   }
 
-  getDistributorObject(): DistributorObject | null {
-    return this.distributorObjectCache;
-  }
+  // ============================================================
+  // Distributor Object (lazy loaded)
+  // ============================================================
 
   /**
-   * Cache the distributor object used for ALPHA mining accounting.
+   * Get the distributor object for ALPHA mining calculations.
    */
-  private async cacheDistributorObject() {
+  async getDistributorObject(): Promise<DistributorObject> {
+    return this.distributorCache.getOrFetch(() => this.fetchDistributorObject());
+  }
+
+  private async fetchDistributorObject(): Promise<DistributorObject> {
     const distributorObject = await this.blockchain.getObject(DISTRIBUTOR_OBJECT_ID);
-    this.distributorObjectCache = this.parseDistributorObject(distributorObject);
+    return this.parseDistributorObject(distributorObject);
   }
 
-  /**
-   * Parse the distributor Move object into a JS-friendly shape.
-   */
   private parseDistributorObject(fields: any): DistributorObject {
     return {
       id: fields.id,
@@ -285,17 +387,27 @@ export class StrategyContext {
     };
   }
 
+  // ============================================================
+  // AlphaLend TVL (lazy loaded)
+  // ============================================================
+
   /**
-   * Get Alphalend TVL for a coin type (normalized struct tag).
+   * Get AlphaLend TVL map. Lazily loaded and cached.
    */
-  getAlphaLendTvl(coinType: string): Decimal {
-    return this.alphalendTvl.get(normalizeStructTag(coinType)) || new Decimal(0);
+  async getAlphaLendTvlMap(): Promise<Map<string, Decimal>> {
+    return this.alphalendTvlCache.getOrFetch(() => this.fetchAlphaLendTvl());
   }
 
   /**
-   * Cache Alphalend market TVLs (uses Alphalend SDK cache).
+   * Get Alphalend TVL for a specific coin type.
    */
-  private async cacheAlphaLendMarkets() {
+  async getAlphaLendTvl(coinType: string): Promise<Decimal> {
+    const tvlMap = await this.getAlphaLendTvlMap();
+    return tvlMap.get(normalizeStructTag(coinType)) || new Decimal(0);
+  }
+
+  private async fetchAlphaLendTvl(): Promise<Map<string, Decimal>> {
+    const tvlMap = new Map<string, Decimal>();
     const alphalendClient = new AlphalendClient('mainnet', this.blockchain.suiClient);
     const markets = await alphalendClient.getAllMarkets({
       useCache: true,
@@ -305,42 +417,55 @@ export class StrategyContext {
       throw new Error('Failed to get Alphalend markets');
     }
     for (const market of markets) {
-      this.alphalendTvl.set(normalizeStructTag(market.coinType), market.totalSupply);
+      tvlMap.set(normalizeStructTag(market.coinType), market.totalSupply);
     }
+    return tvlMap;
+  }
+
+  // ============================================================
+  // Navi TVL (lazy loaded)
+  // ============================================================
+
+  /**
+   * Get Navi TVL map. Lazily loaded and cached.
+   */
+  async getNaviTvlMap(): Promise<Map<string, Decimal>> {
+    return this.naviTvlCache.getOrFetch(() => this.fetchNaviTvl());
   }
 
   /**
    * Get Navi TVL (USD) by poolId.
    */
-  getNaviTvlByPoolId(poolId: string): Decimal {
-    return this.naviTvl.get(poolId) || new Decimal(0);
+  async getNaviTvlByPoolId(poolId: string): Promise<Decimal> {
+    const tvlMap = await this.getNaviTvlMap();
+    return tvlMap.get(poolId) || new Decimal(0);
   }
 
-  /**
-   * Cache Navi TVL map from AlphaFi API.
-   */
-  private async cacheNaviTvlByPoolId() {
+  private async fetchNaviTvl(): Promise<Map<string, Decimal>> {
+    const tvlMap = new Map<string, Decimal>();
     const resp = await fetch(ALPHAFI_NAVI_TVL_URL);
     if (!resp.ok) {
-      return null;
+      return tvlMap;
     }
     const dataArr = (await resp.json()) as Array<{ poolId: string; naviPoolTVL: string }>;
     for (const entry of dataArr) {
-      this.naviTvl.set(entry.poolId, new Decimal(entry.naviPoolTVL));
+      tvlMap.set(entry.poolId, new Decimal(entry.naviPoolTVL));
     }
+    return tvlMap;
   }
 
-  /**
-   * Get Bucket TVL in BUCK units.
-   */
-  getBucketTvl(): Decimal {
-    return this.bucketTvl;
-  }
+  // ============================================================
+  // Bucket TVL (lazy loaded)
+  // ============================================================
 
   /**
-   * Cache Bucket TVL by reading on-chain Fountain/Flask objects.
+   * Get Bucket TVL in BUCK units. Lazily loaded and cached.
    */
-  private async cacheBucketTvl() {
+  async getBucketTvl(): Promise<Decimal> {
+    return this.bucketTvlCache.getOrFetch(() => this.fetchBucketTvl());
+  }
+
+  private async fetchBucketTvl(): Promise<Decimal> {
     const FOUNTAIN = '0xbdf91f558c2b61662e5839db600198eda66d502e4c10c4fc5c683f9caca13359';
     const FLASK = '0xc6ecc9731e15d182bc0a46ebe1754a779a4bfb165c201102ad51a36838a1a7b8';
     const fountain = await this.blockchain.suiClient.getObject({
@@ -360,108 +485,169 @@ export class StrategyContext {
     const reserves = new Decimal(flaskFields.reserves || '0');
     const sbuckSupply = new Decimal(flaskFields.sbuck_supply?.fields?.value || '0');
     if (sbuckSupply.isZero()) {
-      return { tokenAmount: new Decimal(0), usdValue: new Decimal(0) };
+      return new Decimal(0);
     }
     const buckPerSbuck = reserves.div(sbuckSupply);
     const totalBuckInFountain = totalSbuckInFountain.mul(buckPerSbuck);
-
-    this.bucketTvl = totalBuckInFountain.div(new Decimal(1e9));
+    return totalBuckInFountain.div(new Decimal(1e9));
   }
+
+  // ============================================================
+  // Coin Info (delegated to CoinInfoProvider)
+  // ============================================================
+
+  /**
+   * Get coin decimals (defaults to 9 if unknown).
+   */
+  async getCoinDecimals(coinType: string): Promise<number> {
+    const info = await this.coinInfoProvider.getCoinByType(coinType);
+    return info?.decimals ?? 9;
+  }
+
+  /**
+   * Get coin price (USD).
+   */
+  async getCoinPrice(coinType: string): Promise<Decimal> {
+    return this.coinInfoProvider.getPriceByType(coinType);
+  }
+
+  async getCoinsBySymbols(symbols: string[]): Promise<CoinInfo[]> {
+    const coins = await Promise.all(
+      symbols.map(async (symbol) => {
+        const coin = await this.coinInfoProvider.getCoinBySymbol(symbol);
+        if (!coin) {
+          throw new Error(`Coin not found: ${symbol}`);
+        }
+        return coin;
+      }),
+    );
+    return coins;
+  }
+
+  private async getCoinTypeBySymbol(symbol: string): Promise<string | undefined> {
+    const coin = await this.coinInfoProvider.getCoinBySymbol(symbol);
+    return coin?.coinType;
+  }
+
+  // ============================================================
+  // Pool ID Lookups
+  // ============================================================
+
+  /**
+   * Get pool ID by coin symbols and protocol.
+   */
+  async getPoolIdBySymbolsAndProtocol(
+    symbolA: string,
+    symbolB: string,
+    protocol: 'cetus' | 'bluefin' | 'mmt',
+  ): Promise<string> {
+    const poolIds = await this.getPoolIdsBySymbols(symbolA, symbolB);
+    const poolId = poolIds[protocol as keyof ProtocolPoolIds];
+    if (!poolId) {
+      throw new Error(
+        `Pool for protocol: ${protocol} not found for coin pair: ${symbolA} or ${symbolB}`,
+      );
+    }
+    return poolId;
+  }
+
+  /**
+   * Lookup pool IDs by coin symbols (order-agnostic).
+   */
+  async getPoolIdsBySymbols(symbolA: string, symbolB: string): Promise<ProtocolPoolIds> {
+    const [typeA, typeB] = await Promise.all([
+      this.getCoinTypeBySymbol(symbolA),
+      this.getCoinTypeBySymbol(symbolB),
+    ]);
+    if (!typeA || !typeB) {
+      throw new Error(`Coin not found: ${symbolA} or ${symbolB}`);
+    }
+    return this.getPoolIdsByTypes(typeA, typeB);
+  }
+
+  /**
+   * Lookup pool IDs by coin types (order-agnostic).
+   */
+  getPoolIdsByTypes(coinTypeA: string, coinTypeB: string): ProtocolPoolIds {
+    const key = getCanonicalPairKey(coinTypeA, coinTypeB);
+    if (!POOL_REGISTRY[key]) {
+      throw new Error(`Pool not found for coin pair: ${coinTypeA} or ${coinTypeB}`);
+    }
+    return POOL_REGISTRY[key];
+  }
+
+  // ============================================================
+  // User Slush Positions (lazy loaded per user)
+  // ============================================================
 
   /**
    * Fetch all slush positions for a user, grouped by poolId.
    */
   async getAllSlushPositions(userAddress: string): Promise<Map<string, any[]>> {
-    const caps = await this.getSlushPositionCaps(userAddress);
-    if (!caps.length) {
-      return new Map();
-    }
-
-    // positionId -> poolId
-    const positionToPool: Map<string, string> = new Map();
-    for (const cap of caps) {
-      for (const [posId, poolId] of cap.position_pool_map.entries()) {
-        positionToPool.set(posId, poolId);
+    return this.slushPositionsCache.getOrFetch(userAddress, async () => {
+      const caps = await this.getSlushPositionCaps(userAddress);
+      if (!caps.length) {
+        return new Map();
       }
-    }
 
-    const allIds = Array.from(positionToPool.keys());
-    if (allIds.length === 0) {
-      return new Map();
-    }
-
-    const positionMap = await this.blockchain.multiGetObjects(allIds);
-
-    // Group fetched positions by poolId
-    const result: Map<string, any[]> = new Map();
-    positionMap.forEach((obj, posId) => {
-      const poolId = positionToPool.get(posId);
-      if (!poolId || !obj) return;
-      if (!result.has(poolId)) {
-        result.set(poolId, []);
+      const positionToPool: Map<string, string> = new Map();
+      for (const cap of caps) {
+        for (const [posId, poolId] of cap.position_pool_map.entries()) {
+          positionToPool.set(posId, poolId);
+        }
       }
-      result.get(poolId)!.push(obj);
+
+      const allIds = Array.from(positionToPool.keys());
+      if (allIds.length === 0) {
+        return new Map();
+      }
+
+      const positionMap = await this.blockchain.multiGetObjects(allIds);
+
+      const result: Map<string, any[]> = new Map();
+      positionMap.forEach((obj, posId) => {
+        const poolId = positionToPool.get(posId);
+        if (!poolId || !obj) return;
+        if (!result.has(poolId)) {
+          result.set(poolId, []);
+        }
+        result.get(poolId)!.push(obj);
+      });
+
+      return result;
     });
-
-    return result;
   }
 
   /**
    * Get slush positions for a user in a specific pool.
    */
   async getSlushPosition(userAddress: string, poolId: string): Promise<any[]> {
-    const caps = await this.getSlushPositionCaps(userAddress);
-    if (!caps.length) {
-      return [];
-    }
-
-    const positionIds: string[] = [];
-    for (const cap of caps) {
-      for (const [posId, pid] of cap.position_pool_map.entries()) {
-        if (pid === poolId) {
-          positionIds.push(posId);
-        }
-      }
-    }
-
-    if (positionIds.length === 0) {
-      return [];
-    }
-
-    const positionMap = await this.blockchain.multiGetObjects(positionIds);
-    return Array.from(positionMap.values()).filter(Boolean);
+    const allPositions = await this.getAllSlushPositions(userAddress);
+    return allPositions.get(poolId) || [];
   }
 
   /**
    * Fetch and cache slush position caps for a user.
    */
   async getSlushPositionCaps(userAddress: string): Promise<SlushPositionCap[]> {
-    const cached = this.slushPositionCapsCache.get(userAddress);
-    if (cached) {
-      return cached;
-    }
-
-    const caps = await this.blockchain.getReceipt(userAddress, SLUSH_POSITION_CAP_TYPE);
-    if (!caps || caps.length === 0) {
-      this.slushPositionCapsCache.set(userAddress, []);
-      return [];
-    }
-
-    const parsed: SlushPositionCap[] = [];
-    for (const cap of caps) {
-      const parsedCap = this.parseSlushPositionCap(cap);
-      if (parsedCap) {
-        parsed.push(parsedCap);
+    return this.slushPositionCapsCache.getOrFetch(userAddress, async () => {
+      const caps = await this.blockchain.getReceipt(userAddress, SLUSH_POSITION_CAP_TYPE);
+      if (!caps || caps.length === 0) {
+        return [];
       }
-    }
 
-    this.slushPositionCapsCache.set(userAddress, parsed);
-    return parsed;
+      const parsed: SlushPositionCap[] = [];
+      for (const cap of caps) {
+        const parsedCap = this.parseSlushPositionCap(cap);
+        if (parsedCap) {
+          parsed.push(parsedCap);
+        }
+      }
+
+      return parsed;
+    });
   }
 
-  /**
-   * Parse a slush PositionCap into a structured shape.
-   */
   private parseSlushPositionCap(response: any): SlushPositionCap | null {
     const fields = response?.fields ?? response;
     if (!fields) return null;
@@ -494,67 +680,61 @@ export class StrategyContext {
     };
   }
 
+  // ============================================================
+  // User AlphaFi Receipts/Positions (lazy loaded per user)
+  // ============================================================
+
   /**
    * Fetch AlphaFi positions for a user, grouped by poolId.
    */
   async getPositionsFromAlphaFiReceipts(userAddress: string): Promise<Map<string, any[]>> {
-    const alphaFiReceipts = await this.getAlphaFiReceipts(userAddress);
-    if (!alphaFiReceipts.length) {
-      return new Map();
-    }
-
-    // positionId -> poolId
-    const positionToPool: Map<string, string> = new Map();
-    for (const receipt of alphaFiReceipts) {
-      for (const entry of receipt.positionPoolMap) {
-        positionToPool.set(entry.key, entry.value.poolId);
+    return this.alphaFiPositionsCache.getOrFetch(userAddress, async () => {
+      const alphaFiReceipts = await this.getAlphaFiReceipts(userAddress);
+      if (!alphaFiReceipts.length) {
+        return new Map();
       }
-    }
 
-    const allIds = Array.from(positionToPool.keys());
-    if (allIds.length === 0) {
-      return new Map();
-    }
-
-    const positionMap = await this.blockchain.multiGetObjects(allIds);
-
-    // Group fetched positions by poolId
-    const result: Map<string, any[]> = new Map();
-    positionMap.forEach((obj, posId) => {
-      const poolId = positionToPool.get(posId);
-      if (!poolId || !obj) return;
-      if (!result.has(poolId)) {
-        result.set(poolId, []);
+      const positionToPool: Map<string, string> = new Map();
+      for (const receipt of alphaFiReceipts) {
+        for (const entry of receipt.positionPoolMap) {
+          positionToPool.set(entry.key, entry.value.poolId);
+        }
       }
-      result.get(poolId)!.push(obj);
+
+      const allIds = Array.from(positionToPool.keys());
+      if (allIds.length === 0) {
+        return new Map();
+      }
+
+      const positionMap = await this.blockchain.multiGetObjects(allIds);
+
+      const result: Map<string, any[]> = new Map();
+      positionMap.forEach((obj, posId) => {
+        const poolId = positionToPool.get(posId);
+        if (!poolId || !obj) return;
+        if (!result.has(poolId)) {
+          result.set(poolId, []);
+        }
+        result.get(poolId)!.push(obj);
+      });
+
+      return result;
     });
-
-    return result;
   }
 
   /**
    * Get AlphaFi receipts for a user (parsed + cached).
    */
   async getAlphaFiReceipts(userAddress: string): Promise<AlphaFiReceipt[]> {
-    const cached = this.alphaFiReceiptsCache.get(userAddress);
-    if (cached) {
-      return cached;
-    }
-
-    const receipts = await this.blockchain.getReceipt(userAddress, ALPHAFI_RECEIPT_TYPE);
-    if (!receipts || receipts.length === 0) {
-      this.alphaFiReceiptsCache.set(userAddress, []);
-      return [];
-    }
-
-    const parsed = this.parseAlphaFiReceipts(receipts);
-    this.alphaFiReceiptsCache.set(userAddress, parsed);
-    return parsed;
+    return this.alphaFiReceiptsCache.getOrFetch(userAddress, async () => {
+      const receipts = await this.blockchain.getReceipt(userAddress, ALPHAFI_RECEIPT_TYPE);
+      if (!receipts || receipts.length === 0) {
+        return [];
+      }
+      return this.parseAlphaFiReceipts(receipts);
+    });
   }
 
-  /**
-   * Parse AlphaFi receipts from object responses.
-   */
   private parseAlphaFiReceipts(responses: any[]): AlphaFiReceipt[] {
     const results: AlphaFiReceipt[] = [];
 
@@ -611,9 +791,6 @@ export class StrategyContext {
     return results;
   }
 
-  /**
-   * Convert ASCII array (if present) to string.
-   */
   private asciiToString(asciiArray: any): string {
     if (!Array.isArray(asciiArray)) return '';
     try {
@@ -626,204 +803,34 @@ export class StrategyContext {
     }
   }
 
+  // ============================================================
+  // Cache Management
+  // ============================================================
+
   /**
-   * Cache pool label metadata from AlphaFi config API.
+   * Clear all caches. Useful for forcing fresh data.
    */
-  private async cachePoolLabelsFromConfig() {
-    const response = await fetch(ALPHAFI_CONFIG_URL);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch config: ${response.status} ${response.statusText}`);
-    }
-    const json = (await response.json()) as Record<
-      string,
-      {
-        strategy_type:
-          | 'AlphaVault'
-          | 'Lp'
-          | 'FungibleLp'
-          | 'AutobalanceLp'
-          | 'SlushLending'
-          | 'Lending'
-          | 'Looping'
-          | 'SingleAssetLooping'
-          | 'Lyf';
-        data: any;
-      }
-    >;
+  clearAllCaches(): void {
+    this.poolLabelsCache.clear();
+    this.aprMapCache.clear();
+    this.alphalendTvlCache.clear();
+    this.naviTvlCache.clear();
+    this.bucketTvlCache.clear();
+    this.distributorCache.clear();
+    this.slushPositionCapsCache.clear();
+    this.alphaFiReceiptsCache.clear();
+    this.slushPositionsCache.clear();
+    this.alphaFiPositionsCache.clear();
+    this.coinInfoProvider.clear();
+  }
 
-    for (const [, entry] of Object.entries(json)) {
-      const st = entry.strategy_type;
-      const d = entry.data || {};
-
-      // pool_id is the key for poolLabels map
-      if (!d.pool_id) {
-        console.error('Pool ID is required for pool labels', d);
-        continue;
-      }
-
-      if (st === 'Lp' || st === 'AutobalanceLp') {
-        this.poolLabels.set(d.pool_id, {
-          poolId: d.pool_id,
-          packageId: d.package_id,
-          packageNumber: d.package_number,
-          strategyType: st,
-          parentProtocol: d.parent_protocol,
-          parentPoolId: d.parent_pool_id,
-          investorId: d.investor_id,
-          receipt: d.receipt,
-          assetA: d.asset_a,
-          assetB: d.asset_b,
-          events: {
-            autocompoundEventType: d.events?.autocompound_event_type,
-            rebalanceEventType: d.events?.rebalance_event_type,
-            liquidityChangeEventType: d.events?.liquidity_change_event_type,
-            afterTransactionEventType: d.events?.after_transaction_event_type ?? undefined,
-          },
-          isActive: d.is_active,
-          poolName: d.pool_name,
-          isNative: d.is_native,
-        } as PoolLabel);
-      } else if (st === 'FungibleLp') {
-        this.poolLabels.set(d.pool_id, {
-          poolId: d.pool_id,
-          packageId: d.package_id,
-          packageNumber: d.package_number,
-          strategyType: st,
-          parentProtocol: d.parent_protocol,
-          parentPoolId: d.parent_pool_id,
-          investorId: d.investor_id,
-          fungibleCoin: d.fungible_coin ?? d.asset_a ?? d.asset, // fallback if API varies
-          assetA: d.asset_a,
-          assetB: d.asset_b,
-          events: {
-            autocompoundEventType: d.events?.autocompound_event_type,
-            rebalanceEventType: d.events?.rebalance_event_type,
-            liquidityChangeEventType: d.events?.liquidity_change_event_type,
-          },
-          isActive: d.is_active,
-          poolName: d.pool_name,
-          isNative: d.is_native,
-        } as PoolLabel);
-      } else if (st === 'SlushLending') {
-        this.poolLabels.set(d.pool_id, {
-          poolId: d.pool_id,
-          packageId: d.package_id,
-          packageNumber: d.package_number,
-          strategyType: st,
-          parentProtocol: d.parent_protocol,
-          receipt: d.receipt,
-          asset: d.asset,
-          events: {
-            autocompoundEventType: d.events?.autocompound_event_type,
-            liquidityChangeEventType: d.events?.liquidity_change_event_type,
-          },
-          isActive: d.is_active,
-          poolName: d.pool_name,
-          isNative: d.is_native,
-        } as PoolLabel);
-      } else if (st === 'Lending') {
-        this.poolLabels.set(d.pool_id, {
-          poolId: d.pool_id,
-          packageId: d.package_id,
-          packageNumber: d.package_number,
-          strategyType: st,
-          parentProtocol: d.parent_protocol,
-          parentPoolId: d.parent_pool_id,
-          investorId: d.investor_id,
-          receipt: d.receipt,
-          asset: d.asset,
-          events: {
-            autocompoundEventType: d.events?.autocompound_event_type,
-            liquidityChangeEventType: d.events?.liquidity_change_event_type,
-          },
-          isActive: d.is_active,
-          poolName: d.pool_name,
-          isNative: d.is_native,
-        } as PoolLabel);
-      } else if (st === 'Looping') {
-        this.poolLabels.set(d.pool_id, {
-          poolId: d.pool_id,
-          packageId: d.package_id,
-          packageNumber: d.package_number,
-          strategyType: st,
-          parentProtocol: d.parent_protocol,
-          investorId: d.investor_id,
-          receipt: d.receipt,
-          supplyAsset: d.supply_asset,
-          borrowAsset: d.borrow_asset,
-          userDepositAsset: d.user_deposit_asset,
-          userWithdrawAsset: d.user_withdraw_asset,
-          events: {
-            autocompoundEventType: d.events?.autocompound_event_type,
-            liquidityChangeEventType: d.events?.liquidity_change_event_type,
-            checkRatioEventType: d.events?.check_ratio_event_type,
-          },
-          isActive: d.is_active,
-          poolName: d.pool_name,
-          isNative: d.is_native,
-        } as PoolLabel);
-      } else if (st === 'SingleAssetLooping') {
-        this.poolLabels.set(d.pool_id, {
-          poolId: d.pool_id,
-          packageId: d.package_id,
-          packageNumber: d.package_number,
-          strategyType: st,
-          parentProtocol: d.parent_protocol,
-          investorId: d.investor_id,
-          receipt: d.receipt,
-          asset: d.asset,
-          events: {
-            autocompoundEventType: d.events?.autocompound_event_type,
-            liquidityChangeEventType: d.events?.liquidity_change_event_type,
-          },
-          isActive: d.is_active,
-          poolName: d.pool_name,
-          isNative: d.is_native,
-        } as PoolLabel);
-      } else if (st === 'Lyf') {
-        this.poolLabels.set(d.pool_id, {
-          poolId: d.pool_id,
-          packageId: d.package_id,
-          packageNumber: d.package_number,
-          strategyType: st,
-          parentProtocol: d.parent_protocol,
-          parentPoolId: d.parent_pool_id,
-          receipt: d.receipt,
-          zapAsset: d.zap_asset,
-          assetA: d.asset_a,
-          assetB: d.asset_b,
-          events: {
-            autocompoundEventType: d.events?.autocompound_event_type,
-            rebalanceEventType: d.events?.rebalance_event_type,
-            liquidityChangeEventType: d.events?.liquidity_change_event_type,
-            afterTransactionEventType: d.events?.after_transaction_event_type ?? undefined,
-          },
-          isActive: d.is_active,
-          isNative: d.is_native,
-          poolName: d.pool_name,
-        } as PoolLabel);
-      } else if (st === 'AlphaVault') {
-        this.poolLabels.set(d.pool_id, {
-          poolId: d.pool_id,
-          investorId: d.investor_id,
-          packageId: d.package_id,
-          packageNumber: d.package_number,
-          strategyType: st,
-          parentProtocol: d.parent_protocol,
-          receipt: d.receipt,
-          asset: d.asset,
-          events: {
-            autocompoundEventType: d.events?.autocompound_event_type,
-            liquidityChangeEventType: d.events?.liquidity_change_event_type,
-            withdrawV2EventType: d.events?.withdraw_v2_event_type,
-            afterTransactionEventType: d.events?.after_transaction_event_type,
-            airdropAddEventType: d.events?.airdrop_add_event_type,
-          },
-          isActive: d.is_active,
-          poolName: d.pool_name,
-          isNative: d.is_native,
-        } as PoolLabel);
-      }
-    }
+  /**
+   * Clear user-specific caches for a given address.
+   */
+  clearUserCaches(userAddress: string): void {
+    this.slushPositionCapsCache.delete(userAddress);
+    this.alphaFiReceiptsCache.delete(userAddress);
+    this.slushPositionsCache.delete(userAddress);
+    this.alphaFiPositionsCache.delete(userAddress);
   }
 }

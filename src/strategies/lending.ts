@@ -104,11 +104,15 @@ export class LendingStrategy extends BaseStrategy<
    * Get comprehensive pool data including TVL and APR information
    */
   async getData(): Promise<PoolData> {
-    const [alphafi, parent] = await Promise.all([this.getTvl(), this.getParentTvl()]);
+    const [alphafi, parent, apr] = await Promise.all([
+      this.getTvl(),
+      this.getParentTvl(),
+      this.context.getAprData(this.poolLabel.poolId),
+    ]);
     return {
       poolId: this.poolLabel.poolId,
       poolName: this.poolLabel.poolName,
-      apr: this.context.getAprData(this.poolLabel.poolId),
+      apr,
       tvl: {
         alphafi,
         parent,
@@ -134,13 +138,13 @@ export class LendingStrategy extends BaseStrategy<
     const protocol = this.poolLabel.parentProtocol;
     const price = await this.context.getCoinPrice(this.poolLabel.asset.type);
     if (protocol === 'Bucket') {
-      const tokenAmount = this.context.getBucketTvl();
+      const tokenAmount = await this.context.getBucketTvl();
       return { tokenAmount, usdValue: tokenAmount.mul(price) };
     } else if (protocol === 'Navi') {
-      const tokenAmountUsd = this.context.getNaviTvlByPoolId(this.poolLabel.poolId);
+      const tokenAmountUsd = await this.context.getNaviTvlByPoolId(this.poolLabel.poolId);
       return { tokenAmount: tokenAmountUsd.div(price), usdValue: tokenAmountUsd };
     } else if (protocol === 'Alphalend') {
-      const tokenAmount = this.context.getAlphaLendTvl(this.poolLabel.asset.type);
+      const tokenAmount = await this.context.getAlphaLendTvl(this.poolLabel.asset.type);
       return { tokenAmount, usdValue: tokenAmount.mul(price) };
     }
     throw new Error(`Unsupported parent protocol: ${protocol}`);
