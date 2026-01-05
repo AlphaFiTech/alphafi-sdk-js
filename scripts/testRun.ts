@@ -43,7 +43,11 @@ export function getExecStuff() {
 
   const suiClient = getSuiClient(process.env.NETWORK);
 
-  return { address, keypair, suiClient };
+  return {
+    address,
+    keypair,
+    suiClient,
+  };
 }
 
 export async function dryRunTransactionBlock(txb: Transaction) {
