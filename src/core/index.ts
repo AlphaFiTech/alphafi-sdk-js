@@ -233,35 +233,37 @@ export class AlphaFiSDK {
       poolDetailsMap[options.poolId].strategyType === 'DOUBLE-ASSET-LOOPING' ||
       poolDetailsMap[options.poolId].strategyType === 'SINGLE-ASSET-LOOPING'
     ) {
-      const decimals =
-        poolDetailsMap[options.poolId].parentProtocolName === 'NAVI'
-          ? 9 - coinsList[loopingPoolCoinMap[poolInfo.poolName].supplyCoin].expo
-          : 0;
-      let withdrawCoin2Tokens = new Decimal(options.amount).mul(10 ** decimals);
+      if (!poolDetailsMap[options.poolId].poolName.startsWith('ALPHALEND-SLUSH')) {
+        const decimals =
+          poolDetailsMap[options.poolId].parentProtocolName === 'NAVI'
+            ? 9 - coinsList[loopingPoolCoinMap[poolInfo.poolName].supplyCoin].expo
+            : 0;
+        let withdrawCoin2Tokens = new Decimal(options.amount).mul(10 ** decimals);
 
-      if (poolDetailsMap[options.poolId].poolName === 'NAVI-LOOP-SUI-VSUI') {
-        const voloExchRate = await fetchVoloExchangeRate(true);
-        withdrawCoin2Tokens = withdrawCoin2Tokens.div(parseFloat(voloExchRate.data.exchangeRate));
-      } else if (poolDetailsMap[options.poolId].poolName === 'ALPHALEND-LOOP-SUI-STSUI') {
-        const suiTostSuiExchangeRate = await stSuiExchangeRate(getStSuiConf().LST_INFO, true);
-        withdrawCoin2Tokens = withdrawCoin2Tokens.div(suiTostSuiExchangeRate);
+        if (poolDetailsMap[options.poolId].poolName === 'NAVI-LOOP-SUI-VSUI') {
+          const voloExchRate = await fetchVoloExchangeRate(true);
+          withdrawCoin2Tokens = withdrawCoin2Tokens.div(parseFloat(voloExchRate.data.exchangeRate));
+        } else if (poolDetailsMap[options.poolId].poolName === 'ALPHALEND-LOOP-SUI-STSUI') {
+          const suiTostSuiExchangeRate = await stSuiExchangeRate(getStSuiConf().LST_INFO, true);
+          withdrawCoin2Tokens = withdrawCoin2Tokens.div(suiTostSuiExchangeRate);
+        }
+
+        const investor_details = (await getInvestor(
+          poolDetailsMap[options.poolId].poolName as PoolName,
+          true,
+        )) as NaviInvestor;
+        const debtToSupplyRatio = new Decimal(
+          investor_details.content.fields.current_debt_to_supply_ratio,
+        );
+        const normalisedDebtToSupplyRatio = new Decimal(1).minus(
+          new Decimal(debtToSupplyRatio).div(1e20),
+        );
+
+        options.amount = new Decimal(withdrawCoin2Tokens)
+          .div(normalisedDebtToSupplyRatio)
+          .floor()
+          .toString();
       }
-
-      const investor_details = (await getInvestor(
-        poolDetailsMap[options.poolId].poolName as PoolName,
-        true,
-      )) as NaviInvestor;
-      const debtToSupplyRatio = new Decimal(
-        investor_details.content.fields.current_debt_to_supply_ratio,
-      );
-      const normalisedDebtToSupplyRatio = new Decimal(1).minus(
-        new Decimal(debtToSupplyRatio).div(1e20),
-      );
-
-      options.amount = new Decimal(withdrawCoin2Tokens)
-        .div(normalisedDebtToSupplyRatio)
-        .floor()
-        .toString();
       xTokens = await coinAmountToXTokensSingleAsset(options.amount, poolInfo.poolName as PoolName);
     } else if (poolInfo.poolName === 'BLUEFIN-LYF-STSUI-SUI') {
       const receipt = await getReceipts(poolInfo.poolName as PoolName, this.config.address, true);
