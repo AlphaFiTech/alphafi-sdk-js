@@ -37,6 +37,27 @@ export type PoolDetails = {
 };
 
 export const poolDetailsMap: Record<string, PoolDetails> = {
+  [conf[CONF_ENV].ALPHAFI_LYF_SUIUSDT_USDC_POOL]: {
+    packageId: conf[CONF_ENV].ALPHA_LYF_LATEST_PACKAGE_ID,
+    poolName: 'BLUEFIN-LYF-STSUI-SUI',
+    packageNumber: 11,
+    strategyType: 'LEVERAGE-YIELD-FARMING',
+    parentProtocolName: 'BLUEFIN',
+    parentPoolId: conf[CONF_ENV].BLUEFIN_SUIUSDT_USDC_ZERO_ZERO_POOL,
+    poolId: conf[CONF_ENV].ALPHAFI_LYF_SUIUSDT_USDC_POOL,
+    investorId: conf[CONF_ENV].ALPHAFI_LYF_SUIUSDT_USDC_INVESTOR,
+    receipt: {
+      name: conf[CONF_ENV].ALPHAFI_LYF_SUIUSDT_USDC_RECEIPT_NAME,
+      type: conf[CONF_ENV].ALPHAFI_LYF_SUIUSDT_USDC_RECEIPT,
+    },
+    assetTypes: [coinsList['SUIUSDT'].type, coinsList['USDC'].type],
+    events: {
+      autoCompoundingEventType: conf[CONF_ENV].ALPHAFI_LYF_SUIUSDT_USDC_AUTO_COMPOUNDING_EVENT,
+      rebalanceEventType: conf[CONF_ENV].ALPHAFI_LYF_SUIUSDT_USDC_POOL_REBALANCE_EVENT,
+      liquidityChangeEventType: conf[CONF_ENV].ALPHAFI_LYF_SUIUSDT_USDC_POOL_LIQUIDITY_CHANGE_EVENT,
+    },
+    retired: false,
+  },
   [conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WBTC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_ALPHALEND_LATEST_PACKAGE_ID,
     poolName: 'ALPHALEND-SINGLE-LOOP-WBTC',
