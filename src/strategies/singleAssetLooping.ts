@@ -285,7 +285,6 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
       tbtcCoin,
       suibtcCoin,
       xaumCoin,
-      wbtcCoin,
     ] = await this.context.getCoinsBySymbols([
       'ALPHA',
       'stSUI',
@@ -297,7 +296,6 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
       'tBTC',
       'wBTC',
       'XAUm',
-      'WBTC',
     ]);
 
     if (this.poolLabel.asset.name === 'tBTC') {
@@ -514,10 +512,10 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
-    } else if (wbtcCoin && this.poolLabel.asset.type === wbtcCoin.coinType) {
+    } else if (this.poolLabel.asset.name === 'WBTC') {
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_bluefin`,
-        typeArguments: [wbtcCoin.coinType, deepCoin.coinType, usdcCoin.coinType],
+        typeArguments: [this.poolLabel.asset.type, deepCoin.coinType, usdcCoin.coinType],
         arguments: [
           tx.object(VERSIONS.ALPHALEND_VERSION),
           tx.object(this.poolLabel.investorId),
@@ -531,7 +529,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
       });
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_bluefin`,
-        typeArguments: [wbtcCoin.coinType, wbtcCoin.coinType, usdcCoin.coinType],
+        typeArguments: [this.poolLabel.asset.type, this.poolLabel.asset.type, usdcCoin.coinType],
         arguments: [
           tx.object(VERSIONS.ALPHALEND_VERSION),
           tx.object(this.poolLabel.investorId),
@@ -611,13 +609,12 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
     );
 
     // get Coin Object
-    const coin = await this.context.blockchain.getCoinObject(
+    const depositCoin = await this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.asset.type,
       options.address,
+      options.amount,
     );
-    const [depositCoin] = tx.splitCoins(coin, [options.amount]);
-    tx.transferObjects([coin], options.address);
 
     const receiptOption = this.context.blockchain.getOptionReceipt(
       tx,

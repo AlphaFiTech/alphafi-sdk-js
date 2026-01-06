@@ -23,12 +23,16 @@ export class Blockchain {
     });
   }
 
-  async getCoinObject(tx: Transaction, coinType: string, address: string) {
+  async getCoinObject(tx: Transaction, coinType: string, address: string, amount?: bigint) {
     if (
       coinType === '0x2::sui::SUI' ||
       coinType === '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'
     ) {
-      return tx.gas;
+      if (amount) {
+        return tx.splitCoins(tx.gas, [amount]);
+      } else {
+        return tx.gas;
+      }
     }
 
     let currentCursor: string | null | undefined = null;
@@ -54,7 +58,14 @@ export class Blockchain {
       coin,
       coins1.map((c) => c.coinObjectId),
     );
-    return coin;
+
+    if (amount) {
+      const returnCoin = tx.splitCoins(coin, [amount]);
+      tx.transferObjects([coin], address);
+      return returnCoin;
+    } else {
+      return coin;
+    }
   }
 
   getOptionReceipt(tx: Transaction, receiptType: string, receiptId?: string) {

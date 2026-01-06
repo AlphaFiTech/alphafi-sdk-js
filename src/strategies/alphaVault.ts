@@ -697,13 +697,12 @@ export class AlphaVaultStrategy extends BaseStrategy<
   }
 
   async deposit(tx: Transaction, options: DepositOptions) {
-    const coin = await this.context.blockchain.getCoinObject(
+    const depositCoin = await this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.asset.type,
       options.address,
+      options.amount,
     );
-    const [depositCoin] = tx.splitCoins(coin, [options.amount]);
-    tx.transferObjects([coin], options.address);
 
     const alphafiReceipts = await this.context.getAlphaFiReceipts(options.address);
     const legacyReceipt =

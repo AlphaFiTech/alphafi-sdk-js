@@ -417,21 +417,19 @@ export class FungibleLpStrategy extends BaseStrategy<
     const [amountA, amountB] = this.getOtherAmount(options.amount.toString(), options.isAmountA);
 
     // get Coin Objects
-    const coinA = await this.context.blockchain.getCoinObject(
+    const depositCoinA = await this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.assetA.type,
       options.address,
+      BigInt(amountA),
     );
-    const [depositCoinA] = tx.splitCoins(coinA, [amountA]);
-    tx.transferObjects([coinA], options.address);
 
-    const coinB = await this.context.blockchain.getCoinObject(
+    const depositCoinB = await this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.assetB.type,
       options.address,
+      BigInt(amountB),
     );
-    const [depositCoinB] = tx.splitCoins(coinB, [amountB]);
-    tx.transferObjects([coinB], options.address);
 
     const [blueCoin] = await this.context.getCoinsBySymbols(['BLUE']);
     tx.moveCall({
@@ -474,13 +472,12 @@ export class FungibleLpStrategy extends BaseStrategy<
       xTokenAmount = this.coinAmountToXToken(options.amount.toString(), options.isAmountA);
     }
 
-    const fungibleCoin = await this.context.blockchain.getCoinObject(
+    const withdrawFungibleCoin = await this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.fungibleCoin.type,
       options.address,
+      BigInt(xTokenAmount),
     );
-    const [withdrawFungibleCoin] = tx.splitCoins(fungibleCoin, [xTokenAmount]);
-    tx.transferObjects([fungibleCoin], options.address);
 
     const [blueCoin] = await this.context.getCoinsBySymbols(['BLUE']);
     tx.moveCall({

@@ -372,13 +372,12 @@ export class SlushLendingStrategy extends BaseStrategy<
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
 
     // Get coin object
-    const coin = await this.context.blockchain.getCoinObject(
+    const depositCoin = await this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.asset.type,
       options.address,
+      BigInt(options.amount),
     );
-    const [depositCoin] = tx.splitCoins(coin, [options.amount]);
-    tx.transferObjects([coin], options.address);
 
     await this.collectAndSwapRewards(tx);
 
