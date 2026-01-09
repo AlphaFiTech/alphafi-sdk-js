@@ -43,7 +43,11 @@ export function getExecStuff() {
 
   const suiClient = getSuiClient(process.env.NETWORK);
 
-  return { address, keypair, suiClient };
+  return {
+    address,
+    keypair,
+    suiClient,
+  };
 }
 
 export async function dryRunTransactionBlock(txb: Transaction) {
@@ -58,11 +62,15 @@ export async function dryRunTransactionBlock(txb: Transaction) {
       })
       .then((res) => {
         // console.log(JSON.stringify(res, null, 2));
+<<<<<<< HEAD
         console.log(
           res.effects.status,
           res.balanceChanges,
           // JSON.stringify(res.input.transaction, null, 2),
         );
+=======
+        console.log(res.effects.status, res.balanceChanges);
+>>>>>>> 2fbe8ad59e77771a29bd5c6e9cddaa92dab5ccdd
       })
       .catch((error) => {
         console.error(error);
@@ -145,24 +153,33 @@ async function deposit() {
     address,
   });
   const tx = await sdk.deposit({
-    poolId: getConf().ALPHA_SLUSH_WAL_POOL_ID, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
-    amount: 100_000n,
+    poolId: getConf().ALPHA_SLUSH_STSUI_LOOP_POOL_ID, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    amount: 100_000_000n,
   });
-  dryRunTransactionBlock(tx);
+  // dryRunTransactionBlock(tx);
+  executeTransactionBlock(tx);
 }
-// deposit();
 
 async function withdraw() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
-  const tx = await sdk.initiateWithdrawAlpha({
-    poolId: getConf().ALPHAFI_EMBER_POOL, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
-    amount: '200000',
-    withdrawMax: false,
+  const tx = await sdk.withdraw({
+    poolId: getConf().ALPHA_SLUSH_STSUI_LOOP_POOL_ID, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    amount: '100000',
+    withdrawMax: true,
   });
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx);
   // executeTransactionBlock(tx);
 }
+async function claimAirdrop() {
+  const { address, keypair, suiClient } = getExecStuff();
+  const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
+  const tx = await sdk.claimAirdrop(false);
+  tx.setGasBudget(2e8);
+  dryRunTransactionBlock(tx);
+  // executeTransactionBlock(tx);
+}
+// claimAirdrop();
 withdraw();
 // deposit();

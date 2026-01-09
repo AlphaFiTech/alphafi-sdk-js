@@ -37,6 +37,117 @@ export type PoolDetails = {
 };
 
 export const poolDetailsMap: Record<string, PoolDetails> = {
+  [conf[CONF_ENV].ALPHA_SLUSH_STSUI_LOOP_POOL_ID]: {
+    poolName: 'ALPHALEND-SLUSH-STSUI-LOOP',
+    packageId: conf[CONF_ENV].ALPHA_SLUSH_LATEST_PACKAGE_ID,
+    packageNumber: 12,
+    parentProtocolName: 'ALPHALEND',
+    parentPoolId: '',
+    poolId: conf[CONF_ENV].ALPHA_SLUSH_STSUI_LOOP_POOL_ID,
+    investorId: conf[CONF_ENV].ALPHAFI_SLUSH_STSUI_LOOP_INVESTOR,
+    receipt: {
+      name: '',
+      type: '',
+    },
+    assetTypes: [coinsList['STSUI'].type],
+    events: {
+      autoCompoundingEventType: '',
+      liquidityChangeEventType: '',
+      rebalanceEventType: undefined,
+    },
+    strategyType: 'DOUBLE-ASSET-LOOPING',
+    retired: false,
+  },
+  [conf[CONF_ENV].ALPHAFI_LYF_SUIUSDT_USDC_POOL]: {
+    packageId: conf[CONF_ENV].ALPHA_LYF_LATEST_PACKAGE_ID,
+    poolName: 'BLUEFIN-LYF-STSUI-SUI',
+    packageNumber: 11,
+    strategyType: 'LEVERAGE-YIELD-FARMING',
+    parentProtocolName: 'BLUEFIN',
+    parentPoolId: conf[CONF_ENV].BLUEFIN_SUIUSDT_USDC_ZERO_ZERO_POOL,
+    poolId: conf[CONF_ENV].ALPHAFI_LYF_SUIUSDT_USDC_POOL,
+    investorId: conf[CONF_ENV].ALPHAFI_LYF_SUIUSDT_USDC_INVESTOR,
+    receipt: {
+      name: conf[CONF_ENV].ALPHAFI_LYF_SUIUSDT_USDC_RECEIPT_NAME,
+      type: conf[CONF_ENV].ALPHAFI_LYF_SUIUSDT_USDC_RECEIPT,
+    },
+    assetTypes: [coinsList['SUIUSDT'].type, coinsList['USDC'].type],
+    events: {
+      autoCompoundingEventType: conf[CONF_ENV].ALPHAFI_LYF_SUIUSDT_USDC_AUTO_COMPOUNDING_EVENT,
+      rebalanceEventType: conf[CONF_ENV].ALPHAFI_LYF_SUIUSDT_USDC_POOL_REBALANCE_EVENT,
+      liquidityChangeEventType: conf[CONF_ENV].ALPHAFI_LYF_SUIUSDT_USDC_POOL_LIQUIDITY_CHANGE_EVENT,
+    },
+    retired: false,
+  },
+  [conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WBTC_POOL]: {
+    packageId: conf[CONF_ENV].ALPHA_ALPHALEND_LATEST_PACKAGE_ID,
+    poolName: 'ALPHALEND-SINGLE-LOOP-WBTC',
+    packageNumber: 10,
+    strategyType: 'SINGLE-ASSET-LOOPING',
+    parentProtocolName: 'ALPHALEND',
+    parentPoolId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WBTC_POOL,
+    poolId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WBTC_POOL,
+    investorId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WBTC_INVESTOR,
+    receipt: {
+      name: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WBTC_RECEIPT_NAME,
+      type: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WBTC_RECEIPT,
+    },
+    assetTypes: [coinsList['WBTC-LayerZero'].type],
+    events: {
+      autoCompoundingEventType:
+        conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WBTC_POOL_AUTO_COMPOUNDING_EVENT,
+      rebalanceEventType: undefined,
+      liquidityChangeEventType:
+        conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WBTC_POOL_LIQUIDITY_CHANGE_EVENT,
+    },
+    retired: false,
+  },
+  [conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_DEEP_POOL]: {
+    packageId: conf[CONF_ENV].ALPHA_ALPHALEND_LATEST_PACKAGE_ID,
+    poolName: 'ALPHALEND-SINGLE-LOOP-DEEP',
+    packageNumber: 10,
+    strategyType: 'SINGLE-ASSET-LOOPING',
+    parentProtocolName: 'ALPHALEND',
+    parentPoolId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_DEEP_POOL,
+    poolId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_DEEP_POOL,
+    investorId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_DEEP_INVESTOR,
+    receipt: {
+      name: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_DEEP_RECEIPT_NAME,
+      type: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_DEEP_RECEIPT,
+    },
+    assetTypes: [coinsList['DEEP'].type],
+    events: {
+      autoCompoundingEventType:
+        conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_DEEP_POOL_AUTO_COMPOUNDING_EVENT,
+      rebalanceEventType: undefined,
+      liquidityChangeEventType:
+        conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_DEEP_POOL_LIQUIDITY_CHANGE_EVENT,
+    },
+    retired: false,
+  },
+  [conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WAL_POOL]: {
+    packageId: conf[CONF_ENV].ALPHA_ALPHALEND_LATEST_PACKAGE_ID,
+    poolName: 'ALPHALEND-SINGLE-LOOP-WAL',
+    packageNumber: 10,
+    strategyType: 'SINGLE-ASSET-LOOPING',
+    parentProtocolName: 'ALPHALEND',
+    parentPoolId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WAL_POOL,
+    poolId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WAL_POOL,
+    investorId: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WAL_INVESTOR,
+    receipt: {
+      name: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WAL_RECEIPT_NAME,
+      type: conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WAL_RECEIPT,
+    },
+    assetTypes: [coinsList['WAL'].type],
+    events: {
+      autoCompoundingEventType:
+        conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WAL_POOL_AUTO_COMPOUNDING_EVENT,
+      rebalanceEventType: undefined,
+      liquidityChangeEventType:
+        conf[CONF_ENV].ALPHAFI_ALPHALEND_SINGLE_LOOP_WAL_POOL_LIQUIDITY_CHANGE_EVENT,
+    },
+    retired: false,
+  },
   [conf[CONF_ENV].ALPHA_SLUSH_SUI_POOL_ID]: {
     poolName: 'ALPHALEND-SLUSH-SUI',
     packageId: conf[CONF_ENV].ALPHA_SLUSH_LATEST_PACKAGE_ID,

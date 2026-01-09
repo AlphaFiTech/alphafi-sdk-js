@@ -282,6 +282,12 @@ export const coinsList: {
     icon: '',
     expo: 6,
   },
+  'WBTC-LayerZero': {
+    name: 'WBTC-LayerZero',
+    type: '0x0041f9f9344cac094454cd574e333c4fdb132d7bcc9379bcd4aab485b2a63942::wbtc::WBTC',
+    icon: '',
+    expo: 8,
+  },
 };
 
 export const coinsListByType = Object.values(coinsList).reduce(
