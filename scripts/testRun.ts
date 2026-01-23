@@ -103,15 +103,16 @@ async function main() {
   const { address, keypair, suiClient } = getExecStuff();
   const alphafiClient = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
   const startTime = Date.now();
-  // const res = await alphafiClient.getPoolsData(
-  //   // ['SlushLending']
-  //   // ['AutobalanceLp', 'Lp']
+  const res = await alphafiClient
+    .getPoolsData
+    //   // ['SlushLending']
+    //   // ['AutobalanceLp', 'Lp']
+    ();
+  // const res = await alphafiClient.getUserPortfolio(
+  // '0x396c8d5f9560f2ffa5d67dcdf3f458ee654ad3e3e08d4eb6ff50e7ddf66a82e5',
+  // address,
+  // ['SlushLending'],
   // );
-  const res = await alphafiClient.getUserPortfolio(
-    // '0x396c8d5f9560f2ffa5d67dcdf3f458ee654ad3e3e08d4eb6ff50e7ddf66a82e5',
-    address,
-    // ['SlushLending'],
-  );
   const endTime = Date.now();
   console.log(`Time taken: ${endTime - startTime}ms`);
   // for (const pool of res) {
@@ -153,7 +154,7 @@ async function main() {
     },
     2,
   );
-  // fs.writeFileSync('scripts/poolsData.json', serializedRes);
+  fs.writeFileSync('scripts/poolsData.json', serializedRes);
   // console.log('Result written to scripts/poolsData.json');
   // console.log(res);
   // console.log(

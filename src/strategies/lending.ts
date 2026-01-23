@@ -744,13 +744,12 @@ export class LendingStrategy extends BaseStrategy<
   }
 
   async deposit(tx: Transaction, options: DepositOptions) {
-    const coin = await this.context.blockchain.getCoinObject(
+    const depositCoin = await this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.asset.type,
       options.address,
+      BigInt(options.amount),
     );
-    const [depositCoin] = tx.splitCoins(coin, [options.amount]);
-    tx.transferObjects([coin], options.address);
 
     const receiptOption = this.context.blockchain.getOptionReceipt(
       tx,
@@ -761,7 +760,7 @@ export class LendingStrategy extends BaseStrategy<
     if (this.poolLabel.packageNumber === 3) {
       if (this.poolLabel.parentProtocol === 'Bucket') {
         tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_bucket_investor_v1::collect_and_convert_reward_to_buck`,
+          target: `0xfd661c66a4386827528fa4fa55e3f759da69feaf507d64cae5df6a55c1c06fb4::alphafi_bucket_investor_v1::collect_and_convert_reward_to_buck`,
           arguments: [
             tx.object(VERSIONS.ALPHA_VERSIONS[3]),
             tx.object(this.poolLabel.investorId),
@@ -773,7 +772,7 @@ export class LendingStrategy extends BaseStrategy<
           ],
         });
         tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_bucket_pool_v1::user_deposit`,
+          target: `0xfd661c66a4386827528fa4fa55e3f759da69feaf507d64cae5df6a55c1c06fb4::alphafi_bucket_pool_v1::user_deposit`,
           arguments: [
             tx.object(VERSIONS.ALPHA_VERSIONS[3]),
             tx.object(VERSIONS.ALPHA_VERSIONS[1]),
@@ -794,6 +793,12 @@ export class LendingStrategy extends BaseStrategy<
         throw new Error('Deposit not supported for Navi Lending strategy - Package Number 3');
       }
     } else if (this.poolLabel.asset.name === 'wBTC') {
+      await this.updateSingleTokenPrice(
+        tx,
+        NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name].pythPriceInfo,
+        NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name].feedId,
+      );
+
       await this.collectAndClaimRewards(tx);
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_navi_pool_v2::user_deposit_v3`,
@@ -823,6 +828,14 @@ export class LendingStrategy extends BaseStrategy<
         ],
       });
     } else {
+      await this.updateSingleTokenPrice(
+        tx,
+        NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
+          .pythPriceInfo,
+        NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
+          .feedId,
+      );
+
       await this.collectAndClaimRewards(tx);
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_navi_pool::user_deposit_v2`,

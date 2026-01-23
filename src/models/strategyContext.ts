@@ -40,7 +40,8 @@ export class StrategyContext {
   coinInfoProvider: CoinInfoProvider;
 
   // Singleton caches for global data
-  private poolLabelsCache: SingletonCache<Map<string, PoolLabel>>;
+  private allPoolLabelsCache: SingletonCache<Map<string, PoolLabel>>; // For bulk fetches
+  private poolLabelCache: Cache<string, PoolLabel>; // Per-pool cache for individual fetches
   private aprMapCache: SingletonCache<Map<string, AprData>>;
   private alphalendTvlCache: SingletonCache<Map<string, Decimal>>;
   private naviTvlCache: SingletonCache<Map<string, Decimal>>;
@@ -58,7 +59,8 @@ export class StrategyContext {
     this.coinInfoProvider = new CoinInfoProvider();
 
     // Initialize singleton caches with appropriate TTLs
-    this.poolLabelsCache = new SingletonCache(CACHE_TTL.POOL_LABELS);
+    this.allPoolLabelsCache = new SingletonCache(CACHE_TTL.POOL_LABELS);
+    this.poolLabelCache = new Cache(CACHE_TTL.POOL_LABELS);
     this.aprMapCache = new SingletonCache(CACHE_TTL.APR_DATA);
     this.alphalendTvlCache = new SingletonCache(CACHE_TTL.TVL_DATA);
     this.naviTvlCache = new SingletonCache(CACHE_TTL.TVL_DATA);
@@ -78,20 +80,111 @@ export class StrategyContext {
 
   /**
    * Get all pool labels. Lazily loaded and cached.
+   * Also populates the per-pool cache for subsequent individual lookups.
    */
   async getPoolLabels(): Promise<Map<string, PoolLabel>> {
-    return this.poolLabelsCache.getOrFetch(() => this.fetchPoolLabels());
+    return this.allPoolLabelsCache.getOrFetch(async () => {
+      const labels = await this.fetchAllPoolLabels();
+      // Populate per-pool cache for faster individual lookups
+      labels.forEach((label, poolId) => {
+        this.poolLabelCache.set(poolId, label);
+      });
+      return labels;
+    });
   }
 
   /**
    * Get a specific pool label by ID.
+   * Uses per-pool cache and fetches only the requested pool if not cached.
    */
   async getPoolLabel(poolId: string): Promise<PoolLabel | undefined> {
-    const labels = await this.getPoolLabels();
-    return labels.get(poolId);
+    return this.poolLabelCache.getOrFetch(poolId, async () => {
+      const labels = await this.fetchPoolLabelsByIds([poolId]);
+      const label = labels.get(poolId);
+      if (!label) {
+        throw new Error(`Pool not found: ${poolId}`);
+      }
+      return label;
+    });
   }
 
-  private async fetchPoolLabels(): Promise<Map<string, PoolLabel>> {
+  /**
+   * Get multiple pool labels by IDs.
+   * Efficiently fetches only uncached pools in a single API call.
+   */
+  async getPoolLabelsByIds(poolIds: string[]): Promise<Map<string, PoolLabel>> {
+    const result = new Map<string, PoolLabel>();
+    const uncachedIds: string[] = [];
+
+    // Check cache first
+    for (const poolId of poolIds) {
+      const cached = this.poolLabelCache.get(poolId);
+      if (cached) {
+        result.set(poolId, cached);
+      } else {
+        uncachedIds.push(poolId);
+      }
+    }
+
+    // Fetch uncached pools in a single API call
+    if (uncachedIds.length > 0) {
+      const fetched = await this.fetchPoolLabelsByIds(uncachedIds);
+      fetched.forEach((label, poolId) => {
+        this.poolLabelCache.set(poolId, label);
+        result.set(poolId, label);
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Fetch pool labels by IDs from the API.
+   * Supports fetching multiple pools in a single request.
+   */
+  private async fetchPoolLabelsByIds(poolIds: string[]): Promise<Map<string, PoolLabel>> {
+    if (poolIds.length === 0) {
+      return new Map();
+    }
+
+    const url = `${ALPHAFI_CONFIG_URL}?pool_ids=${poolIds.join(',')}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch pool config: ${response.status} ${response.statusText}`);
+    }
+
+    const json = (await response.json()) as Record<
+      string,
+      {
+        strategy_type:
+          | 'AlphaVault'
+          | 'Lp'
+          | 'FungibleLp'
+          | 'AutobalanceLp'
+          | 'SlushLending'
+          | 'Lending'
+          | 'Looping'
+          | 'SingleAssetLooping'
+          | 'Lyf';
+        data: any;
+      }
+    >;
+
+    const poolLabels = new Map<string, PoolLabel>();
+    for (const [poolId, entry] of Object.entries(json)) {
+      const label = this.parsePoolLabelEntry(entry.strategy_type, entry.data);
+      if (label) {
+        poolLabels.set(poolId, label);
+      }
+    }
+
+    return poolLabels;
+  }
+
+  /**
+   * Fetch all pool labels from the API.
+   */
+  private async fetchAllPoolLabels(): Promise<Map<string, PoolLabel>> {
     const poolLabels = new Map<string, PoolLabel>();
     const response = await fetch(ALPHAFI_CONFIG_URL);
     if (!response.ok) {
@@ -115,180 +208,201 @@ export class StrategyContext {
     >;
 
     for (const [, entry] of Object.entries(json)) {
-      const st = entry.strategy_type;
-      const d = entry.data || {};
-
-      if (!d.pool_id) {
-        console.error('Pool ID is required for pool labels', d);
-        continue;
-      }
-
-      if (st === 'Lp' || st === 'AutobalanceLp') {
-        poolLabels.set(d.pool_id, {
-          poolId: d.pool_id,
-          packageId: d.package_id,
-          packageNumber: d.package_number,
-          strategyType: st,
-          parentProtocol: d.parent_protocol,
-          parentPoolId: d.parent_pool_id,
-          investorId: d.investor_id,
-          receipt: d.receipt,
-          assetA: d.asset_a,
-          assetB: d.asset_b,
-          events: {
-            autocompoundEventType: d.events?.autocompound_event_type,
-            rebalanceEventType: d.events?.rebalance_event_type,
-            liquidityChangeEventType: d.events?.liquidity_change_event_type,
-            afterTransactionEventType: d.events?.after_transaction_event_type ?? undefined,
-          },
-          isActive: d.is_active,
-          poolName: d.pool_name,
-          isNative: d.is_native,
-        } as PoolLabel);
-      } else if (st === 'FungibleLp') {
-        poolLabels.set(d.pool_id, {
-          poolId: d.pool_id,
-          packageId: d.package_id,
-          packageNumber: d.package_number,
-          strategyType: st,
-          parentProtocol: d.parent_protocol,
-          parentPoolId: d.parent_pool_id,
-          investorId: d.investor_id,
-          fungibleCoin: d.fungible_coin ?? d.asset_a ?? d.asset,
-          assetA: d.asset_a,
-          assetB: d.asset_b,
-          events: {
-            autocompoundEventType: d.events?.autocompound_event_type,
-            rebalanceEventType: d.events?.rebalance_event_type,
-            liquidityChangeEventType: d.events?.liquidity_change_event_type,
-          },
-          isActive: d.is_active,
-          poolName: d.pool_name,
-          isNative: d.is_native,
-        } as PoolLabel);
-      } else if (st === 'SlushLending') {
-        poolLabels.set(d.pool_id, {
-          poolId: d.pool_id,
-          packageId: d.package_id,
-          packageNumber: d.package_number,
-          strategyType: st,
-          parentProtocol: d.parent_protocol,
-          receipt: d.receipt,
-          asset: d.asset,
-          events: {
-            autocompoundEventType: d.events?.autocompound_event_type,
-            liquidityChangeEventType: d.events?.liquidity_change_event_type,
-          },
-          isActive: d.is_active,
-          poolName: d.pool_name,
-          isNative: d.is_native,
-        } as PoolLabel);
-      } else if (st === 'Lending') {
-        poolLabels.set(d.pool_id, {
-          poolId: d.pool_id,
-          packageId: d.package_id,
-          packageNumber: d.package_number,
-          strategyType: st,
-          parentProtocol: d.parent_protocol,
-          parentPoolId: d.parent_pool_id,
-          investorId: d.investor_id,
-          receipt: d.receipt,
-          asset: d.asset,
-          events: {
-            autocompoundEventType: d.events?.autocompound_event_type,
-            liquidityChangeEventType: d.events?.liquidity_change_event_type,
-          },
-          isActive: d.is_active,
-          poolName: d.pool_name,
-          isNative: d.is_native,
-        } as PoolLabel);
-      } else if (st === 'Looping') {
-        poolLabels.set(d.pool_id, {
-          poolId: d.pool_id,
-          packageId: d.package_id,
-          packageNumber: d.package_number,
-          strategyType: st,
-          parentProtocol: d.parent_protocol,
-          investorId: d.investor_id,
-          receipt: d.receipt,
-          supplyAsset: d.supply_asset,
-          borrowAsset: d.borrow_asset,
-          userDepositAsset: d.user_deposit_asset,
-          userWithdrawAsset: d.user_withdraw_asset,
-          events: {
-            autocompoundEventType: d.events?.autocompound_event_type,
-            liquidityChangeEventType: d.events?.liquidity_change_event_type,
-            checkRatioEventType: d.events?.check_ratio_event_type,
-          },
-          isActive: d.is_active,
-          poolName: d.pool_name,
-          isNative: d.is_native,
-        } as PoolLabel);
-      } else if (st === 'SingleAssetLooping') {
-        poolLabels.set(d.pool_id, {
-          poolId: d.pool_id,
-          packageId: d.package_id,
-          packageNumber: d.package_number,
-          strategyType: st,
-          parentProtocol: d.parent_protocol,
-          investorId: d.investor_id,
-          receipt: d.receipt,
-          asset: d.asset,
-          events: {
-            autocompoundEventType: d.events?.autocompound_event_type,
-            liquidityChangeEventType: d.events?.liquidity_change_event_type,
-          },
-          isActive: d.is_active,
-          poolName: d.pool_name,
-          isNative: d.is_native,
-        } as PoolLabel);
-      } else if (st === 'Lyf') {
-        poolLabels.set(d.pool_id, {
-          poolId: d.pool_id,
-          packageId: d.package_id,
-          packageNumber: d.package_number,
-          strategyType: st,
-          parentProtocol: d.parent_protocol,
-          parentPoolId: d.parent_pool_id,
-          receipt: d.receipt,
-          zapAsset: d.zap_asset,
-          assetA: d.asset_a,
-          assetB: d.asset_b,
-          events: {
-            autocompoundEventType: d.events?.autocompound_event_type,
-            rebalanceEventType: d.events?.rebalance_event_type,
-            liquidityChangeEventType: d.events?.liquidity_change_event_type,
-            afterTransactionEventType: d.events?.after_transaction_event_type ?? undefined,
-          },
-          isActive: d.is_active,
-          isNative: d.is_native,
-          poolName: d.pool_name,
-        } as PoolLabel);
-      } else if (st === 'AlphaVault') {
-        poolLabels.set(d.pool_id, {
-          poolId: d.pool_id,
-          investorId: d.investor_id,
-          packageId: d.package_id,
-          packageNumber: d.package_number,
-          strategyType: st,
-          parentProtocol: d.parent_protocol,
-          receipt: d.receipt,
-          asset: d.asset,
-          events: {
-            autocompoundEventType: d.events?.autocompound_event_type,
-            liquidityChangeEventType: d.events?.liquidity_change_event_type,
-            withdrawV2EventType: d.events?.withdraw_v2_event_type,
-            afterTransactionEventType: d.events?.after_transaction_event_type,
-            airdropAddEventType: d.events?.airdrop_add_event_type,
-          },
-          isActive: d.is_active,
-          poolName: d.pool_name,
-          isNative: d.is_native,
-        } as PoolLabel);
+      const label = this.parsePoolLabelEntry(entry.strategy_type, entry.data || {});
+      if (label) {
+        poolLabels.set(label.poolId, label);
       }
     }
 
     return poolLabels;
+  }
+
+  /**
+   * Parse a single pool label entry from the API response.
+   */
+  private parsePoolLabelEntry(
+    strategyType:
+      | 'AlphaVault'
+      | 'Lp'
+      | 'FungibleLp'
+      | 'AutobalanceLp'
+      | 'SlushLending'
+      | 'Lending'
+      | 'Looping'
+      | 'SingleAssetLooping'
+      | 'Lyf',
+    d: any,
+  ): PoolLabel | null {
+    if (!d.pool_id) {
+      console.error('Pool ID is required for pool labels', d);
+      return null;
+    }
+
+    if (strategyType === 'Lp' || strategyType === 'AutobalanceLp') {
+      return {
+        poolId: d.pool_id,
+        packageId: d.package_id,
+        packageNumber: d.package_number,
+        strategyType: strategyType,
+        parentProtocol: d.parent_protocol,
+        parentPoolId: d.parent_pool_id,
+        investorId: d.investor_id,
+        receipt: d.receipt,
+        assetA: d.asset_a,
+        assetB: d.asset_b,
+        events: {
+          autocompoundEventType: d.events?.autocompound_event_type,
+          rebalanceEventType: d.events?.rebalance_event_type,
+          liquidityChangeEventType: d.events?.liquidity_change_event_type,
+          afterTransactionEventType: d.events?.after_transaction_event_type ?? undefined,
+        },
+        isActive: d.is_active,
+        poolName: d.pool_name,
+        isNative: d.is_native,
+      } as PoolLabel;
+    } else if (strategyType === 'FungibleLp') {
+      return {
+        poolId: d.pool_id,
+        packageId: d.package_id,
+        packageNumber: d.package_number,
+        strategyType: strategyType,
+        parentProtocol: d.parent_protocol,
+        parentPoolId: d.parent_pool_id,
+        investorId: d.investor_id,
+        fungibleCoin: d.fungible_coin ?? d.asset_a ?? d.asset,
+        assetA: d.asset_a,
+        assetB: d.asset_b,
+        events: {
+          autocompoundEventType: d.events?.autocompound_event_type,
+          rebalanceEventType: d.events?.rebalance_event_type,
+          liquidityChangeEventType: d.events?.liquidity_change_event_type,
+        },
+        isActive: d.is_active,
+        poolName: d.pool_name,
+        isNative: d.is_native,
+      } as PoolLabel;
+    } else if (strategyType === 'SlushLending') {
+      return {
+        poolId: d.pool_id,
+        packageId: d.package_id,
+        packageNumber: d.package_number,
+        strategyType: strategyType,
+        parentProtocol: d.parent_protocol,
+        receipt: d.receipt,
+        asset: d.asset,
+        events: {
+          autocompoundEventType: d.events?.autocompound_event_type,
+          liquidityChangeEventType: d.events?.liquidity_change_event_type,
+        },
+        isActive: d.is_active,
+        poolName: d.pool_name,
+        isNative: d.is_native,
+      } as PoolLabel;
+    } else if (strategyType === 'Lending') {
+      return {
+        poolId: d.pool_id,
+        packageId: d.package_id,
+        packageNumber: d.package_number,
+        strategyType: strategyType,
+        parentProtocol: d.parent_protocol,
+        parentPoolId: d.parent_pool_id,
+        investorId: d.investor_id,
+        receipt: d.receipt,
+        asset: d.asset,
+        events: {
+          autocompoundEventType: d.events?.autocompound_event_type,
+          liquidityChangeEventType: d.events?.liquidity_change_event_type,
+        },
+        isActive: d.is_active,
+        poolName: d.pool_name,
+        isNative: d.is_native,
+      } as PoolLabel;
+    } else if (strategyType === 'Looping') {
+      return {
+        poolId: d.pool_id,
+        packageId: d.package_id,
+        packageNumber: d.package_number,
+        strategyType: strategyType,
+        parentProtocol: d.parent_protocol,
+        investorId: d.investor_id,
+        receipt: d.receipt,
+        supplyAsset: d.supply_asset,
+        borrowAsset: d.borrow_asset,
+        userDepositAsset: d.user_deposit_asset,
+        userWithdrawAsset: d.user_withdraw_asset,
+        events: {
+          autocompoundEventType: d.events?.autocompound_event_type,
+          liquidityChangeEventType: d.events?.liquidity_change_event_type,
+          checkRatioEventType: d.events?.check_ratio_event_type,
+        },
+        isActive: d.is_active,
+        poolName: d.pool_name,
+        isNative: d.is_native,
+      } as PoolLabel;
+    } else if (strategyType === 'SingleAssetLooping') {
+      return {
+        poolId: d.pool_id,
+        packageId: d.package_id,
+        packageNumber: d.package_number,
+        strategyType: strategyType,
+        parentProtocol: d.parent_protocol,
+        investorId: d.investor_id,
+        receipt: d.receipt,
+        asset: d.asset,
+        events: {
+          autocompoundEventType: d.events?.autocompound_event_type,
+          liquidityChangeEventType: d.events?.liquidity_change_event_type,
+        },
+        isActive: d.is_active,
+        poolName: d.pool_name,
+        isNative: d.is_native,
+      } as PoolLabel;
+    } else if (strategyType === 'Lyf') {
+      return {
+        poolId: d.pool_id,
+        packageId: d.package_id,
+        packageNumber: d.package_number,
+        strategyType: strategyType,
+        parentProtocol: d.parent_protocol,
+        parentPoolId: d.parent_pool_id,
+        receipt: d.receipt,
+        zapAsset: d.zap_asset,
+        assetA: d.asset_a,
+        assetB: d.asset_b,
+        events: {
+          autocompoundEventType: d.events?.autocompound_event_type,
+          rebalanceEventType: d.events?.rebalance_event_type,
+          liquidityChangeEventType: d.events?.liquidity_change_event_type,
+          afterTransactionEventType: d.events?.after_transaction_event_type ?? undefined,
+        },
+        isActive: d.is_active,
+        isNative: d.is_native,
+        poolName: d.pool_name,
+      } as PoolLabel;
+    } else if (strategyType === 'AlphaVault') {
+      return {
+        poolId: d.pool_id,
+        investorId: d.investor_id,
+        packageId: d.package_id,
+        packageNumber: d.package_number,
+        strategyType: strategyType,
+        parentProtocol: d.parent_protocol,
+        receipt: d.receipt,
+        asset: d.asset,
+        events: {
+          autocompoundEventType: d.events?.autocompound_event_type,
+          liquidityChangeEventType: d.events?.liquidity_change_event_type,
+          withdrawV2EventType: d.events?.withdraw_v2_event_type,
+          afterTransactionEventType: d.events?.after_transaction_event_type,
+          airdropAddEventType: d.events?.airdrop_add_event_type,
+        },
+        isActive: d.is_active,
+        poolName: d.pool_name,
+        isNative: d.is_native,
+      } as PoolLabel;
+    }
+
+    return null;
   }
 
   // ============================================================
@@ -811,7 +925,8 @@ export class StrategyContext {
    * Clear all caches. Useful for forcing fresh data.
    */
   clearAllCaches(): void {
-    this.poolLabelsCache.clear();
+    this.allPoolLabelsCache.clear();
+    this.poolLabelCache.clear();
     this.aprMapCache.clear();
     this.alphalendTvlCache.clear();
     this.naviTvlCache.clear();

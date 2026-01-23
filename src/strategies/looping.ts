@@ -15,12 +15,15 @@ import {
   GLOBAL_CONFIGS,
   NAVI_CONFIG,
   POOLS,
+  PYTH_STATE_ID,
   STSUI,
   SUI_SYSTEM_STATE,
   VERSIONS,
+  WORMHOLE_STATE_ID,
 } from '../utils/constants.js';
 import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
+import { SuiPriceServiceConnection, SuiPythClient } from '@pythnetwork/pyth-sui-js';
 
 /**
  * Looping Strategy for leveraged positions with automated compounding
@@ -566,15 +569,41 @@ export class LoopingStrategy extends BaseStrategy<
     }
   }
 
+  private async updateSingleTokenPrice(tx: Transaction, pythPriceInfo: string, feedId: string) {
+    const pythClient = new SuiPythClient(
+      this.context.blockchain.suiClient,
+      PYTH_STATE_ID,
+      WORMHOLE_STATE_ID,
+    );
+    const pythConnection = new SuiPriceServiceConnection('https://hermes.pyth.network');
+
+    const priceFeedUpdateData = await pythConnection.getPriceFeedsUpdateData([pythPriceInfo]);
+    const priceInfoObjectIds = await pythClient.updatePriceFeeds(tx, priceFeedUpdateData, [
+      pythPriceInfo,
+    ]);
+
+    tx.moveCall({
+      target:
+        '0xc2d49bf5e75d2258ee5563efa527feb6155de7ac6f6bf025a23ee88cd12d5a83::oracle_pro::update_single_price',
+      arguments: [
+        tx.object(CLOCK_PACKAGE_ID),
+        tx.object(NAVI_CONFIG.ORACLE_CONFIG),
+        tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
+        tx.object(NAVI_CONFIG.SUPRA_ORACLE_HOLDER),
+        tx.object(priceInfoObjectIds[0]),
+        tx.pure.address(feedId),
+      ],
+    });
+  }
+
   async deposit(tx: Transaction, options: DepositOptions) {
     // get Coin Object
-    const coin = await this.context.blockchain.getCoinObject(
+    const depositCoin = await this.context.blockchain.getCoinObject(
       tx,
-      this.poolLabel.supplyAsset.type,
+      this.poolLabel.userDepositAsset.type,
       options.address,
+      options.amount,
     );
-    const [depositCoin] = tx.splitCoins(coin, [options.amount]);
-    tx.transferObjects([coin], options.address);
 
     const receiptOption = this.context.blockchain.getOptionReceipt(
       tx,
@@ -638,6 +667,20 @@ export class LoopingStrategy extends BaseStrategy<
       return;
     }
 
+    await this.updateSingleTokenPrice(
+      tx,
+      NAVI_CONFIG.PRICE_FEED[this.poolLabel.supplyAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
+        .pythPriceInfo,
+      NAVI_CONFIG.PRICE_FEED[this.poolLabel.supplyAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
+        .feedId,
+    );
+    await this.updateSingleTokenPrice(
+      tx,
+      NAVI_CONFIG.PRICE_FEED[this.poolLabel.borrowAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
+        .pythPriceInfo,
+      NAVI_CONFIG.PRICE_FEED[this.poolLabel.borrowAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
+        .feedId,
+    );
     await this.collectAndSwapRewards(tx);
 
     if (this.poolLabel.supplyAsset.name === 'vSUI') {
@@ -687,45 +730,6 @@ export class LoopingStrategy extends BaseStrategy<
           tx.object(GLOBAL_CONFIGS.CETUS),
           tx.object(await this.context.getPoolIdBySymbolsAndProtocol('HASUI', 'SUI', 'cetus')),
           tx.object(NAVI_CONFIG.HAEDEL_STAKING),
-          tx.object(SUI_SYSTEM_STATE),
-          tx.object(CLOCK_PACKAGE_ID),
-        ],
-      });
-    } else if (this.poolLabel.supplyAsset.name === 'stSUI') {
-      const [alphaCoin] = await this.context.getCoinsBySymbols(['ALPHA']);
-      tx.moveCall({
-        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_one_swap`,
-        typeArguments: [alphaCoin.coinType],
-        arguments: [
-          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
-          tx.object(this.poolLabel.investorId),
-          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('ALPHA', 'STSUI', 'bluefin')),
-          tx.object(GLOBAL_CONFIGS.BLUEFIN),
-          tx.object(CLOCK_PACKAGE_ID),
-        ],
-      });
-      tx.moveCall({
-        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_no_swap_v2`,
-        arguments: [
-          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
-          tx.object(this.poolLabel.investorId),
-          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-          tx.object(CLOCK_PACKAGE_ID),
-        ],
-      });
-      tx.moveCall({
-        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::user_deposit_v3`,
-        arguments: [
-          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
-          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
-          receiptOption,
-          tx.object(this.poolLabel.poolId),
-          depositCoin,
-          tx.object(this.poolLabel.investorId),
-          tx.object(DISTRIBUTOR_OBJECT_ID),
-          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-          tx.object(STSUI.LST_INFO),
           tx.object(SUI_SYSTEM_STATE),
           tx.object(CLOCK_PACKAGE_ID),
         ],
@@ -861,6 +865,7 @@ export class LoopingStrategy extends BaseStrategy<
     });
 
     if (this.poolLabel.parentProtocol === 'Alphalend') {
+      await this.collectAndSwapRewards(tx);
       const [stsuiCoin, suiCoin, alphaCoin, blueCoin] = await this.context.getCoinsBySymbols([
         'stSUI',
         'SUI',
@@ -931,6 +936,22 @@ export class LoopingStrategy extends BaseStrategy<
       return;
     }
 
+    await this.updateSingleTokenPrice(
+      tx,
+      NAVI_CONFIG.PRICE_FEED[this.poolLabel.supplyAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
+        .pythPriceInfo,
+      NAVI_CONFIG.PRICE_FEED[this.poolLabel.supplyAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
+        .feedId,
+    );
+    await this.updateSingleTokenPrice(
+      tx,
+      NAVI_CONFIG.PRICE_FEED[this.poolLabel.borrowAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
+        .pythPriceInfo,
+      NAVI_CONFIG.PRICE_FEED[this.poolLabel.borrowAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
+        .feedId,
+    );
+    await this.collectAndSwapRewards(tx);
+
     if (this.poolLabel.supplyAsset.name === 'vSUI') {
       const [vsui_coin] = tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_navi_sui_vsui_pool::user_withdraw_v3`,
@@ -995,30 +1016,6 @@ export class LoopingStrategy extends BaseStrategy<
         target: `0x2::transfer::public_transfer`,
         typeArguments: [`0x2::coin::Coin<${this.poolLabel.supplyAsset.type}>`],
         arguments: [hasuiCoin, tx.pure.address(options.address)],
-      });
-    } else if (this.poolLabel.supplyAsset.name === 'stSUI') {
-      const [stsui_coin] = tx.moveCall({
-        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::user_withdraw_v3`,
-        arguments: [
-          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
-          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
-          tx.object(this.receiptObjects[0].id),
-          noneAlphaReceipt,
-          tx.object(POOLS.ALPHA_LEGACY),
-          tx.object(this.poolLabel.poolId),
-          tx.pure.u64(xtokenAmount),
-          tx.object(this.poolLabel.investorId),
-          tx.object(DISTRIBUTOR_OBJECT_ID),
-          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-          tx.object(STSUI.LST_INFO),
-          tx.object(SUI_SYSTEM_STATE),
-          tx.object(CLOCK_PACKAGE_ID),
-        ],
-      });
-      tx.moveCall({
-        target: `0x2::transfer::public_transfer`,
-        typeArguments: [`0x2::coin::Coin<${this.poolLabel.supplyAsset.type}>`],
-        arguments: [stsui_coin, tx.pure.address(options.address)],
       });
     } else if (this.poolLabel.supplyAsset.name === 'USDC') {
       const [usdcCoin] = tx.moveCall({
