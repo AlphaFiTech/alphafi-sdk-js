@@ -103,11 +103,10 @@ async function main() {
   const { address, keypair, suiClient } = getExecStuff();
   const alphafiClient = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
   const startTime = Date.now();
-  const res = await alphafiClient
-    .getPoolsData
+  const res = await alphafiClient.getPoolsData(
     //   // ['SlushLending']
-    //   // ['AutobalanceLp', 'Lp']
-    ();
+    ['AutobalanceLp', 'Lp'],
+  );
   // const res = await alphafiClient.getUserPortfolio(
   // '0x396c8d5f9560f2ffa5d67dcdf3f458ee654ad3e3e08d4eb6ff50e7ddf66a82e5',
   // address,

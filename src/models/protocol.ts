@@ -82,30 +82,23 @@ export class Protocol {
     return cachedStrategies;
   }
 
-  /** Get a single pool strategy by poolId. Uses cache with lazy loading. */
+  /** Get a single pool strategy by poolId. Uses cache with lazy loading and promise memoization. */
   async getSinglePoolStrategy(poolId: string): Promise<Strategy> {
-    // Check cache first
-    const cached = this.strategyCache.get(poolId);
-    if (cached) {
-      return cached;
-    }
+    return this.strategyCache.getOrFetch(poolId, async () => {
+      const poolLabel = await this.strategyContext.getPoolLabel(poolId);
+      if (!poolLabel) {
+        throw new Error(`Pool label not found for poolId: ${poolId}`);
+      }
 
-    // Build the strategy
-    const poolLabel = await this.strategyContext.getPoolLabel(poolId);
-    if (!poolLabel) {
-      throw new Error(`Pool label not found for poolId: ${poolId}`);
-    }
+      const strategies = await this.buildPoolStrategies([poolLabel]);
+      const strategy = strategies.get(poolId);
 
-    const strategies = await this.buildPoolStrategies([poolLabel]);
-    const strategy = strategies.get(poolId);
+      if (!strategy) {
+        throw new Error(`Failed to build strategy for poolId: ${poolId}`);
+      }
 
-    if (!strategy) {
-      throw new Error(`Failed to build strategy for poolId: ${poolId}`);
-    }
-
-    // Cache and return
-    this.strategyCache.set(poolId, strategy);
-    return strategy;
+      return strategy;
+    });
   }
 
   /** Build strategies from on-chain data for specified pool labels. */
