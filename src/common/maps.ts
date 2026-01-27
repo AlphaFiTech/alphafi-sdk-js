@@ -60,7 +60,7 @@ export const poolDetailsMap: Record<string, PoolDetails> = {
   },
   [conf[CONF_ENV].ALPHAFI_LYF_SUIUSDT_USDC_POOL]: {
     packageId: conf[CONF_ENV].ALPHA_LYF_LATEST_PACKAGE_ID,
-    poolName: 'BLUEFIN-LYF-STSUI-SUI',
+    poolName: 'BLUEFIN-LYF-SUIUSDT-USDC',
     packageNumber: 11,
     strategyType: 'LEVERAGE-YIELD-FARMING',
     parentProtocolName: 'BLUEFIN',
