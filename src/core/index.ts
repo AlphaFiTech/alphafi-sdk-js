@@ -7,11 +7,6 @@
 import { Transaction } from '@mysten/sui/transactions';
 import { Protocol } from '../models/protocol.js';
 import { Portfolio } from '../models/portfolio.js';
-import {
-  initiateWithdrawAlpha,
-  claimWithdrawAlphaTx,
-  claimAirdropTx,
-} from '@alphafi/alphafi-sdk-upstream';
 import { StrategyContext } from '../models/strategyContext.js';
 import { CetusSwap } from '../models/swap.js';
 import type { PoolData, UserPortfolioData } from '../models/types.js';
@@ -29,6 +24,7 @@ import {
 import { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 import { Strategy, StrategyType } from '../strategies/strategy.js';
 import { LEGACY_ALPHA_POOL_RECEIPT, PACKAGE_IDS, VERSIONS } from '../utils/constants.js';
+import { AlphaVaultStrategy } from '../strategies/alphaVault.js';
 
 // Re-export types for external use
 export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
@@ -157,12 +153,13 @@ export class AlphaFiSDK {
    * @returns Transaction to create withdrawal ticket
    */
   async initiateWithdrawAlpha(options: WithdrawOptions): Promise<Transaction> {
-    return await initiateWithdrawAlpha(
-      options.amount.toString(),
-      options.withdrawMax,
+    const tx = new Transaction();
+    const strategy = (await this.portfolio.getPoolStrategy(
       options.address,
-      this.config.suiClient,
-    );
+      '0x06a4922346ae433e9a2fff4db900d760e0cbfdef748f48385f430ef4d042a6f8',
+    )) as AlphaVaultStrategy;
+    await strategy.withdraw(tx, options);
+    return tx;
   }
 
   /**
@@ -172,7 +169,13 @@ export class AlphaFiSDK {
    * @returns Transaction to claim the withdrawn ALPHA tokens
    */
   async claimWithdrawAlpha(options: ClaimWithdrawAlphaOptions): Promise<Transaction> {
-    return await claimWithdrawAlphaTx(options.ticketId, options.address, this.config.suiClient);
+    const tx = new Transaction();
+    const strategy = (await this.portfolio.getPoolStrategy(
+      options.address,
+      '0x06a4922346ae433e9a2fff4db900d760e0cbfdef748f48385f430ef4d042a6f8',
+    )) as AlphaVaultStrategy;
+    await strategy.claimWithdraw(tx, options.ticketId, options.address);
+    return tx;
   }
 
   /**
@@ -182,7 +185,13 @@ export class AlphaFiSDK {
    * @returns Transaction to claim airdrop rewards
    */
   async claimAirdrop(options: ClaimAirdropOptions): Promise<Transaction> {
-    return await claimAirdropTx(options.address, this.config.suiClient, options.transferToWallet);
+    const tx = new Transaction();
+    const strategy = (await this.portfolio.getPoolStrategy(
+      options.address,
+      '0x06a4922346ae433e9a2fff4db900d760e0cbfdef748f48385f430ef4d042a6f8',
+    )) as AlphaVaultStrategy;
+    await strategy.claimAirdrop(tx, options.address, options.transferToWallet);
+    return tx;
   }
 
   /**

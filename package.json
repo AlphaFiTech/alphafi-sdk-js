@@ -26,7 +26,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@alphafi/alphafi-sdk-upstream": "file:../alphafi-sdk",
     "@alphafi/alphalend-sdk": "^1.1.27",
     "@alphafi/stsui-sdk": "^0.0.23",
     "@apollo/client": "^4.0.11",

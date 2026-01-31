@@ -1,8 +1,8 @@
 import { Decimal } from 'decimal.js';
 import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
-import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
+import { AlphaFiReceipt, PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
-import { DepositOptions, WithdrawOptions } from '../core/types.js';
+import { ClaimAirdropOptions, DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
   ALPHAFI_RECEIPT_WHITELISTED_ADDRESSES,
@@ -11,6 +11,7 @@ import {
   POOLS,
   VERSIONS,
 } from '../utils/constants.js';
+import { AlphalendClient, getConstants, getUserPositionCapId } from '@alphafi/alphalend-sdk';
 
 /**
  * AlphaVault Strategy
@@ -777,8 +778,125 @@ export class AlphaVaultStrategy extends BaseStrategy<
     }
   }
 
-  async withdraw(_tx: Transaction, _options: WithdrawOptions) {
-    throw new Error('Withdraw is not supported for AlphaVault strategy');
+  private async getAlphaTotalShares(alphafiReceipt: AlphaFiReceipt): Promise<string> {
+    const entry = alphafiReceipt.positionPoolMap.find(
+      (item) => item.value.poolId === this.poolLabel.poolId,
+    );
+    if (!entry) {
+      console.error('no position for pool id found');
+      return '0';
+    }
+    const position = await this.context.blockchain.getObject(entry.key);
+    return (position as any).data?.content.fields.xtokens.toString();
+  }
+
+  async withdraw(tx: Transaction, options: WithdrawOptions) {
+    const { amount, withdrawMax, address } = options;
+    const alphafiReceipts = await this.context.getAlphaFiReceipts(address);
+    const legacyReceipt =
+      this.legacyReceiptObjects.length > 0 ? this.legacyReceiptObjects[0] : undefined;
+    if (alphafiReceipts.length === 0 && !legacyReceipt) {
+      throw new Error(`No AlphaFi receipts or receit found for address ${address}`);
+    }
+
+    // Calculate xtokens based on amount or withdrawMax
+    let xtokens = new Decimal(amount)
+      .div(new Decimal(this.poolObject.currentExchangeRate).div(1e18))
+      .ceil()
+      .toNumber();
+    if (withdrawMax) {
+      if (alphafiReceipts.length === 0 && legacyReceipt) {
+        xtokens = Number(legacyReceipt.xTokenBalance);
+      } else {
+        const positionUpdate = this.poolObject.recentlyUpdatedAlphafiReceipts.find(
+          (item) => item.key === alphafiReceipts[0].id,
+        );
+        xtokens =
+          Number(await this.getAlphaTotalShares(alphafiReceipts[0])) -
+          (positionUpdate
+            ? Number(positionUpdate.value.xtokensToRemove) -
+              Number(positionUpdate.value.xtokensToAdd)
+            : 0);
+      }
+    }
+
+    if (alphafiReceipts.length === 0) {
+      // Create new AlphaFi receipt
+      const alphafiReceiptObj = this.createAlphaFiReceipt(tx);
+      if (!legacyReceipt) {
+        throw new Error('No alphafi receipt and no alpha receipt found');
+      }
+
+      // Convert alpha receipt to ember position
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_ember_pool::migrate_alpha_receipt_to_new_alpha_strategy`,
+        typeArguments: [this.poolLabel.asset.type],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_EMBER),
+          tx.object(this.poolLabel.poolId),
+          alphafiReceiptObj,
+          tx.object(legacyReceipt.id),
+          tx.object(POOLS.ALPHA_LEGACY),
+        ],
+      });
+
+      // Initiate withdrawal
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_ember_pool::user_initiate_withdraw`,
+        typeArguments: [this.poolLabel.asset.type],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_EMBER),
+          alphafiReceiptObj,
+          tx.object(this.poolLabel.poolId),
+          tx.pure.u64(xtokens),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+
+      tx.moveCall({
+        target: `${PACKAGE_IDS.ALPHAFI_RECEIPT}::alphafi_receipt::transfer_receipt_to_new_owner`,
+        arguments: [
+          alphafiReceiptObj,
+          tx.pure.address(address),
+          tx.object(ALPHAFI_RECEIPT_WHITELISTED_ADDRESSES),
+        ],
+      });
+    } else {
+      const existingReceipt = alphafiReceipts[0];
+      const isPresent = this.receiptObjects.length > 0;
+
+      if (!isPresent && !legacyReceipt) {
+        throw new Error('No position or old alpha receipt found');
+      }
+
+      // Convert alpha receipt to ember position if needed
+      if (!isPresent && legacyReceipt) {
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_ember_pool::migrate_alpha_receipt_to_new_alpha_strategy`,
+          typeArguments: [this.poolLabel.asset.type],
+          arguments: [
+            tx.object(VERSIONS.ALPHA_EMBER),
+            tx.object(this.poolLabel.poolId),
+            tx.object(existingReceipt.id),
+            tx.object(legacyReceipt.id),
+            tx.object(POOLS.ALPHA_LEGACY),
+          ],
+        });
+      }
+
+      // Initiate withdrawal
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_ember_pool::user_initiate_withdraw`,
+        typeArguments: [this.poolLabel.asset.type],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_EMBER),
+          tx.object(existingReceipt.id),
+          tx.object(this.poolLabel.poolId),
+          tx.pure.u64(xtokens),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
   }
 
   async claimWithdraw(tx: Transaction, ticketId: string, address: string) {
@@ -800,6 +918,149 @@ export class AlphaVaultStrategy extends BaseStrategy<
       ],
     });
     tx.transferObjects([coin], address);
+  }
+
+  async claimAirdrop(tx: Transaction, address: string, transferToWallet: boolean) {
+    const alphalendClient = new AlphalendClient('mainnet', this.context.blockchain.suiClient);
+    let airdropCoin;
+    const [suiCoin, alphaCoin] = await this.context.getCoinsBySymbols(['SUI', 'ALPHA']);
+    const airdropCoinMarketId = '1';
+    const airdropCoinType = suiCoin.coinType;
+    const legacyReceipt =
+      this.legacyReceiptObjects.length > 0 ? this.legacyReceiptObjects[0] : undefined;
+    const alphafiReceipts = await this.context.getAlphaFiReceipts(address);
+    if (alphafiReceipts.length === 0) {
+      // Create new AlphaFi receipt
+      const alphafiReceiptObj = this.createAlphaFiReceipt(tx);
+
+      if (!legacyReceipt) {
+        throw new Error('No alphafi receipt and no alpha receipt found');
+      }
+
+      // Convert alpha receipt to ember position
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_ember_pool::migrate_alpha_receipt_to_new_alpha_strategy`,
+        typeArguments: [alphaCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_EMBER),
+          tx.object(this.poolLabel.poolId),
+          alphafiReceiptObj,
+          tx.object(legacyReceipt.id),
+          tx.object(POOLS.ALPHA_LEGACY),
+        ],
+      });
+
+      // Get user rewards
+      airdropCoin = tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_ember_pool::get_user_rewards`,
+        typeArguments: [alphaCoin.coinType, airdropCoinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_EMBER),
+          alphafiReceiptObj,
+          tx.object(this.poolLabel.poolId),
+        ],
+      });
+
+      tx.moveCall({
+        target: `${PACKAGE_IDS.ALPHAFI_RECEIPT}::alphafi_receipt::transfer_receipt_to_new_owner`,
+        arguments: [
+          alphafiReceiptObj,
+          tx.pure.address(address),
+          tx.object(ALPHAFI_RECEIPT_WHITELISTED_ADDRESSES),
+        ],
+      });
+    } else {
+      const existingReceipt = alphafiReceipts[0];
+      const isPresent = this.receiptObjects.length > 0;
+
+      if (!isPresent && !legacyReceipt) {
+        throw new Error('No position or old alpha receipt found');
+      }
+
+      // Convert alpha receipt to ember position if needed
+      if (!isPresent && legacyReceipt) {
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_ember_pool::migrate_alpha_receipt_to_new_alpha_strategy`,
+          typeArguments: [alphaCoin.coinType],
+          arguments: [
+            tx.object(VERSIONS.ALPHA_EMBER),
+            tx.object(this.poolLabel.poolId),
+            tx.object(existingReceipt.id),
+            tx.object(legacyReceipt.id),
+            tx.object(POOLS.ALPHA_LEGACY),
+          ],
+        });
+      }
+
+      // Get user rewards
+      airdropCoin = tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_ember_pool::get_user_rewards`,
+        typeArguments: [alphaCoin.coinType, airdropCoinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_EMBER),
+          tx.object(existingReceipt.id),
+          tx.object(this.poolLabel.poolId),
+        ],
+      });
+    }
+
+    if (!transferToWallet) {
+      await alphalendClient.updatePrices(tx, ['0x2::sui::SUI']);
+      const alphalendConstants = getConstants('mainnet');
+      const userPositionCapId = await getUserPositionCapId(
+        this.context.blockchain.suiClient,
+        'mainnet',
+        address,
+      );
+      if (!userPositionCapId) {
+        const positionCap = alphalendClient.createPosition(tx);
+        tx.moveCall({
+          target: `${alphalendConstants.ALPHALEND_LATEST_PACKAGE_ID}::alpha_lending::add_collateral`,
+          typeArguments: [airdropCoinType],
+          arguments: [
+            tx.object(alphalendConstants.LENDING_PROTOCOL_ID), // Protocol object
+            positionCap, // Position capability
+            tx.pure.u64(airdropCoinMarketId), // Market ID
+            airdropCoin, // Coin to supply as collateral
+            tx.object(alphalendConstants.SUI_CLOCK_OBJECT_ID), // Clock object
+          ],
+        });
+        tx.transferObjects([positionCap], address);
+      } else {
+        const portfolio =
+          await alphalendClient.getUserPortfolioFromPositionCapId(userPositionCapId);
+        if (portfolio && portfolio.borrowedAmounts.has(Number(airdropCoinMarketId))) {
+          airdropCoin = tx.moveCall({
+            target: `${alphalendConstants.ALPHALEND_LATEST_PACKAGE_ID}::alpha_lending::repay`,
+            typeArguments: [airdropCoinType],
+            arguments: [
+              tx.object(alphalendConstants.LENDING_PROTOCOL_ID), // Protocol object
+              tx.object(userPositionCapId), // Position capability
+              tx.pure.u64(airdropCoinMarketId), // Market ID
+              airdropCoin, // Coin to repay with
+              tx.object(alphalendConstants.SUI_CLOCK_OBJECT_ID), // Clock object
+            ],
+          });
+          tx.transferObjects([airdropCoin], address);
+        } else {
+          tx.moveCall({
+            target: `${alphalendConstants.ALPHALEND_LATEST_PACKAGE_ID}::alpha_lending::add_collateral`,
+            typeArguments: [airdropCoinType],
+            arguments: [
+              tx.object(alphalendConstants.LENDING_PROTOCOL_ID), // Protocol object
+              tx.object(userPositionCapId), // Position capability
+              tx.pure.u64(airdropCoinMarketId), // Market ID
+              airdropCoin, // Coin to supply as collateral
+              tx.object(alphalendConstants.SUI_CLOCK_OBJECT_ID), // Clock object
+            ],
+          });
+        }
+      }
+    } else {
+      tx.transferObjects([airdropCoin], address);
+    }
+
+    return tx;
   }
 
   async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {
