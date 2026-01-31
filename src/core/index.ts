@@ -27,7 +27,7 @@ import {
   WithdrawOptions,
 } from './types.js';
 import { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
-import { StrategyType } from '../strategies/strategy.js';
+import { Strategy, StrategyType } from '../strategies/strategy.js';
 import { LEGACY_ALPHA_POOL_RECEIPT, PACKAGE_IDS, VERSIONS } from '../utils/constants.js';
 
 // Re-export types for external use
@@ -203,7 +203,16 @@ export class AlphaFiSDK {
       typeArguments: [LEGACY_ALPHA_POOL_RECEIPT],
       arguments: [],
     });
-    const strategies = await this.portfolio.getAllPoolStrategies(options.address);
+    let strategies = new Map<string, Strategy>();
+
+    if (options.poolId) {
+      strategies.set(
+        options.poolId,
+        await this.portfolio.getPoolStrategy(options.address, options.poolId),
+      );
+    } else {
+      strategies = await this.portfolio.getAllPoolStrategies(options.address);
+    }
     strategies.forEach((strategy) => {
       strategy.claimRewards(tx, alphaReceipt);
     });
