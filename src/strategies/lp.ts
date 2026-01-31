@@ -9,7 +9,7 @@ import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
 import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
-import { Transaction } from '@mysten/sui/transactions';
+import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
   CLOCK_PACKAGE_ID,
   DISTRIBUTOR_OBJECT_ID,
@@ -1144,11 +1144,7 @@ export class LpStrategy extends BaseStrategy<
   }
 
   async withdrawBluefinType2Tx(tx: Transaction, noneAlphaReceipt: any, xTokensAmount: string) {
-    const [blueCoin, suiCoin, deepCoin] = await this.context.getCoinsBySymbols([
-      'BLUE',
-      'SUI',
-      'DEEP',
-    ]);
+    const [blueCoin, suiCoin] = await this.context.getCoinsBySymbols(['BLUE', 'SUI']);
 
     if (
       this.poolLabel.poolName === 'BLUEFIN-STSUI-ETH' ||
@@ -1256,11 +1252,7 @@ export class LpStrategy extends BaseStrategy<
     depositCoinA: any,
     depositCoinB: any,
   ) {
-    const [blueCoin, suiCoin, deepCoin] = await this.context.getCoinsBySymbols([
-      'BLUE',
-      'SUI',
-      'DEEP',
-    ]);
+    const [blueCoin] = await this.context.getCoinsBySymbols(['BLUE']);
 
     if (
       this.poolLabel.poolName === 'BLUEFIN-ALPHA-STSUI' ||
@@ -1343,11 +1335,7 @@ export class LpStrategy extends BaseStrategy<
   }
 
   async withdrawBluefinStsuiTx(tx: Transaction, noneAlphaReceipt: any, xTokensAmount: string) {
-    const [blueCoin, suiCoin, deepCoin] = await this.context.getCoinsBySymbols([
-      'BLUE',
-      'SUI',
-      'DEEP',
-    ]);
+    const [blueCoin] = await this.context.getCoinsBySymbols(['BLUE']);
 
     if (
       this.poolLabel.poolName === 'BLUEFIN-ALPHA-STSUI' ||
@@ -1783,8 +1771,134 @@ export class LpStrategy extends BaseStrategy<
     }
   }
 
-  async claimRewards(tx: Transaction, poolId: string, address: string) {
-    // TODO: Implement claim rewards logic
+  async claimRewards(tx: Transaction, alphaReceipt: TransactionResult) {
+    if (this.poolLabel.parentProtocol === 'Cetus') {
+      if (this.poolLabel.poolName === 'CETUS-SUI') {
+        this.receiptObjects.forEach((receipt) => {
+          alphaReceipt = tx.moveCall({
+            target: `${this.poolLabel.packageId}::alphafi_cetus_sui_pool::get_user_rewards_all`,
+            typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+            arguments: [
+              tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+              tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+              tx.object(receipt.id),
+              alphaReceipt,
+              tx.object(this.poolLabel.poolId),
+              tx.object(POOLS.ALPHA_LEGACY),
+              tx.object(DISTRIBUTOR_OBJECT_ID),
+              tx.object(CLOCK_PACKAGE_ID),
+            ],
+          });
+        });
+      } else {
+        let target;
+        if (this.poolLabel.assetB.name == 'SUI') {
+          target = `${this.poolLabel.packageId}::alphafi_cetus_sui_pool::get_user_rewards_all`;
+        } else if (
+          this.poolLabel.poolName == 'WUSDC-WBTC' ||
+          this.poolLabel.poolName == 'USDC-USDT' ||
+          this.poolLabel.poolName == 'USDC-WUSDC' ||
+          this.poolLabel.poolName == 'USDC-ETH'
+        ) {
+          target = `${this.poolLabel.packageId}::alphafi_cetus_pool_base_a::get_user_rewards_all`;
+        } else {
+          target = `${this.poolLabel.packageId}::alphafi_cetus_pool::get_user_rewards_all`;
+        }
+        if (target) {
+          this.receiptObjects.forEach((receipt) => {
+            alphaReceipt = tx.moveCall({
+              target,
+              typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+              arguments: [
+                tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+                tx.object(receipt.id),
+                alphaReceipt,
+                tx.object(this.poolLabel.poolId),
+                tx.object(POOLS.ALPHA_LEGACY),
+                tx.object(DISTRIBUTOR_OBJECT_ID),
+                tx.object(CLOCK_PACKAGE_ID),
+              ],
+            });
+          });
+        }
+      }
+    } else if (this.poolLabel.parentProtocol === 'Bluefin') {
+      let version, target;
+      if (
+        this.poolLabel.poolName === 'BLUEFIN-SUIBTC-USDC' ||
+        this.poolLabel.poolName === 'BLUEFIN-LBTC-SUIBTC'
+      ) {
+        target = `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::get_user_rewards_all`;
+        version = VERSIONS.BLUEFIN_V2;
+      } else if (
+        this.poolLabel.poolName == 'BLUEFIN-SUI-USDC' ||
+        this.poolLabel.poolName === 'BLUEFIN-SUI-BUCK' ||
+        this.poolLabel.poolName === 'BLUEFIN-SUI-AUSD'
+      ) {
+        target = `${this.poolLabel.packageId}::alphafi_bluefin_sui_first_pool::get_user_rewards_all`;
+        version = VERSIONS.ALPHA_VERSIONS[4];
+      } else if (
+        this.poolLabel.poolName == 'BLUEFIN-USDT-USDC' ||
+        this.poolLabel.poolName === 'BLUEFIN-AUSD-USDC' ||
+        this.poolLabel.poolName === 'BLUEFIN-WBTC-USDC' ||
+        this.poolLabel.poolName === 'BLUEFIN-SEND-USDC' ||
+        this.poolLabel.poolName === 'BLUEFIN-SUIUSDT-USDC' ||
+        this.poolLabel.poolName === 'BLUEFIN-WAL-USDC'
+      ) {
+        target = `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::get_user_rewards_all`;
+        version = VERSIONS.ALPHA_VERSIONS[4];
+      } else if (
+        this.poolLabel.poolName === 'BLUEFIN-ALPHA-USDC' ||
+        this.poolLabel.poolName === 'BLUEFIN-NAVX-VSUI' ||
+        this.poolLabel.poolName === 'BLUEFIN-BLUE-USDC'
+      ) {
+        target = `${this.poolLabel.packageId}::alphafi_bluefin_type_2_pool::get_user_rewards_all`;
+        version = VERSIONS.ALPHA_VERSIONS[4];
+      } else if (
+        this.poolLabel.poolName === 'BLUEFIN-BLUE-SUI' ||
+        this.poolLabel.poolName === 'BLUEFIN-WBTC-SUI' ||
+        this.poolLabel.poolName === 'BLUEFIN-DEEP-SUI'
+      ) {
+        target = `${this.poolLabel.packageId}::alphafi_bluefin_sui_second_pool::get_user_rewards_all`;
+        version = VERSIONS.ALPHA_VERSIONS[4];
+      } else if (this.poolLabel.poolName === 'BLUEFIN-STSUI-SUI') {
+        target = `${this.poolLabel.packageId}::alphafi_bluefin_stsui_sui_pool::get_user_rewards_all`;
+        version = VERSIONS.ALPHA_VERSIONS[4];
+      } else if (
+        this.poolLabel.poolName === 'BLUEFIN-STSUI-USDC' ||
+        this.poolLabel.poolName === 'BLUEFIN-STSUI-WSOL' ||
+        this.poolLabel.poolName === 'BLUEFIN-STSUI-ETH' ||
+        this.poolLabel.poolName === 'BLUEFIN-STSUI-BUCK' ||
+        this.poolLabel.poolName === 'BLUEFIN-STSUI-MUSD'
+      ) {
+        target = `${this.poolLabel.packageId}::alphafi_bluefin_stsui_first_pool::get_user_rewards_all`;
+        version = VERSIONS.STSUI;
+      } else if (
+        this.poolLabel.poolName === 'BLUEFIN-ALPHA-STSUI' ||
+        this.poolLabel.poolName === 'BLUEFIN-WAL-STSUI'
+      ) {
+        target = `${this.poolLabel.packageId}::alphafi_bluefin_stsui_second_pool::get_user_rewards_all`;
+        version = VERSIONS.STSUI;
+      }
+      if (version && target) {
+        this.receiptObjects.forEach((receipt) => {
+          alphaReceipt = tx.moveCall({
+            target,
+            typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+            arguments: [
+              tx.object(version),
+              tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+              tx.object(receipt.id),
+              alphaReceipt,
+              tx.object(this.poolLabel.poolId),
+              tx.object(POOLS.ALPHA_LEGACY),
+              tx.object(DISTRIBUTOR_OBJECT_ID),
+              tx.object(CLOCK_PACKAGE_ID),
+            ],
+          });
+        });
+      }
+    }
   }
 }
 

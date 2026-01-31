@@ -448,8 +448,8 @@ export class SlushLendingStrategy extends BaseStrategy<
     tx.transferObjects([slushCoin], options.address);
   }
 
-  async claimRewards(tx: Transaction, _poolId: string, _address: string) {
-    // TODO: Implement claim rewards logic
+  async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {
+    return;
   }
 }
 

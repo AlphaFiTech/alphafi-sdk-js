@@ -9,7 +9,7 @@ import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
 import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
-import { Transaction } from '@mysten/sui/transactions';
+import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
   CLOCK_PACKAGE_ID,
   DISTRIBUTOR_OBJECT_ID,
@@ -504,8 +504,8 @@ export class FungibleLpStrategy extends BaseStrategy<
     });
   }
 
-  async claimRewards(tx: Transaction, poolId: string, address: string) {
-    // TODO: Implement claim rewards logic
+  async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {
+    return;
   }
 }
 

@@ -40,6 +40,12 @@ export class Portfolio {
     return resMap;
   }
 
+  async getAllPoolStrategies(userAddress: string): Promise<Map<string, Strategy>> {
+    const strategies = await this.protocol.getStrategies();
+    await this.updateStrategiesWithReceipts(userAddress, strategies);
+    return strategies;
+  }
+
   async getPoolStrategy(userAddress: string, poolId: string): Promise<Strategy> {
     const strategy = await this.protocol.getSinglePoolStrategy(poolId);
     await this.updateStrategiesWithReceipts(userAddress, new Map([[poolId, strategy]]));

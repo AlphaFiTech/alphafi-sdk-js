@@ -3,7 +3,7 @@ import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } f
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
-import { Transaction } from '@mysten/sui/transactions';
+import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
   ALPHAFI_RECEIPT_WHITELISTED_ADDRESSES,
   CLOCK_PACKAGE_ID,
@@ -777,7 +777,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
     }
   }
 
-  async withdraw(tx: Transaction, options: WithdrawOptions) {
+  async withdraw(_tx: Transaction, _options: WithdrawOptions) {
     throw new Error('Withdraw is not supported for AlphaVault strategy');
   }
 
@@ -802,8 +802,8 @@ export class AlphaVaultStrategy extends BaseStrategy<
     tx.transferObjects([coin], address);
   }
 
-  async claimRewards(tx: Transaction, poolId: string, address: string) {
-    throw new Error('Claim rewards is not supported for AlphaVault strategy');
+  async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {
+    return;
   }
 }
 

@@ -1,5 +1,6 @@
 export const PACKAGE_IDS = {
   ALPHAFI_RECEIPT: '0x18533807391b15db5f1f530f54b32553372e5c204d179928d8da0a1753cbb63c',
+  ALPHA_LATEST: '0x07bece8cf2a3a386a845c905194b952a191c71e81331c2600cbc2a5a33df01f8',
 };
 
 export const VERSIONS = {
@@ -47,6 +48,9 @@ export const SLUSH_POSITION_CAP_TYPE =
 
 export const ALPHAFI_RECEIPT_TYPE =
   '0x18533807391b15db5f1f530f54b32553372e5c204d179928d8da0a1753cbb63c::alphafi_receipt::AlphaFiReceipt';
+
+export const LEGACY_ALPHA_POOL_RECEIPT =
+  '0x9bbd650b8442abb082c20f3bc95a9434a8d47b4bef98b0832dab57c1a8ba7123::alphapool::Receipt';
 
 export const DISTRIBUTOR_OBJECT_ID =
   '0x33f3c288a90c5368ec3b937875cfae94aebae0ee7fb65e97265728eff9e6995b';

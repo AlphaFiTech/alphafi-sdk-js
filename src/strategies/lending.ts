@@ -7,7 +7,7 @@ import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } f
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
-import { Transaction } from '@mysten/sui/transactions';
+import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
   BUCKET_CONFIG,
   CLOCK_PACKAGE_ID,
@@ -1050,8 +1050,53 @@ export class LendingStrategy extends BaseStrategy<
     }
   }
 
-  async claimRewards(tx: Transaction, _poolId: string, _address: string) {
-    // TODO: Implement claim rewards logic
+  async claimRewards(tx: Transaction, alphaReceipt: TransactionResult) {
+    let target, version;
+    if (this.poolLabel.packageNumber === 3) {
+      if (this.poolLabel.parentProtocol === 'Bucket') {
+        target = `${this.poolLabel.packageId}::alphafi_bucket_pool_v1::get_user_rewards_all`;
+        version = VERSIONS.ALPHA_VERSIONS[3];
+      } else if (this.poolLabel.parentProtocol === 'Navi') {
+        target = `${this.poolLabel.packageId}::alphafi_navi_pool_v2::get_user_rewards_all`;
+        version = VERSIONS.ALPHA_VERSIONS[3];
+      }
+    } else if (this.poolLabel.packageNumber === 9) {
+      target = `${this.poolLabel.packageId}::alphafi_navi_pool_v2::get_user_rewards_all`;
+      version = VERSIONS.ALPHA_NAVI_V2;
+    } else {
+      this.receiptObjects.forEach((receipt) => {
+        alphaReceipt = tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_navi_pool::get_user_rewards_all`,
+          typeArguments: [this.poolLabel.asset.type],
+          arguments: [
+            tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+            tx.object(receipt.id),
+            alphaReceipt,
+            tx.object(this.poolLabel.poolId),
+            tx.object(POOLS.ALPHA_LEGACY),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+      });
+    }
+    if (version && target) {
+      this.receiptObjects.forEach((receipt) => {
+        alphaReceipt = tx.moveCall({
+          target,
+          arguments: [
+            tx.object(version),
+            tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+            tx.object(receipt.id),
+            alphaReceipt,
+            tx.object(this.poolLabel.poolId),
+            tx.object(POOLS.ALPHA_LEGACY),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+      });
+    }
   }
 }
 

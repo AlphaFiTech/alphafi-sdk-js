@@ -8,10 +8,6 @@ import { Transaction } from '@mysten/sui/transactions';
 import { Protocol } from '../models/protocol.js';
 import { Portfolio } from '../models/portfolio.js';
 import {
-  PoolName,
-  zapDepositTxb,
-  zapDepositQuoteTxb,
-  claimRewardTxb,
   initiateWithdrawAlpha,
   claimWithdrawAlphaTx,
   claimAirdropTx,
@@ -29,11 +25,10 @@ import {
   DepositOptions,
   EstimateLpAmountsOptions,
   WithdrawOptions,
-  ZapDepositOptions,
-  ZapDepositQuoteOptions,
 } from './types.js';
 import { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 import { StrategyType } from '../strategies/strategy.js';
+import { LEGACY_ALPHA_POOL_RECEIPT, PACKAGE_IDS, VERSIONS } from '../utils/constants.js';
 
 // Re-export types for external use
 export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
@@ -104,23 +99,23 @@ export class AlphaFiSDK {
     }
 
     const tx = new Transaction();
-    if (poolLabel.strategyType === 'Lyf') {
-      const lyfTx = await zapDepositTxb(
-        options.amount,
-        false,
-        poolLabel.poolName as PoolName,
-        0.005,
-        options.address,
-      );
-      if (!lyfTx) {
-        throw new Error(`Failed to create LYF SUI deposit transaction`);
-      }
-      return lyfTx;
-    } else {
-      const strategy = await this.portfolio.getPoolStrategy(options.address, options.poolId);
-      await strategy.deposit(tx, options);
-      return tx;
-    }
+    // if (poolLabel.strategyType === 'Lyf') {
+    //   const lyfTx = await zapDepositTxb(
+    //     options.amount,
+    //     false,
+    //     poolLabel.poolName as PoolName,
+    //     0.005,
+    //     options.address,
+    //   );
+    //   if (!lyfTx) {
+    //     throw new Error(`Failed to create LYF SUI deposit transaction`);
+    //   }
+    //   return lyfTx;
+    // } else {
+    const strategy = await this.portfolio.getPoolStrategy(options.address, options.poolId);
+    await strategy.deposit(tx, options);
+    return tx;
+    // }
   }
 
   /**
@@ -191,52 +186,6 @@ export class AlphaFiSDK {
   }
 
   /**
-   * Get quote for zap deposit operation.
-   *
-   * Estimates how much LP tokens you'll receive when depositing a single token
-   * that gets automatically swapped and balanced for LP provision.
-   *
-   * @param options - Input token amount, pool ID, and slippage tolerance
-   * @returns Tuple of [expected tokenA out, expected tokenB out] or undefined if quote fails
-   */
-  async zapDepositQuote(options: ZapDepositQuoteOptions): Promise<[string, string] | undefined> {
-    const poolLabel = await this.strategyContext.getPoolLabel(options.poolId);
-    if (!poolLabel) {
-      throw new Error(`Pool with ID ${options.poolId} not found`);
-    }
-
-    return await zapDepositQuoteTxb(
-      options.inputCoinAmount,
-      options.isInputA,
-      poolLabel.poolName as PoolName,
-    );
-  }
-
-  /**
-   * Execute zap deposit: convert single token to balanced LP position.
-   *
-   * Automatically swaps your input token to achieve the proper balance
-   * for LP provision, then deposits both tokens in one transaction.
-   *
-   * @param options - Input token details, pool ID, slippage, and user address
-   * @returns Transaction object or undefined if zap fails
-   */
-  async zapDeposit(options: ZapDepositOptions): Promise<Transaction | undefined> {
-    const poolLabel = await this.strategyContext.getPoolLabel(options.poolId);
-    if (!poolLabel) {
-      throw new Error(`Pool with ID ${options.poolId} not found`);
-    }
-
-    return await zapDepositTxb(
-      options.inputCoinAmount,
-      options.isInputA,
-      poolLabel.poolName as PoolName,
-      options.slippage,
-      options.address,
-    );
-  }
-
-  /**
    * Claim accumulated rewards from all pools.
    *
    * Collects all available rewards including:
@@ -248,7 +197,22 @@ export class AlphaFiSDK {
    * @returns Transaction to claim all available rewards
    */
   async claim(options: ClaimOptions): Promise<Transaction> {
-    return await claimRewardTxb(options.address);
+    const tx = new Transaction();
+    const alphaReceipt = tx.moveCall({
+      target: `0x1::option::none`,
+      typeArguments: [LEGACY_ALPHA_POOL_RECEIPT],
+      arguments: [],
+    });
+    const strategies = await this.portfolio.getAllPoolStrategies(options.address);
+    strategies.forEach((strategy) => {
+      strategy.claimRewards(tx, alphaReceipt);
+    });
+    tx.moveCall({
+      target: `${PACKAGE_IDS.ALPHA_LATEST}::alphapool::transfer_receipt_option`,
+      arguments: [tx.object(VERSIONS.ALPHA_VERSIONS[1]), alphaReceipt],
+    });
+
+    return tx;
   }
 
   /**

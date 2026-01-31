@@ -9,7 +9,7 @@ import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
 import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
-import { Transaction } from '@mysten/sui/transactions';
+import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
   ALPHALEND_LENDING_PROTOCOL_ID,
   CLOCK_PACKAGE_ID,
@@ -692,8 +692,23 @@ export class LyfStrategy extends BaseStrategy<
     tx.transferObjects([sui], options.address);
   }
 
-  async claimRewards(tx: Transaction, poolId: string, address: string) {
-    // TODO: Implement claim rewards logic
+  async claimRewards(tx: Transaction, alphaReceipt: TransactionResult) {
+    this.receiptObjects.forEach((receipt) => {
+      alphaReceipt = tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_lyf_pool::get_user_rewards_all`,
+        typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+        arguments: [
+          tx.object(VERSIONS.LYF_LP),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(receipt.id),
+          alphaReceipt,
+          tx.object(this.poolLabel.poolId),
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    });
   }
 }
 

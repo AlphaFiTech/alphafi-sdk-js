@@ -531,8 +531,8 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     });
   }
 
-  async claimRewards(tx: Transaction, poolId: string, address: string) {
-    throw new Error('Claim rewards is not supported for AutobalanceLp strategy');
+  async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {
+    return;
   }
 
   private collectReward(tx: Transaction) {

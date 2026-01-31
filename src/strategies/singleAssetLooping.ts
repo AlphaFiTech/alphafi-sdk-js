@@ -7,13 +7,14 @@ import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } f
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
-import { Transaction } from '@mysten/sui/transactions';
+import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import {
   ALPHALEND_LENDING_PROTOCOL_ID,
   CLOCK_PACKAGE_ID,
   DISTRIBUTOR_OBJECT_ID,
   GLOBAL_CONFIGS,
+  POOLS,
   VERSIONS,
 } from '../utils/constants.js';
 
@@ -686,8 +687,23 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
     tx.transferObjects([coin], options.address);
   }
 
-  async claimRewards(tx: Transaction, _poolId: string, _address: string) {
-    // TODO: Implement claim rewards logic
+  async claimRewards(tx: Transaction, alphaReceipt: TransactionResult) {
+    this.receiptObjects.forEach((receipt) => {
+      alphaReceipt = tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::get_user_rewards_all`,
+        typeArguments: [this.poolLabel.asset.type],
+        arguments: [
+          tx.object(VERSIONS.ALPHALEND_VERSION),
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(receipt.id),
+          alphaReceipt,
+          tx.object(this.poolLabel.poolId),
+          tx.object(POOLS.ALPHA_LEGACY),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    });
   }
 }
 

@@ -171,7 +171,7 @@ export interface Strategy<TPool = any, TInvestor = any, TParentPool = any, TRece
    * @param address - The address of the user to claim rewards for
    * @returns Transaction to claim rewards for the specified pool
    */
-  claimRewards(tx: Transaction, poolId: string, address: string): Promise<void>;
+  claimRewards(tx: Transaction, alphaReceipt: TransactionResult): Promise<void>;
 
   /**
    * Create an AlphaFi receipt.
@@ -202,7 +202,7 @@ export abstract class BaseStrategy<TPool = any, TInvestor = any, TParentPool = a
   abstract getOtherAmount(amount: string, isAmountA: boolean): [string, string];
   abstract deposit(tx: Transaction, options: DepositOptions): Promise<void>;
   abstract withdraw(tx: Transaction, options: WithdrawOptions): Promise<void>;
-  abstract claimRewards(tx: Transaction, poolId: string, address: string): Promise<void>;
+  abstract claimRewards(tx: Transaction, alphaReceipt: TransactionResult): Promise<void>;
 
   createAlphaFiReceipt(tx: Transaction) {
     return tx.moveCall({

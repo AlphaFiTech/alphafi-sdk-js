@@ -7,7 +7,7 @@ import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } f
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
-import { Transaction } from '@mysten/sui/transactions';
+import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
   ALPHALEND_LENDING_PROTOCOL_ID,
   CLOCK_PACKAGE_ID,
@@ -1083,8 +1083,41 @@ export class LoopingStrategy extends BaseStrategy<
     }
   }
 
-  async claimRewards(tx: Transaction, _poolId: string, _address: string) {
-    // TODO: Implement claim rewards logic
+  async claimRewards(tx: Transaction, alphaReceipt: TransactionResult) {
+    let target, version;
+    if (this.poolLabel.poolName == 'NAVI-LOOP-USDT-USDC') {
+      target = `${this.poolLabel.packageId}::alphafi_navi_usdt_usdc_pool::get_user_rewards_all`;
+      version = VERSIONS.ALPHA_VERSIONS[5];
+    } else if (this.poolLabel.poolName == 'ALPHALEND-LOOP-SUI-STSUI') {
+      target = `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::get_user_rewards_all`;
+      version = VERSIONS.ALPHA_VERSIONS[5];
+    } else if (this.poolLabel.poolName == 'NAVI-LOOP-SUI-VSUI') {
+      target = `${this.poolLabel.packageId}::alphafi_navi_sui_vsui_pool::get_user_rewards_all`;
+      version = VERSIONS.ALPHA_VERSIONS[2];
+    } else if (this.poolLabel.poolName == 'NAVI-LOOP-USDC-USDT') {
+      target = `${this.poolLabel.packageId}::alphafi_navi_native_usdc_usdt_pool::get_user_rewards_all`;
+      version = VERSIONS.ALPHA_VERSIONS[2];
+    } else if (this.poolLabel.poolName == 'NAVI-LOOP-HASUI-SUI') {
+      target = `${this.poolLabel.packageId}::alphafi_navi_hasui_sui_pool::get_user_rewards_all`;
+      version = VERSIONS.ALPHA_VERSIONS[2];
+    }
+    if (version && target) {
+      this.receiptObjects.forEach((receipt) => {
+        alphaReceipt = tx.moveCall({
+          target,
+          arguments: [
+            tx.object(version),
+            tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+            tx.object(receipt.id),
+            alphaReceipt,
+            tx.object(this.poolLabel.poolId),
+            tx.object(POOLS.ALPHA_LEGACY),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+      });
+    }
   }
 }
 
