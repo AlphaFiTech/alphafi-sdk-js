@@ -34,11 +34,11 @@ jobs:
           cache-dependency-path: alphafi-sdk-js/package-lock.json
 
       - name: Install alphafi-sdk dependencies
-        run: npm install
+        run: npm ci
         working-directory: alphafi-sdk
 
       - name: Install alphafi-sdk-js dependencies
-        run: npm install
+        run: npm ci
         working-directory: alphafi-sdk-js
 
       - name: Run linter
@@ -72,7 +72,7 @@ jobs:
           cache-dependency-path: alphafi-sdk-js/package-lock.json
 
       - name: Install alphafi-sdk dependencies
-        run: npm install
+        run: npm ci
         working-directory: alphafi-sdk
 
       - name: Build alphafi-sdk
@@ -80,7 +80,7 @@ jobs:
         working-directory: alphafi-sdk
 
       - name: Install alphafi-sdk-js dependencies
-        run: npm install
+        run: npm ci
         working-directory: alphafi-sdk-js
 
       - name: Run tests
@@ -114,7 +114,7 @@ jobs:
           cache-dependency-path: alphafi-sdk-js/package-lock.json
 
       - name: Install alphafi-sdk dependencies
-        run: npm install
+        run: npm ci
         working-directory: alphafi-sdk
 
       - name: Build alphafi-sdk
@@ -122,7 +122,7 @@ jobs:
         working-directory: alphafi-sdk
 
       - name: Install alphafi-sdk-js dependencies
-        run: npm install
+        run: npm ci
         working-directory: alphafi-sdk-js
 
       - name: Build application
