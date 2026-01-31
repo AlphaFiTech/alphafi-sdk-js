@@ -2,7 +2,7 @@ import { Decimal } from 'decimal.js';
 import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
 import { AlphaFiReceipt, PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
-import { ClaimAirdropOptions, DepositOptions, WithdrawOptions } from '../core/types.js';
+import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
   ALPHAFI_RECEIPT_WHITELISTED_ADDRESSES,
