@@ -16,6 +16,10 @@ import { LpStrategy } from '../strategies/lp.js';
 import { LyfStrategy } from '../strategies/lyf.js';
 import { SingleAssetLoopingStrategy } from '../strategies/singleAssetLooping.js';
 import { FungibleLpPoolLabel, FungibleLpStrategy } from '../strategies/fungibleLp.js';
+import {
+  FungibleLendingPoolLabel,
+  FungibleLendingStrategy,
+} from '../strategies/fungibleLending.js';
 import { SlushLendingStrategy } from '../strategies/slushLending.js';
 
 export class Portfolio {
@@ -114,7 +118,12 @@ export class Portfolio {
     const poolLabels = Array.from(strategies.values()).map((strategy) => strategy.getPoolLabel());
     const receiptTypes: string[] = [];
 
-    let [hasSlushLending, hasFungibleLp, hasAlphaVault] = [false, false, false];
+    let [hasSlushLending, hasFungibleLp, hasAlphaVault, hasFungibleLending] = [
+      false,
+      false,
+      false,
+      false,
+    ];
     poolLabels.forEach((poolLabel) => {
       switch (poolLabel.strategyType) {
         case 'AlphaVault':
@@ -134,6 +143,9 @@ export class Portfolio {
         case 'SlushLending':
           hasSlushLending = true;
           break;
+        case 'FungibleLending':
+          hasFungibleLending = true;
+          break;
         default:
           break;
       }
@@ -147,7 +159,9 @@ export class Portfolio {
         ? this.strategyContext.getPositionsFromAlphaFiReceipts(userAddress)
         : Promise.resolve(new Map()),
       this.strategyContext.blockchain.multiGetReceipts(userAddress, receiptTypes),
-      hasFungibleLp ? this.getWalletCoins(userAddress) : Promise.resolve(new Map()),
+      hasFungibleLp || hasFungibleLending
+        ? this.getWalletCoins(userAddress)
+        : Promise.resolve(new Map()),
     ]);
 
     strategies.forEach((strategy, poolId) => {
@@ -216,6 +230,17 @@ export class Portfolio {
         case 'SlushLending': {
           const slushLendingStrategy = strategy as SlushLendingStrategy;
           slushLendingStrategy.updateReceipts(slushPositions.get(poolId) ?? []);
+          break;
+        }
+        case 'FungibleLending': {
+          const fungibleLpStrategy = strategy as FungibleLendingStrategy;
+          fungibleLpStrategy.updateReceipts(
+            new Decimal(
+              coinBalances.get(
+                (strategy.getPoolLabel() as FungibleLendingPoolLabel).fungibleCoin.type,
+              ) ?? '0',
+            ),
+          );
           break;
         }
       }
