@@ -43,7 +43,12 @@ export function getExecStuff() {
 
   const suiClient = getSuiClient(process.env.NETWORK);
 
-  return { address, keypair, suiClient };
+  return {
+    address,
+    // address: '0xe25b5d16ca31ddfdc31a7219c90f88bdfc56b606c13df6619aef22515580e293',
+    keypair,
+    suiClient,
+  };
 }
 
 export async function dryRunTransactionBlock(txb: Transaction) {
@@ -175,10 +180,9 @@ async function deposit() {
     amount: 100_000n,
     address: address,
   });
-  // dryRunTransactionBlock(tx);
-  executeTransactionBlock(tx);
+  dryRunTransactionBlock(tx);
+  // executeTransactionBlock(tx);
 }
-// deposit();
 
 async function withdraw() {
   const { address, keypair, suiClient } = getExecStuff();
