@@ -1,177 +1,241 @@
-import { Decimal } from 'decimal.js';
-import { poolDetailsMap, poolDetailsMapByPoolName } from '../common/maps.js';
-import { Blockchain } from './blockchain.js';
-import { SuiClient } from '@mysten/sui/client';
-import { getConf } from '../common/constants.js';
-import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
-
-type LoopingDebt = {
-  dataType: string;
-  type: string;
-  hasPublicTransfer: boolean;
-  fields: {
-    name: [];
-    value: string;
-  };
-};
+/**
+ * Core protocol manager that handles strategy initialization and data retrieval.
+ * Uses per-pool caching for granular cache management.
+ */
+import { StrategyContext } from './strategyContext.js';
+import { LpPoolLabel, LpStrategy } from '../strategies/lp.js';
+import { LyfPoolLabel, LyfStrategy } from '../strategies/lyf.js';
+import { AutobalanceLpPoolLabel, AutobalanceLpStrategy } from '../strategies/autobalanceLp.js';
+import { FungibleLpPoolLabel, FungibleLpStrategy } from '../strategies/fungibleLp.js';
+import { AlphaVaultPoolLabel, AlphaVaultStrategy } from '../strategies/alphaVault.js';
+import { LendingPoolLabel, LendingStrategy } from '../strategies/lending.js';
+import { SlushLendingStrategy } from '../strategies/slushLending.js';
+import { LoopingPoolLabel, LoopingStrategy } from '../strategies/looping.js';
+import {
+  SingleAssetLoopingPoolLabel,
+  SingleAssetLoopingStrategy,
+} from '../strategies/singleAssetLooping.js';
+import { PoolLabel, Strategy, StrategyType } from '../strategies/strategy.js';
+import { PoolData } from './types.js';
+import { Cache } from '../utils/cache.js';
+import { CACHE_TTL } from '../utils/constants.js';
 
 export class Protocol {
-  suiClient: SuiClient;
-  blockchain: Blockchain;
+  strategyContext: StrategyContext;
+  private strategyCache: Cache<string, Strategy>;
 
-  constructor(suiClient: SuiClient, network: 'mainnet' | 'testnet' | 'devnet' | 'localnet') {
-    this.suiClient = suiClient;
-    this.blockchain = new Blockchain(network);
+  constructor(strategyContext: StrategyContext) {
+    this.strategyContext = strategyContext;
+    this.strategyCache = new Cache<string, Strategy>(CACHE_TTL.STRATEGY_CACHE);
   }
 
-  async getAprMap(): Promise<Map<string, { parentApr: Decimal; alphaMiningApr: Decimal }>> {
-    const apiUrl = 'https://api.alphafi.xyz/apr';
-    const response = await fetch(`${apiUrl}`);
-    const dataArr = (await response.json()) as {
-      name: string;
-      apr: any;
-    }[];
-    const aprMap = new Map<
-      string,
-      {
-        parentApr: Decimal;
-        alphaMiningApr: Decimal;
-      }
-    >();
+  /** Get pool data from strategies, optionally filtered by type. */
+  async getPoolsData(strategiesType?: StrategyType[]): Promise<Map<string, PoolData>> {
+    const strategies = await this.getStrategies(strategiesType);
+    const poolsData = await Promise.all(
+      Array.from(strategies.values()).map((strategy) => strategy.getData()),
+    );
+    return new Map(poolsData.map((poolData) => [poolData.poolId, poolData]));
+  }
 
-    for (const data of dataArr) {
-      const poolId = poolDetailsMapByPoolName[data.name].poolId;
-      if (!poolId) {
-        console.error(`Pool ${data.name} not found in poolDetailsMap`);
-        continue;
+  /** Get initialized strategies, optionally filtered by type. */
+  async getStrategies(strategiesType?: StrategyType[]): Promise<Map<string, Strategy>> {
+    const poolLabels = await this.strategyContext.getPoolLabels();
+
+    // Filter by strategy types if specified
+    const filteredLabels = strategiesType
+      ? Array.from(poolLabels.values()).filter((label) =>
+          strategiesType.includes(label.strategyType),
+        )
+      : Array.from(poolLabels.values());
+
+    // Get pool IDs that need to be built (not in cache or expired)
+    const poolIdsToBuild: string[] = [];
+    const cachedStrategies: Map<string, Strategy> = new Map();
+
+    for (const label of filteredLabels) {
+      const cached = this.strategyCache.get(label.poolId);
+      if (cached) {
+        cachedStrategies.set(label.poolId, cached);
+      } else {
+        poolIdsToBuild.push(label.poolId);
       }
-      const entries = Object.entries(data.apr) as [string, number][];
-      const parentApr = entries.find(([key]) => key !== 'alphaApr')?.[1];
-      aprMap.set(poolId, {
-        parentApr: new Decimal(parentApr ?? 0),
-        alphaMiningApr: new Decimal(data.apr.alphaApr),
+    }
+
+    // Build strategies for pools not in cache
+    if (poolIdsToBuild.length > 0) {
+      const labelsToBuild = poolIdsToBuild
+        .map((id) => poolLabels.get(id))
+        .filter((label): label is PoolLabel => label !== undefined);
+
+      const newStrategies = await this.buildPoolStrategies(labelsToBuild);
+
+      // Cache the new strategies
+      newStrategies.forEach((strategy, poolId) => {
+        this.strategyCache.set(poolId, strategy);
+        cachedStrategies.set(poolId, strategy);
       });
     }
 
-    return aprMap;
+    return cachedStrategies;
   }
 
-  async getPriceMap(): Promise<Map<string, Decimal>> {
-    const apiUrl = 'https://api.alphalend.xyz/public/graphql';
-    const query = `
-      query {
-        coinInfo {
-          coinType
-          coingeckoPrice
-        }
+  /** Get a single pool strategy by poolId. Uses cache with lazy loading and promise memoization. */
+  async getSinglePoolStrategy(poolId: string): Promise<Strategy> {
+    return this.strategyCache.getOrFetch(poolId, async () => {
+      const poolLabel = await this.strategyContext.getPoolLabel(poolId);
+      if (!poolLabel) {
+        throw new Error(`Pool label not found for poolId: ${poolId}`);
       }
-    `;
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ query }),
+
+      const strategies = await this.buildPoolStrategies([poolLabel]);
+      const strategy = strategies.get(poolId);
+
+      if (!strategy) {
+        throw new Error(`Failed to build strategy for poolId: ${poolId}`);
+      }
+
+      return strategy;
     });
-
-    const dataArr = (await response.json()).data.coinInfo;
-    const priceMap = new Map<string, Decimal>();
-    for (const data of dataArr) {
-      priceMap.set(data.coinType, new Decimal(data.coingeckoPrice));
-    }
-    priceMap.set(
-      '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
-      priceMap.get('0x2::sui::SUI') || new Decimal(0),
-    );
-    return priceMap;
   }
 
-  async getNaviTvlMap(): Promise<Map<string, Decimal>> {
-    const naviUrl = 'https://api.alphafi.xyz/navi-params';
-    const response = await fetch(naviUrl);
-    const dataArr = await response.json();
-    const naviTvlMap = new Map<string, Decimal>();
+  /** Build strategies from on-chain data for specified pool labels. */
+  private async buildPoolStrategies(poolLabels: PoolLabel[]): Promise<Map<string, Strategy>> {
+    if (poolLabels.length === 0) {
+      return new Map();
+    }
 
-    for (const data of dataArr) {
-      if (!poolDetailsMapByPoolName[data.poolName]) continue;
-      const poolId = poolDetailsMapByPoolName[data.poolName].poolId;
-      if (!poolId) {
-        console.error(`Pool ${data.poolName} not found in poolDetailsMap`);
-        continue;
+    const poolIds = poolLabels.map((poolLabel) => poolLabel.poolId);
+    const investorIds = poolLabels
+      .filter((poolLabel) => 'investorId' in poolLabel && poolLabel.investorId)
+      .map((poolLabel) => (poolLabel as any).investorId);
+    const parentPoolIds = poolLabels
+      .filter((poolLabel) => 'parentPoolId' in poolLabel && poolLabel.parentPoolId)
+      .map((poolLabel) => (poolLabel as any).parentPoolId);
+
+    const [poolObjects, investorObjects, parentPoolObjects] = await Promise.all([
+      this.strategyContext.blockchain.multiGetObjects(poolIds),
+      this.strategyContext.blockchain.multiGetObjects(investorIds),
+      this.strategyContext.blockchain.multiGetObjects(parentPoolIds),
+    ]);
+
+    const resMap: Map<string, Strategy> = new Map();
+    poolLabels.forEach((poolLabel) => {
+      switch (poolLabel.strategyType) {
+        case 'Lp':
+          resMap.set(
+            poolLabel.poolId,
+            new LpStrategy(
+              poolLabel,
+              poolObjects.get(poolLabel.poolId),
+              investorObjects.get((poolLabel as LpPoolLabel).investorId),
+              parentPoolObjects.get((poolLabel as LpPoolLabel).parentPoolId),
+              this.strategyContext,
+            ),
+          );
+          break;
+        case 'Lyf':
+          resMap.set(
+            poolLabel.poolId,
+            new LyfStrategy(
+              poolLabel,
+              poolObjects.get(poolLabel.poolId),
+              parentPoolObjects.get((poolLabel as LyfPoolLabel).parentPoolId),
+              this.strategyContext,
+            ),
+          );
+          break;
+        case 'AutobalanceLp':
+          resMap.set(
+            poolLabel.poolId,
+            new AutobalanceLpStrategy(
+              poolLabel,
+              poolObjects.get(poolLabel.poolId),
+              investorObjects.get((poolLabel as AutobalanceLpPoolLabel).investorId),
+              parentPoolObjects.get((poolLabel as AutobalanceLpPoolLabel).parentPoolId),
+              this.strategyContext,
+            ),
+          );
+          break;
+        case 'FungibleLp':
+          resMap.set(
+            poolLabel.poolId,
+            new FungibleLpStrategy(
+              poolLabel,
+              poolObjects.get(poolLabel.poolId),
+              investorObjects.get((poolLabel as FungibleLpPoolLabel).investorId),
+              parentPoolObjects.get((poolLabel as FungibleLpPoolLabel).parentPoolId),
+              this.strategyContext,
+            ),
+          );
+          break;
+        case 'AlphaVault':
+          resMap.set(
+            poolLabel.poolId,
+            new AlphaVaultStrategy(
+              poolLabel,
+              poolObjects.get(poolLabel.poolId),
+              investorObjects.get((poolLabel as AlphaVaultPoolLabel).investorId),
+              this.strategyContext,
+            ),
+          );
+          break;
+        case 'Lending':
+          resMap.set(
+            poolLabel.poolId,
+            new LendingStrategy(
+              poolLabel,
+              poolObjects.get(poolLabel.poolId),
+              investorObjects.get((poolLabel as LendingPoolLabel).investorId),
+              parentPoolObjects.get((poolLabel as LendingPoolLabel).parentPoolId),
+              this.strategyContext,
+            ),
+          );
+          break;
+        case 'SlushLending':
+          resMap.set(
+            poolLabel.poolId,
+            new SlushLendingStrategy(
+              poolLabel,
+              poolObjects.get(poolLabel.poolId),
+              this.strategyContext,
+            ),
+          );
+          break;
+        case 'Looping':
+          resMap.set(
+            poolLabel.poolId,
+            new LoopingStrategy(
+              poolLabel,
+              poolObjects.get(poolLabel.poolId),
+              investorObjects.get((poolLabel as LoopingPoolLabel).investorId),
+              this.strategyContext,
+            ),
+          );
+          break;
+        case 'SingleAssetLooping':
+          resMap.set(
+            poolLabel.poolId,
+            new SingleAssetLoopingStrategy(
+              poolLabel,
+              poolObjects.get(poolLabel.poolId),
+              investorObjects.get((poolLabel as SingleAssetLoopingPoolLabel).investorId),
+              this.strategyContext,
+            ),
+          );
+          break;
       }
-      naviTvlMap.set(poolId, new Decimal(data.naviPoolTVL));
-    }
-    return naviTvlMap;
+    });
+    return resMap;
   }
 
-  async getNaviLoopingPoolDebt(): Promise<Map<string, string>> {
-    const debtMap = new Map<string, string>();
-    const poolKeys = Object.keys(poolDetailsMap);
-    for (const poolKey of poolKeys) {
-      if (poolDetailsMap[poolKey].strategyType === 'SINGLE-ASSET-LOOPING') {
-        const debt = await this.getSingularNaviLoopingPoolDebt(poolKey);
-        debtMap.set(poolKey, debt);
-      }
-    }
-    return debtMap;
+  /** Clear the strategy cache. */
+  clearCache(): void {
+    this.strategyCache.clear();
   }
 
-  async getVoloExchangeRate(): Promise<Decimal> {
-    const apiUrl = 'https://open-api.naviprotocol.io/api/volo/stats';
-    try {
-      const response = await fetch(apiUrl);
-      const data = (await response.json()) as any;
-      return new Decimal(data.data.exchangeRate);
-    } catch (error) {
-      console.log('error in api', error);
-      return new Decimal(0);
-    }
-  }
-
-  async getStsuiExchangeRate(): Promise<Decimal> {
-    const suiTostSuiExchangeRate = await stSuiExchangeRate(getStSuiConf().LST_INFO, true);
-    return new Decimal(suiTostSuiExchangeRate);
-  }
-
-  private async getSingularNaviLoopingPoolDebt(poolId: string): Promise<string> {
-    const debt = (
-      (
-        await this.suiClient.getDynamicFieldObject({
-          parentId: poolDetailsMap[poolId].investorId,
-          name: {
-            type: 'vector<u8>',
-            value: 'debt'.split('').map((char) => char.charCodeAt(0)),
-          },
-        })
-      ).data?.content as LoopingDebt
-    ).fields.value.toString();
-    return debt;
-  }
-
-  private async getBucketTVL(): Promise<Decimal> {
-    try {
-      const fountain = (
-        await this.suiClient.getObject({
-          id: getConf().FOUNTAIN,
-          options: { showContent: true },
-        })
-      ).data as any;
-      const flask = (
-        await this.suiClient.getObject({
-          id: getConf().FLASK,
-          options: { showContent: true },
-        })
-      ).data as any;
-
-      const totalSbuckInFountain = fountain.content.fields.staked;
-      const buckPerSbuck = new Decimal(flask.content.fields.reserves).div(
-        flask.content.fields.sbuck_supply.fields.value,
-      );
-      const totalBuckInFountain = new Decimal(totalSbuckInFountain).mul(buckPerSbuck);
-
-      return totalBuckInFountain.div(new Decimal(1e9));
-    } catch {
-      throw new Error('error in bucket protocol tvl');
-    }
+  /** Clear cache for a specific pool. */
+  clearPoolCache(poolId: string): void {
+    this.strategyCache.delete(poolId);
   }
 }

@@ -7,7 +7,7 @@ import { Portfolio } from '../src/models/portfolio.js';
 import { AlphaFiSDK } from '../src/index.js';
 import dotenv from 'dotenv';
 import { Transaction } from '@mysten/sui/transactions';
-import { getConf } from '../src/common/constants.js';
+import * as fs from 'fs';
 
 dotenv.config();
 
@@ -56,7 +56,7 @@ export async function dryRunTransactionBlock(txb: Transaction) {
   txb.setSender(address);
   // txb.setGasBudget(1e9);
   try {
-    let serializedTxb = await txb.build({ client: suiClient });
+    const serializedTxb = await txb.build({ client: suiClient });
     suiClient
       .dryRunTransactionBlock({
         transactionBlock: serializedTxb,
@@ -106,10 +106,19 @@ export async function executeTransactionBlock(txb: Transaction) {
 
 async function main() {
   const { address, keypair, suiClient } = getExecStuff();
-  const blockchain = new Blockchain('mainnet');
-  const protocol = new Protocol(suiClient, 'mainnet');
-  const portfolio = new Portfolio(protocol, blockchain, suiClient, address);
-  // const res = await protocol.getAllPoolsData();
+  const alphafiClient = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
+  const startTime = Date.now();
+  const res = await alphafiClient.getPoolsData(
+    //   // ['SlushLending']
+    ['AutobalanceLp', 'Lp'],
+  );
+  // const res = await alphafiClient.getUserPortfolio(
+  // '0x396c8d5f9560f2ffa5d67dcdf3f458ee654ad3e3e08d4eb6ff50e7ddf66a82e5',
+  // address,
+  // ['SlushLending'],
+  // );
+  const endTime = Date.now();
+  console.log(`Time taken: ${endTime - startTime}ms`);
   // for (const pool of res) {
   //   console.log(poolDetailsMap[pool[0]].poolName, pool[1]);
   // }
@@ -117,10 +126,10 @@ async function main() {
   // const res = await blockchain.getObject(
   //   '0xcf994611fd4c48e277ce3ffd4d4364c914af2c3cbb05f7bf6facd371de688630',
   // );
-  const res = await blockchain.multiGetObjects([
-    '0x58c4a8c5d18c61156e1a5a82811fbf71963a4de3f5d52292504646611a308888',
-    '0x89793208211927a4d1458a59d34b775aaec17af8c98a59a1ba97f7b005c0e587',
-  ]);
+  // const res = await blockchain.multiGetObjects([
+  //   '0x58c4a8c5d18c61156e1a5a82811fbf71963a4de3f5d52292504646611a308888',
+  //   '0x89793208211927a4d1458a59d34b775aaec17af8c98a59a1ba97f7b005c0e587',
+  // ]);
   // const res = await blockchain.getReceipt(
   //   address,
   //   '0x45564ea956f9b25890a5c1c3a199c8d86aabd5291b34723fb662283419ee2f4d::alphafi_alphalend_single_loop_pool::Receipt',
@@ -129,26 +138,47 @@ async function main() {
   //   '0x45564ea956f9b25890a5c1c3a199c8d86aabd5291b34723fb662283419ee2f4d::alphafi_alphalend_single_loop_pool::Receipt',
   //   '0x8f7d2c35e19c65213bc2153086969a55ec207b5a25ebdee303a6d9edd9c053e3::alphafi_navi_pool::Receipt',
   // ]);
-  console.log(res);
+  // Write result to file (convert Decimals to strings for JSON serialization)
+  const serializedRes = JSON.stringify(
+    res,
+    (key, value) => {
+      // Convert Map to array of entries (or object)
+      if (value instanceof Map) {
+        return Object.fromEntries(value); // or Array.from(value.entries())
+      }
+      // Convert Decimal objects to strings
+      if (value && typeof value === 'object' && value.constructor?.name === 'Decimal') {
+        return value.toString();
+      }
+      // Convert Date objects to ISO strings
+      if (value instanceof Date) {
+        return value.toISOString();
+      }
+      return value;
+    },
+    2,
+  );
+  fs.writeFileSync('scripts/poolsData.json', serializedRes);
+  // console.log('Result written to scripts/poolsData.json');
+  // console.log(res);
   // console.log(
   //   normalizeStructTag(
   //     '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
   //   ),
   // );
 }
-// main();
+main();
 
 async function deposit() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({
-    client: suiClient,
+    suiClient: suiClient,
     network: 'mainnet',
-    address,
   });
   const tx = await sdk.deposit({
-    poolId: getConf().ALPHAFI_LYF_SUIUSDT_USDC_POOL, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    poolId: '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
     amount: 100_000n,
-    isAmountA: true,
+    address: address,
   });
   dryRunTransactionBlock(tx);
   // executeTransactionBlock(tx);
@@ -156,11 +186,12 @@ async function deposit() {
 
 async function withdraw() {
   const { address, keypair, suiClient } = getExecStuff();
-  const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
-  const tx = await sdk.withdraw({
-    poolId: getConf().ALPHAFI_LYF_SUIUSDT_USDC_POOL, // '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
-    amount: '100000',
-    withdrawMax: true,
+  const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
+  const tx = await sdk.initiateWithdrawAlpha({
+    poolId: '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    amount: '200000',
+    withdrawMax: false,
+    address: address,
   });
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx);
@@ -168,12 +199,11 @@ async function withdraw() {
 }
 async function claimAirdrop() {
   const { address, keypair, suiClient } = getExecStuff();
-  const sdk = new AlphaFiSDK({ client: suiClient, network: 'mainnet', address });
-  const tx = await sdk.claimAirdrop(false);
+  const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
+  const tx = await sdk.claimAirdrop({ address: address, transferToWallet: false });
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx);
   // executeTransactionBlock(tx);
 }
 // claimAirdrop();
-withdraw();
-// deposit();
+// withdraw();

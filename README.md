@@ -1,17 +1,18 @@
 # AlphaFi SDK for JavaScript
 
-A comprehensive TypeScript/JavaScript SDK for interacting with the AlphaFi DeFi
-platform on Sui blockchain. This SDK provides seamless integration with
-multiple DeFi protocols including Bluefin, Navi, Cetus, Bucket, and AlphaLend.
+A comprehensive TypeScript/JavaScript SDK for interacting with the AlphaFi DeFi platform on Sui blockchain.
+This SDK provides seamless integration with multiple DeFi protocols and strategies including lending,
+LP farming, leveraged yield farming, and more.
 
 ## Features
 
 - **Multi-Protocol Support**: Bluefin, Navi, Cetus, Bucket, AlphaLend, and AlphaFi protocols
-- **Transaction Management**: Unified interface for deposits, withdrawals, and reward claims
-- **Pool Management**: Support for single-asset and double-asset pools
-- **Strategy Support**: Regular pools, looping strategies, and autobalance pools
+- **Complete DeFi Suite**: Deposits, withdrawals, swaps, portfolio management, and reward claims
+- **Advanced Strategies**: Lending, LP farming, leveraged yield farming (LYF), looping, and Alpha vaults
+- **Portfolio Management**: Real-time portfolio tracking with aggregated metrics and alpha rewards
+- **Token Swaps**: Integrated Cetus aggregator for optimal token routing
 - **Type Safety**: Full TypeScript support with comprehensive type definitions
-- **Dual Module Support**: Both CommonJS and ESM builds available
+- **Options-Based API**: Consistent, easy-to-use interface across all methods
 
 ## Installation
 
@@ -26,35 +27,61 @@ import { AlphaFiSDK } from '@alphafi/alphafi-sdk';
 import { SuiClient } from '@mysten/sui/client';
 
 // Initialize the SDK
-const client = new SuiClient({ url: 'https://fullnode.mainnet.sui.io:443' });
+const suiClient = new SuiClient({ url: 'https://fullnode.mainnet.sui.io:443' });
 const sdk = new AlphaFiSDK({
-  client,
+  suiClient,
   network: 'mainnet',
-  address: 'your_sui_address_here',
 });
 
-// Deposit into a pool
+const userAddress = 'your_sui_address_here';
+
+// Get all available pools
+const pools = await sdk.getPoolsData();
+console.log('Available pools:', pools);
+
+// Get user portfolio
+const portfolio = await sdk.getUserPortfolio(userAddress);
+console.log('Portfolio:', {
+  netWorth: portfolio.netWorth.toString(),
+  aggregatedApy: portfolio.aggregatedApy.toString(),
+  alphaRewards: portfolio.alphaRewardsToClaim.toString(),
+});
+
+// Build an unsigned deposit transaction
 const depositTx = await sdk.deposit({
-  poolId: '45', // Pool ID as string
-  amount: 1000000n, // Amount in smallest unit (1 SUI = 1000000000n)
-  isAmountA: true, // For double-asset pools
+  poolId: '0x...', // Pool ID
+  address: userAddress,
+  amount: 1000000000n, // 1 SUI in base units
+  isAmountA: true, // For LP pools: which token this amount represents
 });
+// Sign & execute with your wallet / client
+// await suiClient.signAndExecuteTransactionBlock({ transactionBlock: depositTx, signer });
 
-// Withdraw from a pool
+// Build an unsigned withdraw transaction
 const withdrawTx = await sdk.withdraw({
-  poolId: '45',
-  xTokens: 500000n, // Amount of xTokens to withdraw
+  poolId: '0x...',
+  address: userAddress,
+  amount: '500000000', // Amount to withdraw
+  withdrawMax: false, // Set to true to withdraw entire position
 });
 
-// Claim rewards
+// Claim all rewards (builds unsigned transaction)
 const claimTx = await sdk.claim({
-  poolId: 1, // Optional: specific pool ID, omit for all pools
+  address: userAddress,
 });
 ```
 
-> **Note**: The SDK uses `bigint` for amount and xTokens parameters to ensure
-> precision with large numbers. Use the `n` suffix to create bigint literals
-> (e.g., `1000000n`).
+> **How transactions work**: `deposit`, `withdraw`, `zapDeposit`, swaps, and reward helpers return
+> **unsigned** `Transaction` objects from `@mysten/sui/transactions`. You must sign and execute them
+> with your wallet or client of choice.
+>
+> **Amounts & precision**:
+>
+> - Deposits and zap inputs use `bigint` in base units (`1000000000n` = 1 SUI).
+> - Withdraw inputs and most quotes use `string` for flexibility across strategies.
+> - Responses return `Decimal` instances (from `decimal.js`) to avoid floating-point errors.
+>
+> **API status**: This SDK is pre-release; breaking changes are expected until the first stable version.
 
 ## Supported Protocols
 
@@ -102,234 +129,308 @@ new AlphaFiSDK(config: AlphaFiSDKConfig)
 
 ```typescript
 interface AlphaFiSDKConfig {
-  client: SuiClient;
+  suiClient: SuiClient; // Sui blockchain client
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
-  address: string;
 }
 ```
 
-#### Methods
+#### Core Methods
+
+##### getPoolsData(strategiesType?: StrategyType[]): Promise\<Map\<string, PoolData>>
+
+Get comprehensive data for all available DeFi pools.
+
+```typescript
+const pools = await sdk.getPoolsData(['Lending', 'Lp']); // Filter by strategy types
+const allPools = await sdk.getPoolsData(); // Get all pools
+```
+
+##### getUserPortfolio(address: string, strategiesType?: StrategyType[]): Promise\<UserPortfolioData>
+
+Get complete portfolio summary for a user address.
+
+```typescript
+const portfolio = await sdk.getUserPortfolio(userAddress);
+console.log({
+  netWorth: portfolio.netWorth.toString(),
+  aggregatedApy: portfolio.aggregatedApy.toString(),
+  alphaRewards: portfolio.alphaRewardsToClaim.toString(),
+  poolBalances: portfolio.poolBalances,
+});
+```
+
+#### Transaction Methods
 
 ##### deposit(options: DepositOptions): Promise\<Transaction>
 
-Deposit assets into a DeFi pool.
+Build an **unsigned** transaction to deposit assets into a DeFi pool.
 
 ```typescript
 interface DepositOptions {
-  poolId: string; // Pool ID as string
-  amount: bigint; // Amount in smallest unit
-  isAmountA?: boolean; // For double-asset pools (optional)
+  poolId: string; // Unique pool identifier
+  address: string; // User's wallet address
+  amount: bigint; // Amount in base units
+  isAmountA?: boolean; // For LP pools: which token this amount represents
 }
 ```
 
 ##### withdraw(options: WithdrawOptions): Promise\<Transaction>
 
-Withdraw assets from a DeFi pool.
+Build an **unsigned** transaction to withdraw assets from a DeFi pool.
 
 ```typescript
 interface WithdrawOptions {
-  poolId: string; // Pool ID as string
-  xTokens: bigint; // Amount of xTokens to withdraw
+  poolId: string; // Unique pool identifier
+  address: string; // User's wallet address
+  amount: string; // Amount to withdraw (ignored if withdrawMax is true)
+  isAmountA?: boolean; // For LP pools: specify withdrawal in terms of token A
+  withdrawMax: boolean; // If true, withdraw entire position
+}
+```
+
+##### estimateLpAmounts(options: EstimateLpAmountsOptions): Promise\<[string, string]>
+
+Calculate required token amounts for balanced LP deposits.
+
+```typescript
+interface EstimateLpAmountsOptions {
+  poolId: string; // LP pool identifier
+  amount: string; // Input token amount
+  isAmountA: boolean; // True if amount refers to token A
 }
 ```
 
 ##### claim(options: ClaimOptions): Promise\<Transaction>
 
-Claim rewards from DeFi pools.
+Build an **unsigned** transaction to claim accumulated rewards (all pools or a specific pool).
 
 ```typescript
 interface ClaimOptions {
-  poolId?: number; // Optional: specific pool ID
+  address: string; // User's wallet address
+  poolId?: string; // Optional: specific pool ID
 }
 ```
 
-## Pool Information
+#### Alpha Token Methods
 
-The SDK supports **81+ pools** across multiple protocols:
+##### initiateWithdrawAlpha(options: WithdrawOptions): Promise\<Transaction>
 
-### Pool Types by Strategy
+Initiate ALPHA token withdrawal (creates withdrawal ticket).
 
-- **Single-Asset Pools**: NAVI-SUI, NAVI-USDC, BUCKET-BUCK
-- **Double-Asset Pools**: BLUEFIN-SUI-USDC, CETUS-SUI, etc.
-- **Looping Pools**: NAVI-LOOP-SUI-VSUI, ALPHALEND-LOOP-SUI-STSUI
-- **Autobalance Pools**: BLUEFIN-AUTOBALANCE-SUI-USDC
-- **Single-Loop Pools**: ALPHALEND-SINGLE-LOOP-TBTC, ALPHALEND-SINGLE-LOOP-SUIBTC
+##### claimWithdrawAlpha(options: ClaimWithdrawAlphaOptions): Promise\<Transaction>
 
-### Pool ID Format
+Complete ALPHA token withdrawal using previously created ticket.
 
-- Pool IDs are **strings** (not numbers)
-- Use `poolDetailsMap` to look up pool information
-- Pool names follow the pattern: `PROTOCOL-ASSET1-ASSET2`
-
-## Environment Configuration
-
-Create a `.env` file in your project root:
-
-```bash
-# Network Configuration
-NETWORK=mainnet              # Options: mainnet, testnet, devnet, localnet
-
-# Private Key (Base64 encoded)
-PK_B64=your_base64_private_key_here
-
-# Testing Configuration
-DRY_RUN=true                 # Set to false for real transactions
-VERBOSE_LOGGING=true         # Enable detailed logging
-SKIP_BALANCE_CHECK=false     # Skip balance verification before transactions
-
-# Test Pool IDs (as strings)
-TEST_BLUEFIN_POOL_ID=45      # Bluefin protocol pool ID
-TEST_NAVI_POOL_ID=2          # Navi protocol pool ID
-TEST_CETUS_POOL_ID=3         # Cetus protocol pool ID
-
-# Test Deposit Amounts
-TEST_DEPOSIT_AMOUNT_SUI=1000000n    # 1 SUI
-TEST_DEPOSIT_AMOUNT_USDC=1000000n   # 1 USDC
-TEST_DEPOSIT_AMOUNT_USDT=1000000n   # 1 USDT
-
-# Withdraw Testing
-TEST_WITHDRAW_XTOKENS=1000000n      # Amount of xTokens to withdraw
-TEST_WITHDRAW_PERCENTAGE=50        # Percentage of balance to withdraw (50%)
+```typescript
+interface ClaimWithdrawAlphaOptions {
+  ticketId: string; // Withdrawal ticket ID
+  address: string; // User's wallet address
+}
 ```
 
-## Development
+##### claimAirdrop(options: ClaimAirdropOptions): Promise\<Transaction>
 
-### Setup
+Claim available airdrop tokens.
 
-```bash
-# Install dependencies
-npm install
-
-# Build the SDK (both CommonJS and ESM)
-npm run build
-
-# Run tests
-npm test
-
-# Run specific test suites
-npm run test:deposits
-npm run test:withdraws
-
-# Generate documentation
-npm run docs
-
-# Lint and format
-npm run lint
-npm run format
+```typescript
+interface ClaimAirdropOptions {
+  address: string; // User's wallet address
+  transferToWallet: boolean; // Whether to transfer directly to wallet
+}
 ```
 
-### Build Outputs
+#### Zap Deposit Methods
 
-The SDK builds to two formats:
+##### zapDepositQuote(options: ZapDepositQuoteOptions): Promise\<[string, string] | undefined>
 
-- **CommonJS**: `dist/cjs/` - For Node.js and bundlers
-- **ESM**: `dist/esm/` - For modern JavaScript environments
+Get quote for zap deposit operation (single token to LP).
 
-### Project Structure
-
-```text
-src/
-├── core/                    # Core SDK functionality
-│   └── index.ts            # Main SDK class and interfaces
-├── models/                  # TypeScript interfaces and classes
-│   ├── blockchain.ts       # Blockchain interaction layer
-│   ├── transaction.ts      # Transaction management
-│   ├── portfolio.ts        # Portfolio management
-│   ├── protocol.ts         # Protocol-specific logic
-│   └── transactionProtocolModels/  # Protocol-specific transactions
-│       ├── bluefin.ts      # Bluefin protocol transactions
-│       ├── navi.ts         # Navi protocol transactions
-│       ├── cetus.ts        # Cetus protocol transactions
-│       ├── bucket.ts       # Bucket protocol transactions
-│       ├── alphalend.ts    # AlphaLend protocol transactions
-│       ├── claimRewards.ts # Reward claiming transactions
-│       └── utils.ts        # Transaction utilities
-├── common/                 # Common utilities and configuration
-│   ├── constants.ts       # Configuration constants
-│   ├── maps.ts           # Pool details and mappings
-│   └── coinsList.ts      # Supported tokens
-├── utils/                 # Utility functions
-│   ├── parsedTypes.ts     # TypeScript type definitions
-│   ├── parser.ts         # Data parsing utilities
-│   └── queryTypes.ts     # Query type definitions
-└── __tests__/            # Test files
+```typescript
+interface ZapDepositQuoteOptions {
+  poolId: string; // LP pool identifier
+  inputCoinAmount: bigint; // Input token amount in base units
+  isInputA: boolean; // True if input token is token A
+  slippage: number; // Max slippage (e.g., 0.005 = 0.5%)
+}
 ```
 
-## Dependencies
+##### zapDeposit(options: ZapDepositOptions): Promise\<Transaction | undefined>
 
-### Peer Dependencies
+Execute zap deposit: convert single token to balanced LP position.
 
-- `@mysten/sui`: Sui blockchain SDK (>=1.30.0 <2)
-- `@alphafi/stsui-sdk`: STSUI token SDK
-- `navi-sdk`: Navi protocol SDK
+```typescript
+interface ZapDepositOptions {
+  poolId: string; // LP pool identifier
+  inputCoinAmount: bigint; // Input token amount in base units
+  isInputA: boolean; // True if input token is token A
+  address: string; // User's wallet address
+  slippage: number; // Max slippage (e.g., 0.005 = 0.5%)
+}
+```
 
-### Main Dependencies
+#### Token Swap Methods
 
-- `@cetusprotocol/cetus-sui-clmm-sdk`: Cetus protocol SDK
-- `@alphafi/alphalend-sdk`: AlphaLend protocol SDK
-- `decimal.js`: High-precision decimal arithmetic
-- `bn.js`: Big number operations
-- `bech32`: Address encoding/decoding
+##### getCetusSwapQuote(options: CetusSwapQuoteOptions): Promise\<RouterDataV3 | undefined>
 
-## Examples
+Get quote for token swap via Cetus aggregator.
 
-### Basic Deposit Example
+```typescript
+interface CetusSwapQuoteOptions {
+  from: string; // Source token type/address
+  target: string; // Destination token type/address
+  amount: string; // Amount to swap in source token units
+  byAmountIn: boolean; // True to fix input amount, false to fix output
+}
+```
+
+##### cetusSwapTxb(options: CetusSwapOptions): Promise\<Transaction>
+
+Execute token swap using Cetus aggregator.
+
+```typescript
+interface CetusSwapOptions {
+  router: RouterDataV3; // Router data from getCetusSwapQuote
+  slippage: number; // Max slippage (e.g., 0.01 = 1%)
+}
+```
+
+## Supported Strategies
+
+The SDK supports multiple DeFi strategies across various protocols:
+
+### Strategy Types
+
+- **Lending**: Single-asset yield farming on protocols like Navi and Bucket
+- **Lp**: Liquidity provision on AMMs like Cetus and Bluefin
+- **Lyf** (Leveraged Yield Farming): Amplified returns with borrowed capital
+- **AutobalanceLp**: Self-rebalancing liquidity positions
+- **AlphaVault**: Optimized staking for ALPHA tokens
+- **Looping**: Leveraged single-asset positions with recursive borrowing
+- **SingleAssetLooping**: Single-token leverage strategies
+- **FungibleLp**: Fungible liquidity tokens for easy transfer
+- **SlushLending**: Slush protocol lending integration
+
+### Pool Discovery
+
+Use the SDK methods to discover available pools:
+
+```typescript
+// Get all pools
+const allPools = await sdk.getPoolsData();
+
+// Filter by strategy type
+const lendingPools = await sdk.getPoolsData(['Lending']);
+const lpPools = await sdk.getPoolsData(['Lp', 'AutobalanceLp']);
+
+// Explore pool details
+for (const [poolId, poolData] of allPools) {
+  console.log(`${poolData.poolName} (${poolId})`, {
+    apy: poolData.apr.apy.toString(),
+    tvl: poolData.tvl, // contains alphafi and parent TVL; see types section
+  });
+}
+```
+
+### SDK Initialization
 
 ```typescript
 import { AlphaFiSDK } from '@alphafi/alphafi-sdk';
 import { SuiClient } from '@mysten/sui/client';
 
-const client = new SuiClient({ url: 'https://fullnode.mainnet.sui.io:443' });
+const suiClient = new SuiClient({
+  url: process.env.SUI_RPC_URL || 'https://fullnode.mainnet.sui.io:443',
+});
+
 const sdk = new AlphaFiSDK({
-  client,
-  network: 'mainnet',
-  address: '0x123...', // Your Sui address
+  suiClient,
+  network: (process.env.NETWORK as any) || 'mainnet',
 });
 
-// Deposit 1 SUI into Bluefin SUI-USDC pool
-const tx = await sdk.deposit({
-  poolId: '45', // Bluefin SUI-USDC pool
-  amount: 1000000000n, // 1 SUI in smallest unit
-  isAmountA: true, // SUI is the first asset in the pair
-});
-
-console.log('Transaction created:', tx);
+const userAddress = process.env.USER_ADDRESS;
 ```
 
-### Withdraw Example
+## Data Types
+
+### Key Response Types
 
 ```typescript
-// Withdraw 50% of your position
-const withdrawTx = await sdk.withdraw({
-  poolId: '45',
-  xTokens: 500000n, // Amount of xTokens to withdraw
-});
+type AprData = {
+  baseApr: Decimal;
+  alphaMiningApr: Decimal;
+  apy: Decimal;
+  lastAutocompounded: Date;
+};
+
+type SingleTvl = { tokenAmount: Decimal; usdValue: Decimal };
+type DoubleTvl = { tokenAmountA: Decimal; tokenAmountB: Decimal; usdValue: Decimal };
+type TvlData =
+  | { alphafi: SingleTvl; parent: SingleTvl }
+  | { alphafi: DoubleTvl; parent: DoubleTvl };
+
+type PoolData =
+  | {
+      poolId: string;
+      poolName: string;
+      apr: AprData;
+      tvl: TvlData;
+      lpBreakdown: { token1Amount: Decimal; token2Amount: Decimal; totalLiquidity: Decimal };
+      parentLpBreakdown: { token1Amount: Decimal; token2Amount: Decimal; totalLiquidity: Decimal };
+      currentLPPoolPrice: Decimal;
+      positionRange: { lowerPrice: Decimal; upperPrice: Decimal };
+    }
+  | {
+      poolId: string;
+      poolName: string;
+      apr: AprData;
+      tvl: TvlData;
+    };
+
+type PoolBalance =
+  | { tokenAAmount: Decimal; tokenBAmount: Decimal; usdValue: Decimal }
+  | { tokenAmount: Decimal; usdValue: Decimal }
+  | {
+      stakedAlphaAmount: Decimal;
+      stakedAlphaUsdValue: Decimal;
+      pendingDeposits: Decimal;
+      withdrawals: {
+        ticketId: string;
+        alphaAmount: string;
+        status: number; // 0 pending, 1 accepted, 2 claimable
+        withdrawalEtaTimestamp: number;
+      }[];
+      claimableAirdrop: Decimal;
+      totalAirdropClaimed: Decimal;
+    };
+
+type UserPortfolioData = {
+  netWorth: Decimal;
+  aggregatedApy: Decimal;
+  alphaRewardsToClaim: Decimal;
+  poolBalances: Map<string, PoolBalance>;
+};
+
+type StrategyType =
+  | 'Lending'
+  | 'Lp'
+  | 'Lyf'
+  | 'AutobalanceLp'
+  | 'AlphaVault'
+  | 'Looping'
+  | 'SingleAssetLooping'
+  | 'FungibleLp'
+  | 'SlushLending';
 ```
 
-### Claim Rewards Example
-
-```typescript
-// Claim rewards from all pools
-const claimTx = await sdk.claim({});
-
-// Or claim from a specific pool
-const specificClaimTx = await sdk.claim({
-  poolId: 1, // AlphaFi pool
-});
-```
-
-## Security Notes
+### Security Guidelines
 
 - **Never commit your `.env` file** to version control
-- **Use environment variables** for sensitive data like private keys
-- **Always test with `DRY_RUN=true`** before executing real transactions
-- **Use testnet for development** and testing
-- **Verify pool IDs** before executing transactions
-- **Check gas estimates** before submitting transactions
-
-## License
-
-ISC
+- **Store private keys securely** and never expose them in client-side code
+- **Use environment variables** for sensitive configuration
+- **Always test on testnet first** before mainnet deployment
+- **Verify pool IDs and amounts** before executing transactions
+- **Check transaction gas estimates** before submission
+- **Implement proper error handling** for all SDK calls
+- **Use appropriate slippage settings** for swaps (typically 0.5-2%)
 
 ## Support
 

@@ -6,9 +6,6 @@ import {
 } from '@cetusprotocol/aggregator-sdk';
 import { Transaction } from '@mysten/sui/transactions';
 
-// Re-export RouterDataV3 type for external use
-export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
-
 export class CetusSwap {
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
   client: AggregatorClient;
@@ -24,6 +21,7 @@ export class CetusSwap {
     from: string,
     target: string,
     amount: string,
+    byAmountIn: boolean,
   ): Promise<RouterDataV3 | undefined> {
     try {
       // const providers = getAllProviders();
@@ -40,7 +38,7 @@ export class CetusSwap {
         from,
         target,
         amount,
-        byAmountIn: true, // `true` means fix input amount, `false` means fix output amount
+        byAmountIn, // `true` means fix input amount, `false` means fix output amount
         providers: providersExcept,
         splitCount: 15,
       });
