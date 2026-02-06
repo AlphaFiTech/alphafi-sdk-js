@@ -3,7 +3,7 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { AlphaMiningData, BaseStrategy, ProtocolType, NameType } from './strategy.js';
+import { AlphaMiningData, BaseStrategy, ProtocolType, StringMap } from './strategy.js';
 import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
@@ -570,9 +570,9 @@ export interface FungibleLpPoolLabel {
   parentProtocol: ProtocolType;
   parentPoolId: string;
   investorId: string;
-  fungibleCoin: NameType;
-  assetA: NameType;
-  assetB: NameType;
+  fungibleCoin: StringMap;
+  assetA: StringMap;
+  assetB: StringMap;
   events: {
     autocompoundEventType: string;
     rebalanceEventType: string;

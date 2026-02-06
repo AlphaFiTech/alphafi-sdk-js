@@ -3,7 +3,7 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
+import { AlphaMiningData, BaseStrategy, StringMap, ProtocolType } from './strategy.js';
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
@@ -1125,7 +1125,7 @@ export class LoopingStrategy extends BaseStrategy<
  * Looping Pool object data structure
  */
 export interface LoopingPoolObject {
-  accRewardsPerXtoken: KeyValuePair[];
+  accRewardsPerXtoken: StringMap[];
   depositFee: string;
   depositFeeMaxCap: string;
   id: string;
@@ -1170,10 +1170,10 @@ export interface LoopingInvestorObject {
 export interface LoopingReceiptObject {
   id: string;
   imageUrl: string;
-  lastAccRewardPerXtoken: KeyValuePair[];
+  lastAccRewardPerXtoken: StringMap[];
   name: string;
   owner: string;
-  pendingRewards: KeyValuePair[];
+  pendingRewards: StringMap[];
   poolId: string;
   xTokenBalance: string;
 }
@@ -1188,11 +1188,11 @@ export interface LoopingPoolLabel {
   strategyType: 'Looping';
   parentProtocol: ProtocolType;
   investorId: string;
-  receipt: NameType;
-  supplyAsset: NameType;
-  borrowAsset: NameType;
-  userDepositAsset: NameType;
-  userWithdrawAsset: NameType;
+  receipt: StringMap;
+  supplyAsset: StringMap;
+  borrowAsset: StringMap;
+  userDepositAsset: StringMap;
+  userWithdrawAsset: StringMap;
   events: {
     autocompoundEventType: string;
     liquidityChangeEventType: string;

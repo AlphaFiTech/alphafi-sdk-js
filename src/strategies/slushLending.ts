@@ -3,7 +3,7 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { AlphaMiningData, BaseStrategy, ProtocolType, NameType } from './strategy.js';
+import { AlphaMiningData, BaseStrategy, ProtocolType, StringMap } from './strategy.js';
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
@@ -507,7 +507,7 @@ export interface SlushLendingPoolLabel {
   packageNumber: number;
   strategyType: 'SlushLending';
   parentProtocol: ProtocolType;
-  asset: NameType;
+  asset: StringMap;
   events: {
     autocompoundEventType: string;
   };

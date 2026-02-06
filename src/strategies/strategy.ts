@@ -8,9 +8,8 @@ import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { IMAGE_URLS, PACKAGE_IDS } from '../utils/constants.js';
 
-export interface KeyValuePair {
-  key: string;
-  value: string;
+export interface StringMap {
+  [key: string]: string;
 }
 
 /**
@@ -20,11 +19,11 @@ export interface KeyValuePair {
  */
 export interface AlphaMiningData {
   poolId: string;
-  accRewardsPerXtoken: KeyValuePair[];
+  accRewardsPerXtoken: StringMap[];
   xTokenSupply: string;
   receipt: {
-    lastAccRewardPerXtoken: KeyValuePair[];
-    pendingRewards: KeyValuePair[];
+    lastAccRewardPerXtoken: StringMap[];
+    pendingRewards: StringMap[];
     xTokenBalance: string;
   } | null;
 }
@@ -49,11 +48,6 @@ export type StrategyType =
   | 'Lyf';
 
 export type ProtocolType = 'AlphaFi' | 'Navi' | 'Alphalend' | 'Cetus' | 'Bluefin' | 'Bucket';
-
-export interface NameType {
-  name: string;
-  type: string;
-}
 
 // Forward declarations for pool label types (will be imported from individual strategy files)
 export type LpPoolLabel = import('./lp.js').LpPoolLabel;
@@ -353,7 +347,7 @@ export abstract class BaseStrategy<TPool = any, TInvestor = any, TParentPool = a
   }
 
   /**
-   * Helper function to parse VecMap structures from Move objects into KeyValuePair format
+   * Helper function to parse VecMap structures from Move objects into StringMap format
    */
   protected parseVecMap(vecMapField: any) {
     if (!vecMapField || typeof vecMapField !== 'object') {

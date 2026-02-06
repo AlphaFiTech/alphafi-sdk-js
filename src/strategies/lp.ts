@@ -3,7 +3,7 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
+import { AlphaMiningData, BaseStrategy, StringMap, ProtocolType } from './strategy.js';
 import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
@@ -1906,7 +1906,7 @@ export class LpStrategy extends BaseStrategy<
  * LP Pool object data structure
  */
 export interface LpPoolObject {
-  accRewardsPerXtoken: KeyValuePair[];
+  accRewardsPerXtoken: StringMap[];
   depositFee: string;
   depositFeeMaxCap: string;
   id: string;
@@ -1962,10 +1962,10 @@ export interface LpParentPoolObject {
 export interface LpReceiptObject {
   id: string;
   imageUrl: string;
-  lastAccRewardPerXtoken: KeyValuePair[];
+  lastAccRewardPerXtoken: StringMap[];
   owner: string;
   name: string;
-  pendingRewards: KeyValuePair[];
+  pendingRewards: StringMap[];
   poolId: string;
   xTokenBalance: string;
 }
@@ -1981,9 +1981,9 @@ export interface LpPoolLabel {
   parentProtocol: ProtocolType;
   parentPoolId: string;
   investorId: string;
-  receipt: NameType;
-  assetA: NameType;
-  assetB: NameType;
+  receipt: StringMap;
+  assetA: StringMap;
+  assetB: StringMap;
   events: {
     autocompoundEventType: string;
     rebalanceEventType: string;

@@ -23,6 +23,10 @@ export const VERSIONS = {
   },
 };
 
+export const URLS = {
+  COININFO_API: 'https://api.alphalend.xyz/public/graphql',
+};
+
 export const POOLS = {
   ALPHA_LEGACY: '0x6ee8f60226edf48772f81e5986994745dae249c2605a5b12de6602ef1b05b0c1',
 };
@@ -239,3 +243,23 @@ export const NAVI_CONFIG = {
 export const PYTH_STATE_ID = '0x1f9310238ee9298fb703c3419030b35b22bb1cc37113e3bb5007c99aec79e5b8';
 export const WORMHOLE_STATE_ID =
   '0xaeab97f96cf9877fee2883315d459552b2b921edc16d7ceac6eab944dd88919c';
+
+// ============================================================
+// Cache TTLs (milliseconds)
+// ============================================================
+
+export const CACHE_TTL = (() => {
+  const DEFAULT = 5 * 60 * 1000;
+  return {
+    DEFAULT,
+    STRATEGY_CACHE: DEFAULT, // 5 minutes
+    ALPHALEND_MARKETS: 60 * 1000, // 60 seconds
+
+    APR_DATA: 10 * 60 * 1000, // 10 minutes - APR changes frequently
+    POOL_LABELS: DEFAULT, // 5 minutes - config rarely changes
+    TVL_DATA: 10 * 60 * 1000, // 10 minutes - TVL changes moderately
+    DISTRIBUTOR: 10 * 60 * 1000, // 10 minutes - for accurate reward calculation
+    USER_DATA: DEFAULT, // 5 minutes - user positions can change
+    COIN_INFO: DEFAULT, // 5 minutes - coin info is stable
+  } as const;
+})();
