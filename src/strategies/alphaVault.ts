@@ -1,5 +1,5 @@
 import { Decimal } from 'decimal.js';
-import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
+import { AlphaMiningData, BaseStrategy, StringMap, ProtocolType } from './strategy.js';
 import { AlphaFiReceipt, PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
@@ -400,7 +400,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
       totalDistributedValue = this.poolObject.totalDistributed;
     } else if (Array.isArray(this.poolObject.totalDistributed)) {
       // If it's stored as an array of key-value pairs
-      const entry = (this.poolObject.totalDistributed as unknown as KeyValuePair[]).find(
+      const entry = (this.poolObject.totalDistributed as unknown as StringMap[]).find(
         (item) => item.key === rewardType.slice(2),
       );
       totalDistributedValue = entry?.value || '0';
@@ -487,7 +487,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
             ({
               key: item.key,
               value: item.value.value,
-            }) as KeyValuePair,
+            }) as StringMap,
         ),
         totalDistributed: this.parseVecMap(fields.total_distributed || {}),
         depositFee: this.getStringField(fields, 'deposit_fee') || '0',
@@ -688,7 +688,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
               ({
                 key: item.key,
                 value: item.value.value,
-              }) as KeyValuePair,
+              }) as StringMap,
           ),
           pendingRewards: this.parseVecMap(fields.pending_rewards || {}),
           totalCollectedRewards,
@@ -1110,8 +1110,8 @@ export interface AlphaVaultPoolObject {
     id: string;
     size: string;
   };
-  accRewardsPerXtoken: KeyValuePair[];
-  totalDistributed: KeyValuePair[];
+  accRewardsPerXtoken: StringMap[];
+  totalDistributed: StringMap[];
   depositFee: string;
   depositFeeMaxCap: string;
   withdrawalFee: string;
@@ -1187,7 +1187,7 @@ export interface UserWithdrawRequest {
 export interface AlphaVaultLegacyReceiptObject {
   id: string;
   imageUrl: string;
-  lastAccRewardPerXtoken: KeyValuePair[];
+  lastAccRewardPerXtoken: StringMap[];
   lockedBalance: {
     id: string;
     size: string;
@@ -1196,7 +1196,7 @@ export interface AlphaVaultLegacyReceiptObject {
   };
   name: string;
   owner: string;
-  pendingRewards: KeyValuePair[];
+  pendingRewards: StringMap[];
   poolId: string;
   unlockedXtokens: string;
   xTokenBalance: string;
@@ -1217,9 +1217,9 @@ export interface AlphaVaultReceiptObject {
   }[];
   allWithdrawals: TableInfo;
   allDeposits: TableInfo;
-  lastAccRewardPerXtoken: KeyValuePair[];
-  pendingRewards: KeyValuePair[];
-  totalCollectedRewards: KeyValuePair[];
+  lastAccRewardPerXtoken: StringMap[];
+  pendingRewards: StringMap[];
+  totalCollectedRewards: StringMap[];
 }
 
 // ===== Pool Label =====
@@ -1234,8 +1234,8 @@ export interface AlphaVaultPoolLabel {
   packageNumber: number;
   strategyType: 'AlphaVault';
   parentProtocol: ProtocolType;
-  receipt: NameType;
-  asset: NameType;
+  receipt: StringMap;
+  asset: StringMap;
   events: {
     autocompoundEventType: string;
     liquidityChangeEventType: string;

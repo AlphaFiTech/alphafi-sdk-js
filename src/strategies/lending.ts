@@ -3,7 +3,7 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
+import { AlphaMiningData, BaseStrategy, StringMap, ProtocolType } from './strategy.js';
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
@@ -1104,7 +1104,7 @@ export class LendingStrategy extends BaseStrategy<
  * Lending Pool object data structure
  */
 export interface LendingPoolObject {
-  accRewardsPerXtoken: KeyValuePair[];
+  accRewardsPerXtoken: StringMap[];
   depositFee: string;
   depositFeeMaxCap: string;
   id: string;
@@ -1156,10 +1156,10 @@ export interface LendingParentPoolObject {
 export interface LendingReceiptObject {
   id: string;
   imageUrl: string;
-  lastAccRewardPerXtoken: KeyValuePair[];
+  lastAccRewardPerXtoken: StringMap[];
   name: string;
   owner: string;
-  pendingRewards: KeyValuePair[];
+  pendingRewards: StringMap[];
   poolId: string;
   xTokenBalance: string;
 }
@@ -1175,8 +1175,8 @@ export interface LendingPoolLabel {
   parentProtocol: ProtocolType;
   parentPoolId: string;
   investorId: string;
-  receipt: NameType;
-  asset: NameType;
+  receipt: StringMap;
+  asset: StringMap;
   events: {
     autocompoundEventType: string;
     liquidityChangeEventType: string;

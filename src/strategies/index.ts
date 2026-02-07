@@ -20,10 +20,9 @@ export * from './lyf.js';
 // Re-export commonly used types for convenience
 export type {
   Strategy,
-  KeyValuePair,
+  StringMap,
   StrategyType,
   ProtocolType,
-  NameType,
   PoolLabel,
   AlphaMiningData,
 } from './strategy.js';

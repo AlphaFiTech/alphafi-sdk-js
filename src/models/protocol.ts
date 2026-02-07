@@ -18,9 +18,7 @@ import {
 import { PoolLabel, Strategy, StrategyType } from '../strategies/strategy.js';
 import { PoolData } from './types.js';
 import { Cache } from '../utils/cache.js';
-
-// Cache TTL for strategies (5 minutes)
-const STRATEGY_CACHE_TTL_MS = 5 * 60 * 1000;
+import { CACHE_TTL } from '../utils/constants.js';
 
 export class Protocol {
   strategyContext: StrategyContext;
@@ -28,7 +26,7 @@ export class Protocol {
 
   constructor(strategyContext: StrategyContext) {
     this.strategyContext = strategyContext;
-    this.strategyCache = new Cache<string, Strategy>(STRATEGY_CACHE_TTL_MS);
+    this.strategyCache = new Cache<string, Strategy>(CACHE_TTL.STRATEGY_CACHE);
   }
 
   /** Get pool data from strategies, optionally filtered by type. */

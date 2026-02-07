@@ -6,6 +6,7 @@ import { normalizeStructTag } from '@mysten/sui/utils';
 import { Decimal } from 'decimal.js';
 import { SingletonCache } from '../utils/cache.js';
 import { CoinInfo } from './types.js';
+import { CACHE_TTL, URLS } from '../utils/constants.js';
 
 type GraphQLResponse = {
   data: {
@@ -20,12 +21,12 @@ type GraphQLResponse = {
 };
 
 export class CoinInfoProvider {
-  private readonly apiUrl: string = 'https://api.alphalend.xyz/public/graphql';
+  private readonly apiUrl: string = URLS.COININFO_API;
   private readonly cache: SingletonCache<Map<string, CoinInfo>>;
 
   constructor() {
     // 5 minute TTL for coin data
-    this.cache = new SingletonCache<Map<string, CoinInfo>>(5 * 60 * 1000);
+    this.cache = new SingletonCache<Map<string, CoinInfo>>(CACHE_TTL.COIN_INFO);
   }
 
   /** Get all coin metadata with caching and promise deduplication. */

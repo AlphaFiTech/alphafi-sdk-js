@@ -3,6 +3,8 @@
  * Prevents duplicate concurrent fetches and auto-expires entries.
  */
 
+import { CACHE_TTL } from './constants.js';
+
 interface CacheEntry<T> {
   value: T;
   expiresAt: number;
@@ -31,7 +33,7 @@ export class Cache<K, V> {
    * Create a new cache instance.
    * @param defaultTtlMs - Default time-to-live in milliseconds (default: 5 minutes)
    */
-  constructor(defaultTtlMs: number = 5 * 60 * 1000) {
+  constructor(defaultTtlMs: number = CACHE_TTL.DEFAULT) {
     this.defaultTtl = defaultTtlMs;
   }
 
@@ -151,7 +153,7 @@ export class SingletonCache<V> {
   private pendingPromise: Promise<V> | null = null;
   private defaultTtl: number;
 
-  constructor(defaultTtlMs: number = 5 * 60 * 1000) {
+  constructor(defaultTtlMs: number = CACHE_TTL.DEFAULT) {
     this.defaultTtl = defaultTtlMs;
   }
 

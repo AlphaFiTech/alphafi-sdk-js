@@ -95,23 +95,9 @@ export class AlphaFiSDK {
     }
 
     const tx = new Transaction();
-    // if (poolLabel.strategyType === 'Lyf') {
-    //   const lyfTx = await zapDepositTxb(
-    //     options.amount,
-    //     false,
-    //     poolLabel.poolName as PoolName,
-    //     0.005,
-    //     options.address,
-    //   );
-    //   if (!lyfTx) {
-    //     throw new Error(`Failed to create LYF SUI deposit transaction`);
-    //   }
-    //   return lyfTx;
-    // } else {
     const strategy = await this.portfolio.getPoolStrategy(options.address, options.poolId);
     await strategy.deposit(tx, options);
     return tx;
-    // }
   }
 
   /**

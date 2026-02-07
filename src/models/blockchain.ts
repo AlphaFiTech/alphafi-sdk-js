@@ -7,27 +7,39 @@ import { SuiGraphQLClient } from '@mysten/sui/graphql';
 import { graphql } from '@mysten/sui/graphql/schemas/latest';
 import { Transaction } from '@mysten/sui/transactions';
 
+export type BlockchainOptions = {
+  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+  suiClient?: SuiClient;
+  gqlClient?: SuiGraphQLClient<any>;
+};
+
 export class Blockchain {
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
   gqlClient: SuiGraphQLClient<any>;
   suiClient: SuiClient;
 
-  constructor(suiClient: SuiClient, network: 'mainnet' | 'testnet' | 'devnet' | 'localnet') {
-    this.network = network;
-    this.suiClient = suiClient;
-    this.gqlClient = new SuiGraphQLClient({
-      url:
-        network === 'testnet'
-          ? 'https://graphql.testnet.sui.io/graphql'
-          : 'https://graphql.mainnet.sui.io/graphql',
-    });
+  constructor(options: BlockchainOptions) {
+    this.network = options.network;
+    this.suiClient =
+      options.suiClient ||
+      new SuiClient({
+        url:
+          options.network === 'testnet'
+            ? 'https://fullnode.testnet.sui.io/'
+            : 'https://fullnode.mainnet.sui.io/',
+      });
+    this.gqlClient =
+      options.gqlClient ||
+      new SuiGraphQLClient({
+        url:
+          options.network === 'testnet'
+            ? 'https://graphql.testnet.sui.io/graphql'
+            : 'https://graphql.mainnet.sui.io/graphql',
+      });
   }
 
   async getCoinObject(tx: Transaction, coinType: string, address: string, amount?: bigint) {
-    if (
-      coinType === '0x2::sui::SUI' ||
-      coinType === '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'
-    ) {
+    if (this.isCoinTypeSui(coinType)) {
       if (amount) {
         return tx.splitCoins(tx.gas, [amount]);
       } else {
@@ -259,5 +271,12 @@ export class Blockchain {
 
     query += `}`;
     return graphql(query);
+  }
+
+  private isCoinTypeSui(coinType: string) {
+    return (
+      coinType === '0x2::sui::SUI' ||
+      coinType === '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'
+    );
   }
 }

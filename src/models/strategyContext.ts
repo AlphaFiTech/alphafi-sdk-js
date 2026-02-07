@@ -7,7 +7,7 @@
 
 import { Blockchain } from './blockchain.js';
 import { CoinInfoProvider } from './coinInfoProvider.js';
-import { PoolLabel } from '../strategies/strategy.js';
+import { PoolLabel, StrategyType } from '../strategies/strategy.js';
 import { Decimal } from 'decimal.js';
 import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import { AlphaFiReceipt, AprData, CoinInfo, DistributorObject, SlushPositionCap } from './types.js';
@@ -15,21 +15,12 @@ import { normalizeStructTag } from '@mysten/sui/utils';
 import { SuiClient } from '@mysten/sui/client/index.js';
 import {
   ALPHAFI_RECEIPT_TYPE,
+  CACHE_TTL,
   DISTRIBUTOR_OBJECT_ID,
   SLUSH_POSITION_CAP_TYPE,
 } from '../utils/constants.js';
 import { getCanonicalPairKey, POOL_REGISTRY, ProtocolPoolIds } from '../utils/poolMap.js';
 import { Cache, SingletonCache } from '../utils/cache.js';
-
-// Cache TTL constants (in milliseconds)
-const CACHE_TTL = {
-  APR_DATA: 10 * 60 * 1000, // 10 minutes - APR changes frequently
-  POOL_LABELS: 5 * 60 * 1000, // 5 minutes - config rarely changes
-  TVL_DATA: 10 * 60 * 1000, // 10 minutes - TVL changes moderately
-  DISTRIBUTOR: 10 * 60 * 1000, // 10 minutes - for accurate reward calculation
-  USER_DATA: 5 * 60 * 1000, // 5 minutes - user positions can change
-  COIN_INFO: 5 * 60 * 1000, // 5 minutes - coin info is stable
-};
 
 const ALPHAFI_NAVI_TVL_URL = 'https://api.alphafi.xyz/public/navi-params';
 const ALPHAFI_APR_URL = 'https://api.alphafi.xyz/public/apr';
@@ -55,7 +46,7 @@ export class StrategyContext {
   private alphaFiPositionsCache: Cache<string, Map<string, any[]>>;
 
   constructor(network: 'mainnet' | 'testnet' | 'devnet' | 'localnet', suiClient: SuiClient) {
-    this.blockchain = new Blockchain(suiClient, network);
+    this.blockchain = new Blockchain({ network, suiClient });
     this.coinInfoProvider = new CoinInfoProvider();
 
     // Initialize singleton caches with appropriate TTLs
@@ -156,16 +147,7 @@ export class StrategyContext {
     const json = (await response.json()) as Record<
       string,
       {
-        strategy_type:
-          | 'AlphaVault'
-          | 'Lp'
-          | 'FungibleLp'
-          | 'AutobalanceLp'
-          | 'SlushLending'
-          | 'Lending'
-          | 'Looping'
-          | 'SingleAssetLooping'
-          | 'Lyf';
+        strategy_type: StrategyType;
         data: any;
       }
     >;
@@ -193,17 +175,7 @@ export class StrategyContext {
     const json = (await response.json()) as Record<
       string,
       {
-        strategy_type:
-          | 'AlphaVault'
-          | 'Lp'
-          | 'FungibleLp'
-          | 'AutobalanceLp'
-          | 'SlushLending'
-          | 'Lending'
-          | 'Looping'
-          | 'SingleAssetLooping'
-          | 'Lyf'
-          | 'FungibleLending';
+        strategy_type: StrategyType;
         data: any;
       }
     >;
@@ -221,20 +193,7 @@ export class StrategyContext {
   /**
    * Parse a single pool label entry from the API response.
    */
-  private parsePoolLabelEntry(
-    strategyType:
-      | 'AlphaVault'
-      | 'Lp'
-      | 'FungibleLp'
-      | 'AutobalanceLp'
-      | 'SlushLending'
-      | 'Lending'
-      | 'Looping'
-      | 'SingleAssetLooping'
-      | 'Lyf'
-      | 'FungibleLending',
-    d: any,
-  ): PoolLabel | null {
+  private parsePoolLabelEntry(strategyType: StrategyType, d: any): PoolLabel | null {
     if (!d.pool_id) {
       console.error('Pool ID is required for pool labels', d);
       return null;
@@ -544,7 +503,7 @@ export class StrategyContext {
     const alphalendClient = new AlphalendClient('mainnet', this.blockchain.suiClient);
     const markets = await alphalendClient.getAllMarkets({
       useCache: true,
-      cacheTTL: 60000,
+      cacheTTL: CACHE_TTL.ALPHALEND_MARKETS,
     });
     if (!markets) {
       throw new Error('Failed to get Alphalend markets');

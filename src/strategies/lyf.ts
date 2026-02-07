@@ -3,7 +3,7 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { AlphaMiningData, BaseStrategy, KeyValuePair, ProtocolType, NameType } from './strategy.js';
+import { AlphaMiningData, BaseStrategy, StringMap, ProtocolType } from './strategy.js';
 import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
@@ -373,7 +373,7 @@ export class LyfStrategy extends BaseStrategy<
 
       return {
         accRewardsPerXtoken: this.parseVecMap(fields.acc_rewards_per_xtoken || {}).map(
-          (item: any) => ({ key: item.key, value: item.value.value }) as KeyValuePair,
+          (item: any) => ({ key: item.key, value: item.value.value }) as StringMap,
         ),
         depositFee: this.getStringField(fields, 'deposit_fee'),
         depositFeeMaxCap: this.getStringField(fields, 'deposit_fee_max_cap'),
@@ -435,7 +435,7 @@ export class LyfStrategy extends BaseStrategy<
             id: this.getStringField(fields, 'id'),
             imageUrl: this.getStringField(fields, 'image_url'),
             lastAccRewardPerXtoken: this.parseVecMap(fields.last_acc_reward_per_xtoken).map(
-              (item: any) => ({ key: item.key, value: item.value.value }) as KeyValuePair,
+              (item: any) => ({ key: item.key, value: item.value.value }) as StringMap,
             ),
             owner: this.getStringField(fields, 'owner'),
             name: this.getStringField(fields, 'name'),
@@ -716,7 +716,7 @@ export class LyfStrategy extends BaseStrategy<
  * Lyf Pool object data structure
  */
 export interface LyfPoolObject {
-  accRewardsPerXtoken: KeyValuePair[];
+  accRewardsPerXtoken: StringMap[];
   depositFee: string;
   depositFeeMaxCap: string;
   id: string;
@@ -778,10 +778,10 @@ export interface LyfParentPoolObject {
 export interface LyfReceiptObject {
   id: string;
   imageUrl: string;
-  lastAccRewardPerXtoken: KeyValuePair[];
+  lastAccRewardPerXtoken: StringMap[];
   owner: string;
   name: string;
-  pendingRewards: KeyValuePair[];
+  pendingRewards: StringMap[];
   poolId: string;
   xTokenBalance: string;
 }
@@ -797,10 +797,10 @@ export interface LyfPoolLabel {
   parentProtocol: ProtocolType;
   parentPoolId: string;
   investorId: string;
-  receipt: NameType;
-  zapAsset: NameType;
-  assetA: NameType;
-  assetB: NameType;
+  receipt: StringMap;
+  zapAsset: StringMap;
+  assetA: StringMap;
+  assetB: StringMap;
   events: {
     autocompoundEventType: string;
     rebalanceEventType: string;
