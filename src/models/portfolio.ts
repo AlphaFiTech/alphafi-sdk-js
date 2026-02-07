@@ -118,7 +118,7 @@ export class Portfolio {
     const poolLabels = Array.from(strategies.values()).map((strategy) => strategy.getPoolLabel());
     const receiptTypes: string[] = [];
 
-    let [hasSlushLending, hasFungible, hasAlphaVault] = [false, false, false, false];
+    let [hasSlushLending, hasFungible, hasAlphaVault] = [false, false, false];
     poolLabels.forEach((poolLabel) => {
       switch (poolLabel.strategyType) {
         case 'AlphaVault':
