@@ -63,13 +63,29 @@ export class AlphaFiSDK {
     return this.protocol.getPoolsData(strategiesType);
   }
 
+  /**
+   * Get data for a single pool.
+   *
+   * @param poolId - The ID of the pool to get data for
+   * @returns Pool data including APR, TVL, LP breakdown, parent LP breakdown, current LP pool price, and position range
+   */
   async getSinglePoolData(poolId: string): Promise<PoolData> {
-    return (await this.protocol.getSinglePoolStrategy(poolId)).getData();
+    const strategy = await this.protocol.getSinglePoolStrategy(poolId);
+    return strategy.getData();
   }
 
+  /**
+   * Get balance for a single pool.
+   *
+   * @param address - The address of the user to get balance for
+   * @param poolId - The ID of the pool to get balance for
+   * @returns Pool balance including token amounts and USD value
+   */
   async getUserSinglePoolBalance(address: string, poolId: string): Promise<PoolBalance> {
-    return (await this.portfolio.getPoolStrategy(address, poolId)).getBalance(address);
+    const strategy = await this.portfolio.getPoolStrategy(address, poolId);
+    return strategy.getBalance(address);
   }
+
   /**
    * Get complete portfolio summary for a user address.
    *

@@ -4,21 +4,11 @@
 
 import { Decimal } from 'decimal.js';
 import { AlphaMiningData, BaseStrategy, ProtocolType, StringMap } from './strategy.js';
-import { PoolData, DoubleTvl, PoolBalance, SingleTvl } from '../models/types.js';
+import { PoolData, PoolBalance, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
-import BN from 'bn.js';
-import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
-import {
-  CLOCK_PACKAGE_ID,
-  DEEPBOOK_CONFIG,
-  DISTRIBUTOR_OBJECT_ID,
-  GLOBAL_CONFIGS,
-  STSUI,
-  SUI_SYSTEM_STATE,
-  VERSIONS,
-} from '../utils/constants.js';
+import { CLOCK_PACKAGE_ID, DEEPBOOK_CONFIG } from '../utils/constants.js';
 
 /**
  * FungibleLending Strategy for dual-asset liquidity pools with fungible tokens

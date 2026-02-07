@@ -118,12 +118,7 @@ export class Portfolio {
     const poolLabels = Array.from(strategies.values()).map((strategy) => strategy.getPoolLabel());
     const receiptTypes: string[] = [];
 
-    let [hasSlushLending, hasFungibleLp, hasAlphaVault, hasFungibleLending] = [
-      false,
-      false,
-      false,
-      false,
-    ];
+    let [hasSlushLending, hasFungible, hasAlphaVault] = [false, false, false, false];
     poolLabels.forEach((poolLabel) => {
       switch (poolLabel.strategyType) {
         case 'AlphaVault':
@@ -138,13 +133,13 @@ export class Portfolio {
           receiptTypes.push(poolLabel.receipt.type);
           break;
         case 'FungibleLp':
-          hasFungibleLp = true;
+          hasFungible = true;
           break;
         case 'SlushLending':
           hasSlushLending = true;
           break;
         case 'FungibleLending':
-          hasFungibleLending = true;
+          hasFungible = true;
           break;
         default:
           break;
@@ -159,9 +154,7 @@ export class Portfolio {
         ? this.strategyContext.getPositionsFromAlphaFiReceipts(userAddress)
         : Promise.resolve(new Map()),
       this.strategyContext.blockchain.multiGetReceipts(userAddress, receiptTypes),
-      hasFungibleLp || hasFungibleLending
-        ? this.getWalletCoins(userAddress)
-        : Promise.resolve(new Map()),
+      hasFungible ? this.getWalletCoins(userAddress) : Promise.resolve(new Map()),
     ]);
 
     strategies.forEach((strategy, poolId) => {
