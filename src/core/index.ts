@@ -9,7 +9,7 @@ import { Protocol } from '../models/protocol.js';
 import { Portfolio } from '../models/portfolio.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { CetusSwap } from '../models/swap.js';
-import type { PoolData, UserPortfolioData } from '../models/types.js';
+import type { PoolBalance, PoolData, UserPortfolioData } from '../models/types.js';
 import {
   AlphaFiSDKConfig,
   CetusSwapOptions,
@@ -63,6 +63,13 @@ export class AlphaFiSDK {
     return this.protocol.getPoolsData(strategiesType);
   }
 
+  async getSinglePoolData(poolId: string): Promise<PoolData> {
+    return (await this.protocol.getSinglePoolStrategy(poolId)).getData();
+  }
+
+  async getUserSinglePoolBalance(address: string, poolId: string): Promise<PoolBalance> {
+    return (await this.portfolio.getPoolStrategy(address, poolId)).getBalance(address);
+  }
   /**
    * Get complete portfolio summary for a user address.
    *

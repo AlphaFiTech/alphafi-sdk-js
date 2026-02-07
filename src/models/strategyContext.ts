@@ -22,6 +22,7 @@ import {
 import { getCanonicalPairKey, POOL_REGISTRY, ProtocolPoolIds } from '../utils/poolMap.js';
 import { Cache, SingletonCache } from '../utils/cache.js';
 
+let CONF = 'production';
 const ALPHAFI_NAVI_TVL_URL = 'https://api.alphafi.xyz/public/navi-params';
 const ALPHAFI_APR_URL = 'https://api.alphafi.xyz/public/apr';
 const ALPHAFI_CONFIG_URL = 'https://api.alphafi.xyz/public/config';
@@ -137,29 +138,51 @@ export class StrategyContext {
     if (poolIds.length === 0) {
       return new Map();
     }
-
-    const url = `${ALPHAFI_CONFIG_URL}?pool_ids=${poolIds.join(',')}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch pool config: ${response.status} ${response.statusText}`);
-    }
-
-    const json = (await response.json()) as Record<
-      string,
-      {
-        strategy_type: StrategyType;
-        data: any;
-      }
-    >;
-
     const poolLabels = new Map<string, PoolLabel>();
-    for (const [poolId, entry] of Object.entries(json)) {
-      const label = this.parsePoolLabelEntry(entry.strategy_type, entry.data);
-      if (label) {
-        poolLabels.set(poolId, label);
+    if (CONF === 'testing') {
+      poolLabels.set('0xa3d24b60cae841cbd83d65c5a7e6380b0160cbff9d1a86bdd79df9d1eea702f8', {
+        poolId: '0xa3d24b60cae841cbd83d65c5a7e6380b0160cbff9d1a86bdd79df9d1eea702f8',
+        packageId: '0x1558c10b18e2cd9bcf7a03c83cbfdb88fc3437ad12d0cae97a17a0d9cc6f31d5',
+        strategyType: 'FungibleLending',
+        parentProtocol: 'DeepBook',
+        parentPoolId: '',
+        asset: {
+          name: 'USDC',
+          type: '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
+        },
+        fungibleCoin: {
+          name: 'DEEPBOOK_STAKED',
+          type: '0x1558c10b18e2cd9bcf7a03c83cbfdb88fc3437ad12d0cae97a17a0d9cc6f31d5::alphalend_deepbook_pool::DEEPBOOK_STAKED<0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC>',
+        },
+        events: {
+          autocompoundEventType:
+            '0x1558c10b18e2cd9bcf7a03c83cbfdb88fc3437ad12d0cae97a17a0d9cc6f31d5::alphalend_deepbook_pool::AutocompoundingEvent',
+        },
+        isActive: true,
+        poolName: 'ALPHALEND-DEEPBOOK-USDC',
+        isNative: true,
+      });
+    } else {
+      const url = `${ALPHAFI_CONFIG_URL}?pool_ids=${poolIds.join(',')}`;
+      const response = await fetch(url);
+      if (!response.ok && CONF === 'production') {
+        throw new Error(`Failed to fetch pool config: ${response.status} ${response.statusText}`);
+      }
+
+      const json = (await response.json()) as Record<
+        string,
+        {
+          strategy_type: StrategyType;
+          data: any;
+        }
+      >;
+      for (const [poolId, entry] of Object.entries(json)) {
+        const label = this.parsePoolLabelEntry(entry.strategy_type, entry.data);
+        if (label) {
+          poolLabels.set(poolId, label);
+        }
       }
     }
-
     return poolLabels;
   }
 

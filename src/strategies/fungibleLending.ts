@@ -3,7 +3,7 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { AlphaMiningData, BaseStrategy, ProtocolType, NameType } from './strategy.js';
+import { AlphaMiningData, BaseStrategy, ProtocolType, StringMap } from './strategy.js';
 import { PoolData, DoubleTvl, PoolBalance, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
@@ -102,7 +102,8 @@ export class FungibleLendingStrategy extends BaseStrategy<
   async getTvl(): Promise<SingleTvl> {
     const coinType = this.poolLabel.asset.type;
     const price = await this.context.getCoinPrice(coinType);
-    const amount = new Decimal(this.poolObject.totalDeposited);
+    const decimals = await this.context.getCoinDecimals(coinType);
+    const amount = new Decimal(this.poolObject.totalDeposited).div(Math.pow(10, decimals));
     const usdValue = amount.mul(price);
     return { tokenAmount: amount, usdValue };
   }
@@ -127,9 +128,9 @@ export class FungibleLendingStrategy extends BaseStrategy<
     }
 
     const exchangeRate = this.exchangeRate();
-    const tokens = this.xTokenBalance.mul(exchangeRate);
-
     const coinType = this.poolLabel.asset.type;
+    const decimals = await this.context.getCoinDecimals(coinType);
+    const tokens = this.xTokenBalance.mul(exchangeRate).div(Math.pow(10, decimals));
     const price = await this.context.getCoinPrice(coinType);
     const usdValue = tokens.mul(price);
     return { tokenAmount: tokens, usdValue };
@@ -201,13 +202,13 @@ export class FungibleLendingStrategy extends BaseStrategy<
       typeArguments: [this.poolLabel.asset.type],
       arguments: [
         tx.object(this.poolLabel.poolId),
-        tx.object(DEEPBOOK_CONFIG.MARGIN_POOLS[this.poolLabel.asset.type]),
+        tx.object(DEEPBOOK_CONFIG.MARGIN_POOLS[this.poolLabel.asset.name]),
         tx.object(DEEPBOOK_CONFIG.MARGIN_REGISTRY),
         depositCoin,
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
-    tx.transferObjects(lst, options.address);
+    tx.transferObjects([lst], options.address);
   }
 
   async withdraw(tx: Transaction, options: WithdrawOptions) {
@@ -237,13 +238,13 @@ export class FungibleLendingStrategy extends BaseStrategy<
       typeArguments: [this.poolLabel.asset.type],
       arguments: [
         tx.object(this.poolLabel.poolId),
-        tx.object(DEEPBOOK_CONFIG.MARGIN_POOLS[this.poolLabel.asset.type]),
+        tx.object(DEEPBOOK_CONFIG.MARGIN_POOLS[this.poolLabel.asset.name]),
         tx.object(DEEPBOOK_CONFIG.MARGIN_REGISTRY),
         withdrawFungibleCoin,
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
-    tx.transferObjects(coin, options.address);
+    tx.transferObjects([coin], options.address);
   }
 
   async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {
@@ -269,12 +270,11 @@ export interface FungibleLendingPoolObject {
 export interface FungibleLendingPoolLabel {
   poolId: string;
   packageId: string;
-  packageNumber: number;
   strategyType: 'FungibleLending';
   parentProtocol: ProtocolType;
   parentPoolId: string;
-  fungibleCoin: NameType;
-  asset: NameType;
+  fungibleCoin: StringMap;
+  asset: StringMap;
   events: {
     autocompoundEventType: string;
   };
