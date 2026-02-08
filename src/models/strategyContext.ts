@@ -143,7 +143,6 @@ export class StrategyContext {
     if (!response.ok) {
       throw new Error(`Failed to fetch pool config: ${response.status} ${response.statusText}`);
     }
-
     const json = (await response.json()) as Record<
       string,
       {
@@ -151,7 +150,6 @@ export class StrategyContext {
         data: any;
       }
     >;
-
     const poolLabels = new Map<string, PoolLabel>();
     for (const [poolId, entry] of Object.entries(json)) {
       const label = this.parsePoolLabelEntry(entry.strategy_type, entry.data);
@@ -356,6 +354,23 @@ export class StrategyContext {
           withdrawV2EventType: d.events?.withdraw_v2_event_type,
           afterTransactionEventType: d.events?.after_transaction_event_type,
           airdropAddEventType: d.events?.airdrop_add_event_type,
+        },
+        isActive: d.is_active,
+        poolName: d.pool_name,
+        isNative: d.is_native,
+      } as PoolLabel;
+    } else if (strategyType === 'FungibleLending') {
+      return {
+        poolId: d.pool_id,
+        packageId: d.package_id,
+        packageNumber: d.package_number,
+        strategyType: strategyType,
+        parentProtocol: d.parent_protocol,
+        parentPoolId: d.parent_pool_id,
+        fungibleCoin: d.fungible_coin ?? d.asset,
+        asset: d.asset,
+        events: {
+          autocompoundEventType: d.events?.autocompound_event_type,
         },
         isActive: d.is_active,
         poolName: d.pool_name,

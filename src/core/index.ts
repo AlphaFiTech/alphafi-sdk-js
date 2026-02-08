@@ -9,7 +9,7 @@ import { Protocol } from '../models/protocol.js';
 import { Portfolio } from '../models/portfolio.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { CetusSwap } from '../models/swap.js';
-import type { PoolData, UserPortfolioData } from '../models/types.js';
+import type { PoolBalance, PoolData, UserPortfolioData } from '../models/types.js';
 import {
   AlphaFiSDKConfig,
   CetusSwapOptions,
@@ -61,6 +61,29 @@ export class AlphaFiSDK {
    */
   async getPoolsData(strategiesType?: StrategyType[]): Promise<Map<string, PoolData>> {
     return this.protocol.getPoolsData(strategiesType);
+  }
+
+  /**
+   * Get data for a single pool.
+   *
+   * @param poolId - The ID of the pool to get data for
+   * @returns Pool data including APR, TVL, LP breakdown, parent LP breakdown, current LP pool price, and position range
+   */
+  async getSinglePoolData(poolId: string): Promise<PoolData> {
+    const strategy = await this.protocol.getSinglePoolStrategy(poolId);
+    return strategy.getData();
+  }
+
+  /**
+   * Get balance for a single pool.
+   *
+   * @param address - The address of the user to get balance for
+   * @param poolId - The ID of the pool to get balance for
+   * @returns Pool balance including token amounts and USD value
+   */
+  async getUserSinglePoolBalance(address: string, poolId: string): Promise<PoolBalance> {
+    const strategy = await this.portfolio.getPoolStrategy(address, poolId);
+    return strategy.getBalance(address);
   }
 
   /**

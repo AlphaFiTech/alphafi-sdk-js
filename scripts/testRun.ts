@@ -167,8 +167,30 @@ async function main() {
   //   ),
   // );
 }
-main();
 
+async function poolsData() {
+  const { address, keypair, suiClient } = getExecStuff();
+  const sdk = new AlphaFiSDK({
+    suiClient: suiClient,
+    network: 'mainnet',
+  });
+  const data = await sdk.getSinglePoolData(
+    '0xa3d24b60cae841cbd83d65c5a7e6380b0160cbff9d1a86bdd79df9d1eea702f8',
+  );
+  console.log('data', data);
+}
+async function portfolioData() {
+  const { address, keypair, suiClient } = getExecStuff();
+  const sdk = new AlphaFiSDK({
+    suiClient: suiClient,
+    network: 'mainnet',
+  });
+  const data = await sdk.getUserSinglePoolBalance(
+    address,
+    '0xa3d24b60cae841cbd83d65c5a7e6380b0160cbff9d1a86bdd79df9d1eea702f8',
+  );
+  console.log('user data', data);
+}
 async function deposit() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({
@@ -176,22 +198,22 @@ async function deposit() {
     network: 'mainnet',
   });
   const tx = await sdk.deposit({
-    poolId: '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
+    poolId: '0xa3d24b60cae841cbd83d65c5a7e6380b0160cbff9d1a86bdd79df9d1eea702f8',
     amount: 100_000n,
     address: address,
   });
-  dryRunTransactionBlock(tx);
-  // executeTransactionBlock(tx);
+  // dryRunTransactionBlock(tx);
+  executeTransactionBlock(tx);
 }
 
 async function withdraw() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
-  const tx = await sdk.initiateWithdrawAlpha({
-    poolId: '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
-    amount: '200000',
-    withdrawMax: false,
-    address: address,
+  const tx = await sdk.withdraw({
+    poolId: '0xa3d24b60cae841cbd83d65c5a7e6380b0160cbff9d1a86bdd79df9d1eea702f8',
+    withdrawMax: true,
+    amount: '100000',
+    address,
   });
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx);
@@ -207,3 +229,7 @@ async function claimAirdrop() {
 }
 // claimAirdrop();
 // withdraw();
+
+// poolsData();
+// portfolioData();
+deposit();

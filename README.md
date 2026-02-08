@@ -145,6 +145,22 @@ const pools = await sdk.getPoolsData(['Lending', 'Lp']); // Filter by strategy t
 const allPools = await sdk.getPoolsData(); // Get all pools
 ```
 
+##### getSinglePoolData(poolId: string): Promise\<PoolData>
+
+Get data for a single pool.
+
+```typescript
+const poolData = await sdk.getSinglePoolData('0x...'); // Get data for specific pool
+```
+
+##### getUserSinglePoolBalance(address: string, poolId: string): Promise\<PoolBalance>
+
+Get balance for a single pool.
+
+```typescript
+const balance = await sdk.getUserSinglePoolBalance(userAddress, '0x...');
+```
+
 ##### getUserPortfolio(address: string, strategiesType?: StrategyType[]): Promise\<UserPortfolioData>
 
 Get complete portfolio summary for a user address.

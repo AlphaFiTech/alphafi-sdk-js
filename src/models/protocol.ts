@@ -19,6 +19,7 @@ import { PoolLabel, Strategy, StrategyType } from '../strategies/strategy.js';
 import { PoolData } from './types.js';
 import { Cache } from '../utils/cache.js';
 import { CACHE_TTL } from '../utils/constants.js';
+import { FungibleLendingStrategy } from 'src/strategies/fungibleLending.js';
 
 export class Protocol {
   strategyContext: StrategyContext;
@@ -220,6 +221,16 @@ export class Protocol {
               poolLabel,
               poolObjects.get(poolLabel.poolId),
               investorObjects.get((poolLabel as SingleAssetLoopingPoolLabel).investorId),
+              this.strategyContext,
+            ),
+          );
+          break;
+        case 'FungibleLending':
+          resMap.set(
+            poolLabel.poolId,
+            new FungibleLendingStrategy(
+              poolLabel,
+              poolObjects.get(poolLabel.poolId),
               this.strategyContext,
             ),
           );
