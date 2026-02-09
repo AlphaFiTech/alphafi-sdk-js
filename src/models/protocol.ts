@@ -19,7 +19,7 @@ import { PoolLabel, Strategy, StrategyType } from '../strategies/strategy.js';
 import { PoolData } from './types.js';
 import { Cache } from '../utils/cache.js';
 import { CACHE_TTL } from '../utils/constants.js';
-import { FungibleLendingStrategy } from 'src/strategies/fungibleLending.js';
+import { FungibleLendingStrategy } from '../strategies/fungibleLending.js';
 
 export class Protocol {
   strategyContext: StrategyContext;
