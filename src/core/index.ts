@@ -243,6 +243,27 @@ export class AlphaFiSDK {
   }
 
   /**
+   * Vote on a proposal.
+   *
+   * @param voteIndex - The index of the vote to cast
+   * @param proposalId - The ID of the proposal to vote on
+   * @returns Transaction object ready for signing and execution
+   */
+  async vote(voteIndex: number, proposalId: string): Promise<Transaction | undefined> {
+    const tx = new Transaction();
+    if (voteIndex === undefined) {
+      console.error('Vote index is undefined');
+      return undefined;
+    }
+
+    tx.moveCall({
+      target: `0x79729faced2e6294254e555424184f71c8c043a1dbe3447b88613704a7276710::governance::vote`,
+      arguments: [tx.object(proposalId), tx.pure.u8(voteIndex), tx.object('0x6')],
+    });
+
+    return tx;
+  }
+  /**
    * Get quote for token swap via Cetus aggregator.
    *
    * @param options - Swap quote configuration with token types and amount
