@@ -238,6 +238,19 @@ for (const pool of TEST_POOLS) {
 }
 ```
 
+##### vote(voteIndex: number, proposalId: string): Promise\<Transaction | undefined>
+
+Build an **unsigned** transaction to vote on a governance proposal.
+
+```typescript
+// voteIndex: The index of the vote to cast (e.g. 0 = Against, 1 = For, etc.)
+// proposalId: The object ID of the proposal to vote on
+const voteTx = await sdk.vote(1, '0x...'); // Vote "For" on proposal 0x...
+// Sign & execute with your wallet / client
+```
+
+Returns `undefined` if `voteIndex` is undefined (and logs an error). Otherwise returns a `Transaction` ready for signing and execution.
+
 #### Alpha Token Methods
 
 ##### initiateWithdrawAlpha(options: WithdrawOptions): Promise\<Transaction>
