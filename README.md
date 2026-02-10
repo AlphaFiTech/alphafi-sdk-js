@@ -227,6 +227,17 @@ interface ClaimOptions {
 }
 ```
 
+#### dev-testing
+
+replace the code in fetchPoolLabelsByIds with the below code block to test transactions with testing pools.
+
+```typescript
+const { TEST_POOLS } = await import('../utils/testing-pools.js');
+for (const pool of TEST_POOLS) {
+  poolLabels.set(pool.poolId, pool);
+}
+```
+
 #### Alpha Token Methods
 
 ##### initiateWithdrawAlpha(options: WithdrawOptions): Promise\<Transaction>
