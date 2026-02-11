@@ -484,12 +484,8 @@ export class LyfStrategy extends BaseStrategy<
   }
 
   private async collectAndSwapRewards(tx: Transaction) {
-    const [blueCoin, suiCoin, alphaCoin, stsuiCoin] = await this.context.getCoinsBySymbols([
-      'BLUE',
-      'SUI',
-      'ALPHA',
-      'stSUI',
-    ]);
+    const [blueCoin, suiCoin, alphaCoin, stsuiCoin, usdcCoin] =
+      await this.context.getCoinsBySymbols(['BLUE', 'SUI', 'ALPHA', 'stSUI', 'USDC']);
     tx.moveCall({
       target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
       typeArguments: [
@@ -556,6 +552,74 @@ export class LyfStrategy extends BaseStrategy<
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
+      typeArguments: [
+        this.poolLabel.assetA.type,
+        this.poolLabel.assetB.type,
+        stsuiCoin.coinType,
+        suiCoin.coinType,
+      ],
+      arguments: [
+        tx.object(VERSIONS.LYF_LP),
+        tx.object(this.poolLabel.poolId),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(this.poolLabel.parentPoolId),
+        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('stSUI', 'SUI', 'bluefin')),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.pure.bool(true),
+        tx.pure.bool(true),
+        tx.pure.bool(false),
+        tx.object(SUI_SYSTEM_STATE),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
+      typeArguments: [
+        this.poolLabel.assetA.type,
+        this.poolLabel.assetB.type,
+        stsuiCoin.coinType,
+        suiCoin.coinType,
+      ],
+      arguments: [
+        tx.object(VERSIONS.LYF_LP),
+        tx.object(this.poolLabel.poolId),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(this.poolLabel.parentPoolId),
+        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('stSUI', 'SUI', 'bluefin')),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.pure.bool(true),
+        tx.pure.bool(true),
+        tx.pure.bool(true),
+        tx.object(SUI_SYSTEM_STATE),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+    if (this.poolLabel.poolName === 'BLUEFIN-LYF-SUIUSDT-USDC') {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          suiCoin.coinType,
+          usdcCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.LYF_LP),
+          tx.object(this.poolLabel.poolId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'USDC', 'bluefin')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(true),
+          tx.pure.bool(true),
+          tx.pure.bool(true),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
   }
 
   async deposit(tx: Transaction, options: DepositOptions) {
@@ -679,17 +743,21 @@ export class LyfStrategy extends BaseStrategy<
       typeArguments: [this.poolLabel.assetB.type],
       arguments: [lyfBalanceB],
     });
-    const [sui] = tx.moveCall({
-      target: getStsuiConf().STSUI_LATEST_PACKAGE_ID + '::liquid_staking::redeem',
-      arguments: [
-        tx.object(getStsuiConf().LST_INFO),
-        lyfCoinA,
-        tx.object(getStsuiConf().SUI_SYSTEM_STATE_OBJECT_ID),
-      ],
-      typeArguments: [getStsuiConf().STSUI_COIN_TYPE],
-    });
-    tx.mergeCoins(sui, [lyfCoinB]);
-    tx.transferObjects([sui], options.address);
+    if (this.poolLabel.poolName === 'BLUEFIN-LYF-STSUI-SUI') {
+      const [sui] = tx.moveCall({
+        target: getStsuiConf().STSUI_LATEST_PACKAGE_ID + '::liquid_staking::redeem',
+        arguments: [
+          tx.object(getStsuiConf().LST_INFO),
+          lyfCoinA,
+          tx.object(getStsuiConf().SUI_SYSTEM_STATE_OBJECT_ID),
+        ],
+        typeArguments: [getStsuiConf().STSUI_COIN_TYPE],
+      });
+      tx.mergeCoins(sui, [lyfCoinB]);
+      tx.transferObjects([sui], options.address);
+    } else {
+      tx.transferObjects([lyfCoinA, lyfCoinB], options.address);
+    }
   }
 
   async claimRewards(tx: Transaction, alphaReceipt: TransactionResult) {
