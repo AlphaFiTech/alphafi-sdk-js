@@ -232,6 +232,6 @@ async function claimAirdrop() {
 // claimAirdrop();
 // withdraw();
 
-// poolsData();
-// portfolioData();
-deposit();
+poolsData();
+portfolioData();
+// deposit();
