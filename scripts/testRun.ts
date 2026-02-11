@@ -202,8 +202,8 @@ async function deposit() {
     amount: 100_000n,
     address: address,
   });
-  // dryRunTransactionBlock(tx);
-  executeTransactionBlock(tx);
+  dryRunTransactionBlock(tx);
+  // executeTransactionBlock(tx);
 }
 
 async function withdraw() {
@@ -230,6 +230,6 @@ async function claimAirdrop() {
 // claimAirdrop();
 // withdraw();
 
-// poolsData();
-// portfolioData();
-deposit();
+poolsData();
+portfolioData();
+// deposit();

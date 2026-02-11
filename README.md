@@ -227,6 +227,17 @@ interface ClaimOptions {
 }
 ```
 
+#### dev-testing
+
+replace the code in fetchPoolLabelsByIds with the below code block to test transactions with testing pools.
+
+```typescript
+const { TEST_POOLS } = await import('../utils/testing-pools.js');
+for (const pool of TEST_POOLS) {
+  poolLabels.set(pool.poolId, pool);
+}
+```
+
 ##### vote(voteIndex: number, proposalId: string): Promise\<Transaction | undefined>
 
 Build an **unsigned** transaction to vote on a governance proposal.
