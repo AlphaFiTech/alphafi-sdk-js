@@ -22,8 +22,21 @@
     "test": "jest --config jest.config.cjs.js",
     "docs": "typedoc"
   },
-  "keywords": [],
-  "author": "",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "sui",
+    "defi",
+    "alphafi",
+    "sdk",
+    "blockchain",
+    "yield",
+    "lending",
+    "liquidity"
+  ],
+  "author": "AlphaFi",
   "license": "ISC",
   "dependencies": {
     "@alphafi/alphalend-sdk": "^1.1.27",

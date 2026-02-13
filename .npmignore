@@ -20,6 +20,12 @@ typedoc.json
 *.tsbuildinfo
 coverage/
 
+# Generated docs
+docs/
+
+# Scripts
+scripts/
+
 # Development files
 node_modules/
 npm-debug.log

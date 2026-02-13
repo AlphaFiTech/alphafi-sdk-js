@@ -80,8 +80,6 @@ const claimTx = await sdk.claim({
 > - Deposits and zap inputs use `bigint` in base units (`1000000000n` = 1 SUI).
 > - Withdraw inputs and most quotes use `string` for flexibility across strategies.
 > - Responses return `Decimal` instances (from `decimal.js`) to avoid floating-point errors.
->
-> **API status**: This SDK is pre-release; breaking changes are expected until the first stable version.
 
 ## Supported Protocols
 
@@ -249,7 +247,8 @@ const voteTx = await sdk.vote(1, '0x...'); // Vote "For" on proposal 0x...
 // Sign & execute with your wallet / client
 ```
 
-Returns `undefined` if `voteIndex` is undefined (and logs an error). Otherwise returns a `Transaction` ready for signing and execution.
+Returns `undefined` if `voteIndex` is undefined (and logs an error).
+Otherwise returns a `Transaction` ready for signing and execution.
 
 #### Alpha Token Methods
 
