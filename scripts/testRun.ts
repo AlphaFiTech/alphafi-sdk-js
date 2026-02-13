@@ -201,6 +201,7 @@ async function deposit() {
     poolId: '0x6ae707d20a057d48100539c716072725e068aa1bc13ea9fe39700ec6e75401ee',
     amount: 10_000n,
     address: address,
+    isAmountA: false,
   });
   dryRunTransactionBlock(tx);
   // executeTransactionBlock(tx);
@@ -213,6 +214,7 @@ async function withdraw() {
     poolId: '0x6ae707d20a057d48100539c716072725e068aa1bc13ea9fe39700ec6e75401ee',
     withdrawMax: true,
     amount: '100000',
+    isAmountA: true,
     address,
   });
   tx.setGasBudget(2e8);
