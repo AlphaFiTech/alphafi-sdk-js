@@ -137,7 +137,7 @@ export class StrategyContext {
     if (poolIds.length === 0) {
       return new Map();
     }
-
+    const poolLabels = new Map<string, PoolLabel>();
     const url = `${ALPHAFI_CONFIG_URL}?pool_ids=${poolIds.join(',')}`;
     const response = await fetch(url);
     if (!response.ok) {
@@ -150,7 +150,6 @@ export class StrategyContext {
         data: any;
       }
     >;
-    const poolLabels = new Map<string, PoolLabel>();
     for (const [poolId, entry] of Object.entries(json)) {
       const label = this.parsePoolLabelEntry(entry.strategy_type, entry.data);
       if (label) {
