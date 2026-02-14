@@ -865,7 +865,6 @@ export class LoopingStrategy extends BaseStrategy<
     });
 
     if (this.poolLabel.parentProtocol === 'Alphalend') {
-      await this.collectAndSwapRewards(tx);
       const [stsuiCoin, suiCoin, alphaCoin, blueCoin] = await this.context.getCoinsBySymbols([
         'stSUI',
         'SUI',
