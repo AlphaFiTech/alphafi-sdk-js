@@ -19,12 +19,13 @@ import {
   DISTRIBUTOR_OBJECT_ID,
   SLUSH_POSITION_CAP_TYPE,
 } from '../utils/constants.js';
-import { getCanonicalPairKey, POOL_REGISTRY, ProtocolPoolIds } from '../utils/poolMap.js';
+import { getCanonicalPairKey, ProtocolPoolIds } from '../utils/poolMap.js';
 import { Cache, SingletonCache } from '../utils/cache.js';
 
 const ALPHAFI_NAVI_TVL_URL = 'https://api.alphafi.xyz/public/navi-params';
 const ALPHAFI_APR_URL = 'https://api.alphafi.xyz/public/apr';
 const ALPHAFI_CONFIG_URL = 'https://api.alphafi.xyz/public/config';
+const ALPHAFI_EXTERNAL_POOLS_URL = 'https://api.alphafi.xyz/public/external-pools';
 
 export class StrategyContext {
   blockchain: Blockchain;
@@ -38,6 +39,8 @@ export class StrategyContext {
   private naviTvlCache: SingletonCache<Map<string, Decimal>>;
   private bucketTvlCache: SingletonCache<Decimal>;
   private distributorCache: SingletonCache<DistributorObject>;
+  private externalPoolsCache: Cache<string, ProtocolPoolIds>;
+  private allExternalPoolsCache: SingletonCache<Map<string, ProtocolPoolIds>>;
 
   // Per-user caches
   private slushPositionCapsCache: Cache<string, SlushPositionCap[]>;
@@ -57,6 +60,8 @@ export class StrategyContext {
     this.naviTvlCache = new SingletonCache(CACHE_TTL.TVL_DATA);
     this.bucketTvlCache = new SingletonCache(CACHE_TTL.TVL_DATA);
     this.distributorCache = new SingletonCache(CACHE_TTL.DISTRIBUTOR);
+    this.externalPoolsCache = new Cache(CACHE_TTL.EXTERNAL_POOLS);
+    this.allExternalPoolsCache = new SingletonCache(CACHE_TTL.EXTERNAL_POOLS);
 
     // Initialize per-user caches
     this.slushPositionCapsCache = new Cache(CACHE_TTL.USER_DATA);
@@ -201,6 +206,7 @@ export class StrategyContext {
       return {
         poolId: d.pool_id,
         packageId: d.package_id,
+        versionObjectId: d.version_object_id,
         packageNumber: d.package_number,
         strategyType: strategyType,
         parentProtocol: d.parent_protocol,
@@ -223,6 +229,7 @@ export class StrategyContext {
       return {
         poolId: d.pool_id,
         packageId: d.package_id,
+        versionObjectId: d.version_object_id,
         packageNumber: d.package_number,
         strategyType: strategyType,
         parentProtocol: d.parent_protocol,
@@ -244,6 +251,7 @@ export class StrategyContext {
       return {
         poolId: d.pool_id,
         packageId: d.package_id,
+        versionObjectId: d.version_object_id,
         packageNumber: d.package_number,
         strategyType: strategyType,
         parentProtocol: d.parent_protocol,
@@ -261,6 +269,7 @@ export class StrategyContext {
       return {
         poolId: d.pool_id,
         packageId: d.package_id,
+        versionObjectId: d.version_object_id,
         packageNumber: d.package_number,
         strategyType: strategyType,
         parentProtocol: d.parent_protocol,
@@ -280,6 +289,7 @@ export class StrategyContext {
       return {
         poolId: d.pool_id,
         packageId: d.package_id,
+        versionObjectId: d.version_object_id,
         packageNumber: d.package_number,
         strategyType: strategyType,
         parentProtocol: d.parent_protocol,
@@ -302,6 +312,7 @@ export class StrategyContext {
       return {
         poolId: d.pool_id,
         packageId: d.package_id,
+        versionObjectId: d.version_object_id,
         packageNumber: d.package_number,
         strategyType: strategyType,
         parentProtocol: d.parent_protocol,
@@ -320,6 +331,7 @@ export class StrategyContext {
       return {
         poolId: d.pool_id,
         packageId: d.package_id,
+        versionObjectId: d.version_object_id,
         packageNumber: d.package_number,
         strategyType: strategyType,
         parentProtocol: d.parent_protocol,
@@ -343,6 +355,7 @@ export class StrategyContext {
         poolId: d.pool_id,
         investorId: d.investor_id,
         packageId: d.package_id,
+        versionObjectId: d.version_object_id,
         packageNumber: d.package_number,
         strategyType: strategyType,
         parentProtocol: d.parent_protocol,
@@ -658,12 +671,54 @@ export class StrategyContext {
   /**
    * Lookup pool IDs by coin types (order-agnostic).
    */
-  getPoolIdsByTypes(coinTypeA: string, coinTypeB: string): ProtocolPoolIds {
+  async getPoolIdsByTypes(coinTypeA: string, coinTypeB: string): Promise<ProtocolPoolIds> {
     const key = getCanonicalPairKey(coinTypeA, coinTypeB);
-    if (!POOL_REGISTRY[key]) {
-      throw new Error(`Pool not found for coin pair: ${coinTypeA} or ${coinTypeB}`);
+
+    return this.externalPoolsCache.getOrFetch(key, async () => {
+      const fetchedMap = await this.fetchExternalPools([key]);
+      const ids = fetchedMap.get(key);
+      if (!ids) {
+        throw new Error(`Pool not found for coin pair: ${coinTypeA} or ${coinTypeB}`);
+      }
+      return ids;
+    });
+  }
+
+  /**
+   * Get external pools registry. Lazily loaded and cached.
+   * Populates the individual cache as well.
+   */
+  async getExternalPools(): Promise<Map<string, ProtocolPoolIds>> {
+    return this.allExternalPoolsCache.getOrFetch(async () => {
+      const registry = await this.fetchExternalPools();
+      // Populate individual cache
+      registry.forEach((val, key) => {
+        this.externalPoolsCache.set(key, val);
+      });
+      return registry;
+    });
+  }
+
+  private async fetchExternalPools(
+    coinPairs: string[] = [],
+  ): Promise<Map<string, ProtocolPoolIds>> {
+    const registry = new Map<string, ProtocolPoolIds>();
+    let url = ALPHAFI_EXTERNAL_POOLS_URL;
+
+    if (coinPairs.length > 0) {
+      const param = coinPairs.join(',');
+      url += `?coin_pairs=${encodeURIComponent(param)}`;
     }
-    return POOL_REGISTRY[key];
+
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      throw new Error(`Failed to fetch external pools: ${resp.status} ${resp.statusText}`);
+    }
+    const data = (await resp.json()) as Record<string, ProtocolPoolIds>;
+    for (const [key, val] of Object.entries(data)) {
+      registry.set(key, val);
+    }
+    return registry;
   }
 
   // ============================================================
@@ -908,6 +963,8 @@ export class StrategyContext {
     this.naviTvlCache.clear();
     this.bucketTvlCache.clear();
     this.distributorCache.clear();
+    this.externalPoolsCache.clear();
+    this.allExternalPoolsCache.clear();
     this.slushPositionCapsCache.clear();
     this.alphaFiReceiptsCache.clear();
     this.slushPositionsCache.clear();

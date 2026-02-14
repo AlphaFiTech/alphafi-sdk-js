@@ -504,6 +504,7 @@ export interface SlushLendingReceiptObject {
 export interface SlushLendingPoolLabel {
   poolId: string;
   packageId: string;
+  versionObjectId: string;
   packageNumber: number;
   strategyType: 'SlushLending';
   parentProtocol: ProtocolType;

@@ -565,6 +565,7 @@ export interface FungibleLpParentPoolObject {
 export interface FungibleLpPoolLabel {
   poolId: string;
   packageId: string;
+  versionObjectId: string;
   packageNumber: number;
   strategyType: 'FungibleLp';
   parentProtocol: ProtocolType;

@@ -265,6 +265,7 @@ export const CACHE_TTL = (() => {
 
     APR_DATA: 10 * 60 * 1000, // 10 minutes - APR changes frequently
     POOL_LABELS: DEFAULT, // 5 minutes - config rarely changes
+    EXTERNAL_POOLS: 10 * 60 * 1000, // 10 minutes - rarely changes
     TVL_DATA: 10 * 60 * 1000, // 10 minutes - TVL changes moderately
     DISTRIBUTOR: 10 * 60 * 1000, // 10 minutes - for accurate reward calculation
     USER_DATA: DEFAULT, // 5 minutes - user positions can change

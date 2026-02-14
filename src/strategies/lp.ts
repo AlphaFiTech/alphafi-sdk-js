@@ -1976,6 +1976,7 @@ export interface LpReceiptObject {
 export interface LpPoolLabel {
   poolId: string;
   packageId: string;
+  versionObjectId: string;
   packageNumber: number;
   strategyType: 'Lp';
   parentProtocol: ProtocolType;

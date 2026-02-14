@@ -1184,6 +1184,7 @@ export interface LoopingReceiptObject {
 export interface LoopingPoolLabel {
   poolId: string;
   packageId: string;
+  versionObjectId: string;
   packageNumber: number;
   strategyType: 'Looping';
   parentProtocol: ProtocolType;

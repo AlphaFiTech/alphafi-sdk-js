@@ -751,6 +751,7 @@ export interface AutobalanceLpReceiptObject {
 export interface AutobalanceLpPoolLabel {
   poolId: string;
   packageId: string;
+  versionObjectId: string;
   packageNumber: number;
   strategyType: 'AutobalanceLp';
   parentProtocol: ProtocolType;

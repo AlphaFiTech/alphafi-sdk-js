@@ -1231,6 +1231,7 @@ export interface AlphaVaultPoolLabel {
   poolId: string;
   investorId: string;
   packageId: string;
+  versionObjectId: string;
   packageNumber: number;
   strategyType: 'AlphaVault';
   parentProtocol: ProtocolType;

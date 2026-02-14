@@ -792,6 +792,7 @@ export interface LyfReceiptObject {
 export interface LyfPoolLabel {
   poolId: string;
   packageId: string;
+  versionObjectId: string;
   packageNumber: number;
   strategyType: 'Lyf';
   parentProtocol: ProtocolType;

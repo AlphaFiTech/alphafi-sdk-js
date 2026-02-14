@@ -1170,6 +1170,7 @@ export interface LendingReceiptObject {
 export interface LendingPoolLabel {
   poolId: string;
   packageId: string;
+  versionObjectId: string;
   packageNumber: number;
   strategyType: 'Lending';
   parentProtocol: ProtocolType;

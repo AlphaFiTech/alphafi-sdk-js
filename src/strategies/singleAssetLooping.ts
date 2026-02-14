@@ -776,6 +776,7 @@ export interface SingleAssetLoopingReceiptObject {
 export interface SingleAssetLoopingPoolLabel {
   poolId: string;
   packageId: string;
+  versionObjectId: string;
   packageNumber: number;
   strategyType: 'SingleAssetLooping';
   parentProtocol: ProtocolType;
