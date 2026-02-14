@@ -80,8 +80,6 @@ const claimTx = await sdk.claim({
 > - Deposits and zap inputs use `bigint` in base units (`1000000000n` = 1 SUI).
 > - Withdraw inputs and most quotes use `string` for flexibility across strategies.
 > - Responses return `Decimal` instances (from `decimal.js`) to avoid floating-point errors.
->
-> **API status**: This SDK is pre-release; breaking changes are expected until the first stable version.
 
 ## Supported Protocols
 
@@ -226,6 +224,31 @@ interface ClaimOptions {
   poolId?: string; // Optional: specific pool ID
 }
 ```
+
+#### dev-testing
+
+replace the code in fetchPoolLabelsByIds with the below code block to test transactions with testing pools.
+
+```typescript
+const { TEST_POOLS } = await import('../utils/testing-pools.js');
+for (const pool of TEST_POOLS) {
+  poolLabels.set(pool.poolId, pool);
+}
+```
+
+##### vote(voteIndex: number, proposalId: string): Promise\<Transaction | undefined>
+
+Build an **unsigned** transaction to vote on a governance proposal.
+
+```typescript
+// voteIndex: The index of the vote to cast (e.g. 0 = Against, 1 = For, etc.)
+// proposalId: The object ID of the proposal to vote on
+const voteTx = await sdk.vote(1, '0x...'); // Vote "For" on proposal 0x...
+// Sign & execute with your wallet / client
+```
+
+Returns `undefined` if `voteIndex` is undefined (and logs an error).
+Otherwise returns a `Transaction` ready for signing and execution.
 
 #### Alpha Token Methods
 
