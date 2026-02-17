@@ -265,7 +265,7 @@ export class LendingStrategy extends BaseStrategy<
   private async getAvailableRewards(address: string): Promise<Record<string, any[]>> {
     try {
       // Call the integration API
-      const apiUrl = 'https://api.alphafi.xyz';
+      const apiUrl = this.context.apiBaseUrl;
       const response = await fetch(
         `${apiUrl}/navi-params/rewards?address=${encodeURIComponent(address)}`,
         {

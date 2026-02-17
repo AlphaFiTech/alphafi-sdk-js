@@ -14,6 +14,8 @@ export interface AlphaFiSDKConfig {
   suiClient: SuiClient;
   /** Target Sui network environment */
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+  /** Base URL for the AlphaFi API (defaults to 'https://api.alphafi.xyz') */
+  apiBaseUrl?: string;
 }
 
 /**
