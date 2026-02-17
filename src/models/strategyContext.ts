@@ -22,11 +22,10 @@ import {
 import { getCanonicalPairKey, POOL_REGISTRY, ProtocolPoolIds } from '../utils/poolMap.js';
 import { Cache, SingletonCache } from '../utils/cache.js';
 
-const ALPHAFI_NAVI_TVL_URL = 'https://api.alphafi.xyz/public/navi-params';
-const ALPHAFI_APR_URL = 'https://api.alphafi.xyz/public/apr';
-const ALPHAFI_CONFIG_URL = 'https://api.alphafi.xyz/public/config';
+const DEFAULT_API_BASE_URL = 'https://api.alphafi.xyz';
 
 export class StrategyContext {
+  readonly apiBaseUrl: string;
   blockchain: Blockchain;
   coinInfoProvider: CoinInfoProvider;
 
@@ -45,7 +44,12 @@ export class StrategyContext {
   private slushPositionsCache: Cache<string, Map<string, any[]>>;
   private alphaFiPositionsCache: Cache<string, Map<string, any[]>>;
 
-  constructor(network: 'mainnet' | 'testnet' | 'devnet' | 'localnet', suiClient: SuiClient) {
+  constructor(
+    network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
+    suiClient: SuiClient,
+    apiBaseUrl?: string,
+  ) {
+    this.apiBaseUrl = apiBaseUrl ?? DEFAULT_API_BASE_URL;
     this.blockchain = new Blockchain({ network, suiClient });
     this.coinInfoProvider = new CoinInfoProvider();
 
@@ -138,7 +142,7 @@ export class StrategyContext {
       return new Map();
     }
     const poolLabels = new Map<string, PoolLabel>();
-    const url = `${ALPHAFI_CONFIG_URL}?pool_ids=${poolIds.join(',')}`;
+    const url = `${this.apiBaseUrl}/public/config?pool_ids=${poolIds.join(',')}`;
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Failed to fetch pool config: ${response.status} ${response.statusText}`);
@@ -165,7 +169,7 @@ export class StrategyContext {
    */
   private async fetchAllPoolLabels(): Promise<Map<string, PoolLabel>> {
     const poolLabels = new Map<string, PoolLabel>();
-    const response = await fetch(ALPHAFI_CONFIG_URL);
+    const response = await fetch(`${this.apiBaseUrl}/public/config`);
     if (!response.ok) {
       throw new Error(`Failed to fetch config: ${response.status} ${response.statusText}`);
     }
@@ -408,7 +412,7 @@ export class StrategyContext {
 
   private async fetchAprData(): Promise<Map<string, AprData>> {
     const aprMap = new Map<string, AprData>();
-    const resp = await fetch(ALPHAFI_APR_URL);
+    const resp = await fetch(`${this.apiBaseUrl}/public/apr`);
     if (!resp.ok) {
       throw new Error(`Failed to fetch apr data: ${resp.status} ${resp.statusText}`);
     }
@@ -532,7 +536,7 @@ export class StrategyContext {
 
   private async fetchNaviTvl(): Promise<Map<string, Decimal>> {
     const tvlMap = new Map<string, Decimal>();
-    const resp = await fetch(ALPHAFI_NAVI_TVL_URL);
+    const resp = await fetch(`${this.apiBaseUrl}/public/navi-params`);
     if (!resp.ok) {
       return tvlMap;
     }
