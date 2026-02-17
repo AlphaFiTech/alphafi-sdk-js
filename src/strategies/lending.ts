@@ -881,13 +881,14 @@ export class LendingStrategy extends BaseStrategy<
 
     tx.moveCall({
       target:
-        '0xc2d49bf5e75d2258ee5563efa527feb6155de7ac6f6bf025a23ee88cd12d5a83::oracle_pro::update_single_price',
+        '0x203728f46eb10d19f8f8081db849c86aa8f2a19341b7fd84d7a0e74f053f6242::oracle_pro::update_single_price_v2',
       arguments: [
         tx.object(CLOCK_PACKAGE_ID),
         tx.object(NAVI_CONFIG.ORACLE_CONFIG),
         tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
         tx.object(NAVI_CONFIG.SUPRA_ORACLE_HOLDER),
         tx.object(priceInfoObjectIds[0]),
+        tx.object(NAVI_CONFIG.NAVI_AGGREGATOR),
         tx.pure.address(feedId),
       ],
     });
