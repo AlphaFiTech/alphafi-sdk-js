@@ -17,6 +17,7 @@ import {
   ClaimAirdropOptions,
   ClaimOptions,
   ClaimWithdrawAlphaOptions,
+  ClaimWithdrawSlushOptions,
   DepositOptions,
   EstimateLpAmountsOptions,
   WithdrawOptions,
@@ -25,6 +26,7 @@ import { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 import { Strategy, StrategyType } from '../strategies/strategy.js';
 import { LEGACY_ALPHA_POOL_RECEIPT, PACKAGE_IDS, VERSIONS } from '../utils/constants.js';
 import { AlphaVaultStrategy } from '../strategies/alphaVault.js';
+import { SlushSingleAssetLoopingStrategy } from '../strategies/slushSingleAssetLooping.js';
 
 // Re-export types for external use
 export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
@@ -184,6 +186,22 @@ export class AlphaFiSDK {
       '0x06a4922346ae433e9a2fff4db900d760e0cbfdef748f48385f430ef4d042a6f8',
     )) as AlphaVaultStrategy;
     await strategy.claimWithdraw(tx, options.ticketId, options.address);
+    return tx;
+  }
+
+  /**
+   * Complete Slush token withdrawal using previously created request.
+   *
+   * @param options - Withdrawal claim configuration with request ID, pool ID and user address
+   * @returns Transaction to claim the withdrawn tokens
+   */
+  async claimWithdrawSlush(options: ClaimWithdrawSlushOptions): Promise<Transaction> {
+    const tx = new Transaction();
+    const strategy = (await this.portfolio.getPoolStrategy(
+      options.address,
+      options.poolId,
+    )) as SlushSingleAssetLoopingStrategy;
+    await strategy.claimWithdraw(tx, options.withdrawRequestId, options.address);
     return tx;
   }
 

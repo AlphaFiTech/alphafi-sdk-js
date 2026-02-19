@@ -21,6 +21,7 @@ import {
   FungibleLendingStrategy,
 } from '../strategies/fungibleLending.js';
 import { SlushLendingStrategy } from '../strategies/slushLending.js';
+import { SlushSingleAssetLoopingStrategy } from '../strategies/slushSingleAssetLooping.js';
 
 export class Portfolio {
   protocol: Protocol;
@@ -136,6 +137,7 @@ export class Portfolio {
           hasFungible = true;
           break;
         case 'SlushLending':
+        case 'SlushSingleAssetLooping':
           hasSlushLending = true;
           break;
         case 'FungibleLending':
@@ -223,6 +225,11 @@ export class Portfolio {
         case 'SlushLending': {
           const slushLendingStrategy = strategy as SlushLendingStrategy;
           slushLendingStrategy.updateReceipts(slushPositions.get(poolId) ?? []);
+          break;
+        }
+        case 'SlushSingleAssetLooping': {
+          const slushStrategy = strategy as SlushSingleAssetLoopingStrategy;
+          slushStrategy.updateReceipts(slushPositions.get(poolId) ?? []);
           break;
         }
         case 'FungibleLending': {

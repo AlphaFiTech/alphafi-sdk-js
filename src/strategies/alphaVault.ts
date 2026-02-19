@@ -1,6 +1,12 @@
 import { Decimal } from 'decimal.js';
 import { AlphaMiningData, BaseStrategy, StringMap, ProtocolType } from './strategy.js';
-import { AlphaFiReceipt, PoolBalance, PoolData, SingleTvl } from '../models/types.js';
+import {
+  AlphaFiReceipt,
+  PoolBalance,
+  PoolData,
+  SingleTvl,
+  UserWithdrawalStatus,
+} from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
@@ -190,7 +196,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
     // Subtract pending withdrawals (status == 0)
     for (const withdrawal of withdrawalData) {
       if (withdrawal.status === 0) {
-        stakedAlphaAmount = stakedAlphaAmount.sub(new Decimal(withdrawal.alphaAmount || '0'));
+        stakedAlphaAmount = stakedAlphaAmount.sub(withdrawal.tokenAmount);
       }
     }
 
@@ -257,14 +263,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
    * Get all withdrawal requests with status and ETA timestamps
    * Status: 0 = pending, 1 = accepted, 2 = claimable
    */
-  async getWithdrawals(): Promise<
-    {
-      ticketId: string;
-      alphaAmount: string;
-      status: number; // 0 for pending, 1 for accepted, 2 for claimable
-      withdrawalEtaTimestamp: number;
-    }[]
-  > {
+  async getWithdrawals(): Promise<UserWithdrawalStatus[]> {
     const position = this.receiptObjects.length > 0 ? this.receiptObjects[0] : null;
     if (!position) {
       return [];
@@ -275,12 +274,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
     const dayOfWeek = new Date().getDay(); // 0 = Sunday
     const numDaysFromNextSunday = 7 - dayOfWeek;
 
-    const results: {
-      ticketId: string;
-      alphaAmount: string;
-      status: number; // 0 for pending, 1 for accepted, 2 for claimable
-      withdrawalEtaTimestamp: number;
-    }[] = [];
+    const results: UserWithdrawalStatus[] = [];
 
     for (const entry of position.withdrawRequests) {
       const timeOfUnlock = parseInt(entry.value.timeOfUnlock || '0', 10);
@@ -303,12 +297,12 @@ export class AlphaVaultStrategy extends BaseStrategy<
         eta = timeOfUnlock;
       }
 
-      const tokenAmount = entry.value.tokenAmount || '0';
-      const alphaAmount = new Decimal(tokenAmount).div(new Decimal(10).pow(decimals)).toString();
+      const tokenAmountRaw = entry.value.tokenAmount || '0';
+      const tokenAmount = new Decimal(tokenAmountRaw).div(new Decimal(10).pow(decimals));
 
       results.push({
         ticketId: entry.key,
-        alphaAmount,
+        tokenAmount,
         status, // 0 = pending, 1 = accepted, 2 = claimable
         withdrawalEtaTimestamp: eta,
       });
@@ -653,11 +647,11 @@ export class AlphaVaultStrategy extends BaseStrategy<
           kv: any,
         ): {
           key: string;
-          value: UserWithdrawRequest;
+          value: AlphaVaultUserWithdrawRequest;
         } | null => {
           const key = this.getStringField(kv, 'key');
           const valFields = kv.value;
-          const value: UserWithdrawRequest = {
+          const value: AlphaVaultUserWithdrawRequest = {
             id: this.getStringField(valFields, 'id'),
             timeOfRequest: this.getStringField(valFields, 'time_of_request'),
             timeOfAcceptance: this.getStringField(valFields, 'time_of_acceptance'),
@@ -679,7 +673,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
           xTokens: this.getStringField(fields, 'xtokens'),
           withdrawRequests: withdrawRequestsKV as {
             key: string;
-            value: UserWithdrawRequest;
+            value: AlphaVaultUserWithdrawRequest;
           }[],
           allWithdrawals: parseTableInfo(fields.all_withdrawals),
           allDeposits: parseTableInfo(fields.all_deposits),
@@ -1168,10 +1162,9 @@ export interface AlphaVaultInvestorObject {
 }
 
 /**
- * UserWithdrawRequest - Used in AlphaVaultPositionObject's withdraw_requests
- * Matches Rust's UserWithdrawRequest struct
+ * AlphaVaultUserWithdrawRequest - Used in AlphaVaultPositionObject's withdraw_requests
  */
-export interface UserWithdrawRequest {
+export interface AlphaVaultUserWithdrawRequest {
   id: string;
   timeOfRequest: string;
   timeOfAcceptance: string;
@@ -1213,7 +1206,7 @@ export interface AlphaVaultReceiptObject {
   xTokens: string;
   withdrawRequests: {
     key: string;
-    value: UserWithdrawRequest;
+    value: AlphaVaultUserWithdrawRequest;
   }[];
   allWithdrawals: TableInfo;
   allDeposits: TableInfo;

@@ -69,6 +69,13 @@ export type PoolData =
       tvl: TvlData;
     };
 
+export type UserWithdrawalStatus = {
+  ticketId: string;
+  tokenAmount: Decimal;
+  status: number;
+  withdrawalEtaTimestamp: number;
+};
+
 export type PoolBalance =
   | {
       tokenAAmount: Decimal;
@@ -77,15 +84,15 @@ export type PoolBalance =
     }
   | { tokenAmount: Decimal; usdValue: Decimal }
   | {
+      tokenAmount: Decimal;
+      usdValue: Decimal;
+      withdrawals: UserWithdrawalStatus[];
+    }
+  | {
       stakedAlphaAmount: Decimal;
       stakedAlphaUsdValue: Decimal;
       pendingDeposits: Decimal;
-      withdrawals: {
-        ticketId: string;
-        alphaAmount: string;
-        status: number; // 0 for pending, 1 for accepted, 2 for claimable
-        withdrawalEtaTimestamp: number;
-      }[];
+      withdrawals: UserWithdrawalStatus[];
       claimableAirdrop: Decimal;
       totalAirdropClaimed: Decimal;
     };
