@@ -9,7 +9,7 @@ on:
 jobs:
   lint:
     name: lint
-    runs-on: ubuntu-latest
+    runs-on: sui-testnet
 
     steps:
       - name: Checkout alphafi-sdk-js
@@ -47,7 +47,7 @@ jobs:
 
   test:
     name: test
-    runs-on: ubuntu-latest
+    runs-on: sui-testnet
 
     steps:
       - name: Checkout alphafi-sdk-js
@@ -89,7 +89,7 @@ jobs:
 
   build:
     name: build
-    runs-on: ubuntu-latest
+    runs-on: sui-testnet
 
     steps:
       - name: Checkout alphafi-sdk-js
