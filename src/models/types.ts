@@ -46,6 +46,8 @@ export type TvlData =
 export type PoolData =
   | {
       poolId: string;
+      coinAType: string;
+      coinBType: string;
       poolName: string;
       apr: AprData;
       tvl: TvlData;
@@ -64,6 +66,7 @@ export type PoolData =
     }
   | {
       poolId: string;
+      coinType: string;
       poolName: string;
       apr: AprData;
       tvl: TvlData;

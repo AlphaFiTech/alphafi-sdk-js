@@ -114,6 +114,7 @@ export class LoopingStrategy extends BaseStrategy<
     ]);
     return {
       poolId: this.poolLabel.poolId,
+      coinType: this.poolLabel.userDepositAsset.type,
       poolName: this.poolLabel.poolName,
       apr,
       tvl: {
