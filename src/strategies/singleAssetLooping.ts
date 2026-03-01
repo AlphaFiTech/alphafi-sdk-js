@@ -107,6 +107,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
     ]);
     return {
       poolId: this.poolLabel.poolId,
+      strategyType: this.poolLabel.strategyType,
       coinType: this.poolLabel.asset.type,
       poolName: this.poolLabel.poolName,
       apr,
