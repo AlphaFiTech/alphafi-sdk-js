@@ -20,11 +20,15 @@ import {
   DepositOptions,
   EstimateLpAmountsOptions,
   WithdrawOptions,
+  ZapDepositOptions,
+  ZapDepositQuoteOptions,
 } from './types.js';
 import { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 import { Strategy, StrategyType } from '../strategies/strategy.js';
 import { LEGACY_ALPHA_POOL_RECEIPT, PACKAGE_IDS, VERSIONS } from '../utils/constants.js';
 import { AlphaVaultStrategy } from '../strategies/alphaVault.js';
+import { ZapDepositStrategy } from '../strategies/zapDeposit.js';
+import { LpStrategy } from '../strategies/lp.js';
 
 // Re-export types for external use
 export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
@@ -287,7 +291,7 @@ export class AlphaFiSDK {
    */
   async cetusSwapTxb(options: CetusSwapOptions): Promise<Transaction> {
     const swap = new CetusSwap(this.config.network);
-    return await swap.cetusSwapTokensTxb(options.router, options.slippage);
+    return (await swap.cetusSwapTokensTxb(options.router, options.slippage)) as Transaction;
   }
 
   /**
@@ -303,5 +307,84 @@ export class AlphaFiSDK {
    */
   clearUserCaches(userAddress: string): void {
     this.strategyContext.clearUserCaches(userAddress);
+  }
+
+  /**
+   * Get a quote for zap deposit (single-token deposit into LP pool)
+   * Calculates optimal swap amounts without executing the transaction
+   *
+   * @param options - Zap deposit quote options
+   * @returns Tuple of [amountToDeposit, amountToSwap]
+   */
+  async getZapDepositQuote(options: ZapDepositQuoteOptions): Promise<[string, string]> {
+    const poolLabel = await this.strategyContext.getPoolLabel(options.poolId);
+    if (!poolLabel) {
+      throw new Error(`Pool with ID ${options.poolId} not found`);
+    }
+
+    // Get the LP strategy for this pool
+    const lpStrategy = await this.portfolio.getPoolStrategy(options.address, options.poolId);
+
+    // Check if it's an LP strategy (supports zap deposits)
+    if (!(lpStrategy instanceof LpStrategy)) {
+      throw new Error(
+        `Pool ${options.poolId} does not support zap deposits. Only LP pools support single-token deposits.`,
+      );
+    }
+
+    // Create a CetusSwap instance for swapping
+    const cetusSwap = new CetusSwap(this.config.network);
+
+    // // Create ZapDepositStrategy instance
+    const zapDeposit = new ZapDepositStrategy(lpStrategy, this.strategyContext, cetusSwap);
+
+    // // Get pool label details
+    // const poolData = poolLabel as any; // LP pool label
+
+    // // Get pool state from investor object
+    // const investorObject = (lpStrategy as any).investorObject;
+    // const parentPoolObject = (lpStrategy as any).parentPoolObject;
+
+    // // Build full options for the internal method
+    // const fullOptions = {
+    //   inputCoinAmount: options.inputCoinAmount,
+    //   isInputA: options.isInputA,
+    //   slippage: 0.01, // Default 1% slippage, can be made configurable
+    //   coinTypeA: poolData.assetA.type,
+    //   coinTypeB: poolData.assetB.type,
+    //   parentPoolId: poolData.parentPoolId,
+    //   currentTickIndex: investorObject.currentTickIndex || 0,
+    //   currentSqrtPrice: parentPoolObject.currentSqrtPrice || '0',
+    //   lowerTick: investorObject.lowerTick,
+    //   upperTick: investorObject.upperTick,
+    // };
+
+    // Calculate and return the quote
+    return await zapDeposit.getZapDepositQuote(options);
+  }
+
+  async zapDepositTxb(options: ZapDepositOptions): Promise<Transaction> {
+    const poolLabel = await this.strategyContext.getPoolLabel(options.poolId);
+    if (!poolLabel) {
+      throw new Error(`Pool with ID ${options.poolId} not found`);
+    }
+
+    // Get the LP strategy for this pool
+    const lpStrategy = await this.portfolio.getPoolStrategy(options.address, options.poolId);
+
+    // Check if it's an LP strategy (supports zap deposits)
+    if (!(lpStrategy instanceof LpStrategy)) {
+      throw new Error(
+        `Pool ${options.poolId} does not support zap deposits. Only LP pools support single-token deposits.`,
+      );
+    }
+
+    // Create a CetusSwap instance for swapping
+    const cetusSwap = new CetusSwap(this.config.network);
+
+    // // Create ZapDepositStrategy instance
+    const zapDeposit = new ZapDepositStrategy(lpStrategy, this.strategyContext, cetusSwap);
+    const tx = new Transaction();
+    return await zapDeposit.zapDepositTxb(tx, options);
   }
 }

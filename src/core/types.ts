@@ -76,6 +76,8 @@ export interface ZapDepositOptions {
   address: string;
   /** Maximum acceptable slippage as decimal (e.g., 0.005 = 0.5%) */
   slippage: number;
+  coinTypeA: string;
+  coinTypeB: string;
 }
 
 /**
@@ -89,6 +91,10 @@ export interface ZapDepositQuoteOptions {
   inputCoinAmount: bigint;
   /** True if input token is token A, false for token B */
   isInputA: boolean;
+  address: string;
+  coinTypeA: string;
+  coinTypeB: string;
+  slippage: number;
 }
 
 /**

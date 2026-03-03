@@ -259,6 +259,12 @@ export const BLUEFIN_STRATEGY_PACKAGE_ID =
 export const CETUS_STRATEGY_PACKAGE_ID =
   '0x97775812615c35513245124651a1692179864222b540484702960567b6612923'; //to be changed
 
+export const ALPHAFI_SWAPPER_PACKAGE_ID =
+  '0x6bf7fe0f664a5607a2f871ab9ddb824e8a1b22b77b2e60fce382c6cee71c86b9';
+
+export const Cetus_math_package_id =
+  '0xdfaadf86be9af246900d1e3f3b996cf549e7948e662a9977bdd7646d8fa3a778';
+
 // ============================================================
 // Cache TTLs (milliseconds)
 // ============================================================

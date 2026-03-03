@@ -9,7 +9,11 @@ import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
 import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
-import { Transaction, TransactionResult } from '@mysten/sui/transactions';
+import {
+  Transaction,
+  TransactionObjectArgument,
+  TransactionResult,
+} from '@mysten/sui/transactions';
 import {
   CLOCK_PACKAGE_ID,
   DISTRIBUTOR_OBJECT_ID,
@@ -1669,25 +1673,37 @@ export class LpStrategy extends BaseStrategy<
     });
   }
 
-  async deposit(tx: Transaction, options: DepositOptions) {
-    if (options.isAmountA === undefined) {
-      throw new Error('isAmountA is required for AutobalanceLp strategy');
-    }
-    const [amountA, amountB] = this.getOtherAmount(options.amount.toString(), options.isAmountA);
+  async deposit(
+    tx: Transaction,
+    options: DepositOptions,
+    depositCoins?: [TransactionObjectArgument, TransactionObjectArgument],
+  ) {
+    let depositCoinA: TransactionObjectArgument;
+    let depositCoinB: TransactionObjectArgument;
 
-    // get Coin Objects
-    const depositCoinA = await this.context.blockchain.getCoinObject(
-      tx,
-      this.poolLabel.assetA.type,
-      options.address,
-      BigInt(amountA),
-    );
-    const depositCoinB = await this.context.blockchain.getCoinObject(
-      tx,
-      this.poolLabel.assetB.type,
-      options.address,
-      BigInt(amountB),
-    );
+    if (depositCoins === undefined || depositCoins === null) {
+      if (options.isAmountA === undefined) {
+        throw new Error('isAmountA is required for AutobalanceLp strategy');
+      }
+      const [amountA, amountB] = this.getOtherAmount(options.amount.toString(), options.isAmountA);
+
+      // get Coin Objects
+      depositCoinA = await this.context.blockchain.getCoinObject(
+        tx,
+        this.poolLabel.assetA.type,
+        options.address,
+        BigInt(amountA),
+      );
+      depositCoinB = await this.context.blockchain.getCoinObject(
+        tx,
+        this.poolLabel.assetB.type,
+        options.address,
+        BigInt(amountB),
+      );
+    } else {
+      depositCoinA = depositCoins[0];
+      depositCoinB = depositCoins[1];
+    }
 
     const receiptOption = this.context.blockchain.getOptionReceipt(
       tx,
@@ -1899,6 +1915,10 @@ export class LpStrategy extends BaseStrategy<
         });
       }
     }
+  }
+
+  fetchCoinTypes(): [string, string] {
+    return [this.poolLabel.assetA.type, this.poolLabel.assetB.type];
   }
 }
 

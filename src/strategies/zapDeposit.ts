@@ -15,8 +15,13 @@ import {
 } from '@mysten/sui/transactions';
 import { StrategyContext } from '../models/strategyContext.js';
 import { LpPoolLabel, LpStrategy } from './lp.js';
-import { CetusSwap } from 'src/models/swap.js';
-import { BLUEFIN_STRATEGY_PACKAGE_ID, CETUS_STRATEGY_PACKAGE_ID } from 'src/utils/constants.js';
+import { CetusSwap } from '../models/swap.js';
+import {
+  ALPHAFI_SWAPPER_PACKAGE_ID,
+  BLUEFIN_STRATEGY_PACKAGE_ID,
+  Cetus_math_package_id,
+  CETUS_STRATEGY_PACKAGE_ID,
+} from '../utils/constants.js';
 // import { PoolName } from '../core/types.js';
 
 /**
@@ -37,17 +42,18 @@ export interface ZapDepositOptions {
   coinTypeA: string;
   coinTypeB: string;
   /** Parent pool ID for routing swaps */
-  parentPoolId: string;
-  /** Current pool state */
-  currentTickIndex: number;
-  currentSqrtPrice: string;
-  lowerTick: number;
-  upperTick: number;
+  // parentPoolId: string;
+  // /** Current pool state */
+  // currentTickIndex: number;
+  // currentSqrtPrice: string;
+  // lowerTick: number;
+  // upperTick: number;
 }
 
 /**
  * Options for zap deposit quote (simulation)
  */
+//inputCoinAmount, isInputA, coinTypeA, coinTypeB, slippage
 export interface ZapDepositQuoteOptions {
   /** Amount of input coin */
   inputCoinAmount: bigint;
@@ -60,13 +66,13 @@ export interface ZapDepositQuoteOptions {
   /** Coin type strings */
   coinTypeA: string;
   coinTypeB: string;
-  /** Parent pool ID */
-  parentPoolId: string;
-  /** Pool tick information */
-  currentTickIndex: number;
-  currentSqrtPrice: string;
-  lowerTick: number;
-  upperTick: number;
+  // /** Parent pool ID */
+  // parentPoolId: string;
+  // /** Pool tick information */
+  // currentTickIndex: number;
+  // currentSqrtPrice: string;
+  // lowerTick: number;
+  // upperTick: number;
 }
 
 /**
@@ -161,7 +167,7 @@ export class ZapDepositStrategy {
       amountIn: params.amountIn,
     });
 
-    // Get swap quote from 7k Gateway
+    // Get swap quote from Cetus Swap Gateway
     const swapGateway = this.swapContext;
     const quoteResponse = await swapGateway.getCetusSwapQuote(
       params.tokenIn,
@@ -180,7 +186,13 @@ export class ZapDepositStrategy {
     });
 
     // Execute the swap transaction
-    const swapResult = await swapGateway.cetusSwapTokensTxb(quoteResponse, params.slippage);
+    const swapResult = await swapGateway.cetusSwapTokensTxb(
+      quoteResponse,
+      params.slippage,
+      params.coinIn,
+      params.address,
+      params.tx,
+    );
 
     return swapResult as TransactionObjectArgument;
   }
@@ -261,7 +273,7 @@ export class ZapDepositStrategy {
   async getZapDepositQuote(options: ZapDepositQuoteOptions): Promise<[string, string]> {
     console.log('[ZapDeposit] Calculating zap deposit quote', options);
 
-    const { inputCoinAmount, isInputA, coinTypeA, coinTypeB, parentPoolId, slippage } = options;
+    const { inputCoinAmount, isInputA, coinTypeA, coinTypeB, slippage } = options;
 
     // Get initial ratio from pool
     let [amountA, amountB] = (await this.getAmounts(isInputA, '1000000001')).map(
@@ -278,6 +290,7 @@ export class ZapDepositStrategy {
         amountA.toString(),
         true,
       );
+      console.log('quoteResponse', quoteResponse, quoteResponse?.amountOut.toString());
       if (quoteResponse) {
         amountA = new Decimal(quoteResponse.amountOut.toString());
       }
@@ -326,7 +339,7 @@ export class ZapDepositStrategy {
    * @param options - Deposit options
    * @returns Promise that resolves when transaction is built
    */
-  async executeZapDeposit(tx: Transaction, options: ZapDepositOptions): Promise<void> {
+  async zapDepositTxb(tx: Transaction, options: ZapDepositOptions): Promise<Transaction> {
     console.log('[ZapDeposit] Executing zap deposit', options);
 
     const {
@@ -336,13 +349,15 @@ export class ZapDepositStrategy {
       address,
       coinTypeA,
       coinTypeB,
-      parentPoolId,
-      currentTickIndex,
-      currentSqrtPrice,
-      lowerTick,
-      upperTick,
+      // parentPoolId,
+      // currentTickIndex,
+      // currentSqrtPrice,
+      // lowerTick,
+      // upperTick,
     } = options;
 
+    const parentPoolId = this.getPoolLabel().parentPoolId;
+    console.log(' coin type for coin object', isInputA ? coinTypeA : coinTypeB);
     // Get the input coin from user's wallet
     const coinObject = await this.context.blockchain.getCoinObject(
       tx,
@@ -357,11 +372,6 @@ export class ZapDepositStrategy {
       slippage,
       coinTypeA,
       coinTypeB,
-      parentPoolId,
-      currentTickIndex,
-      currentSqrtPrice,
-      lowerTick,
-      upperTick,
     });
 
     // Split input coin into deposit and swap portions
@@ -383,39 +393,31 @@ export class ZapDepositStrategy {
     if (!swappedCoin) {
       throw new Error('Swap failed during zap deposit');
     }
-
+    console.log(' swappedCoin', swappedCoin);
     // Now we have both tokens in optimal ratio
     const [coinAFinal, coinBFinal] = isInputA
       ? [depositCoin, swappedCoin]
       : [swappedCoin, depositCoin];
 
-    // Split coins into exact ratio for LP deposit
-    const swapperPackageId = '0x50e09e94f9864e0cc85f95868fa68585482977d1fb714664cc895cd77c3de2aa'; //this.context.getConstants().ALPHAFI_SWAPPER_PACKAGE_ID;
-    const coinsInRatio = await this.getCoinsInRatio({
-      tx,
-      coinA: coinAFinal,
-      coinB: coinBFinal,
-      poolTokenA: coinTypeA,
-      poolTokenB: coinTypeB,
-      lowerTick,
-      upperTick,
-      currentTickIndex,
-      currentSqrtPrice,
-      swapperPackageId,
-    });
+    const actualDepositCoins = await this.fetchActualDepositCoins(coinAFinal, coinBFinal, tx);
 
     // Execute the actual LP deposit using the strategy's deposit method
-    await this.lpStrategy.deposit(tx, {
-      poolId: parentPoolId,
-      address: address,
-      amount: BigInt(amountToDeposit),
-      isAmountA: isInputA,
-    });
+    await this.lpStrategy.deposit(
+      tx,
+      {
+        poolId: parentPoolId,
+        address: address,
+        amount: BigInt(amountToDeposit),
+        isAmountA: isInputA,
+      },
+      [actualDepositCoins[0], actualDepositCoins[1]],
+    );
 
     // Transfer remaining coins back to user
-    tx.transferObjects([coinsInRatio.remCoinA, coinsInRatio.remCoinB], address);
+    tx.transferObjects([actualDepositCoins[2], actualDepositCoins[3], coinObject], address);
 
     console.log('[ZapDeposit] Zap deposit transaction built successfully');
+    return tx;
   }
 
   async fetchStrategyPackageId(): Promise<string> {
@@ -428,24 +430,76 @@ export class ZapDepositStrategy {
     return '';
   }
 
+  /**
+   * Get current tick index from the pool by executing a dev inspect transaction
+   * @returns The actual tick index value from on-chain
+   */
   async getCurrentTickIndex(tx: Transaction): Promise<TransactionResult> {
     const strategyPackageId = await this.fetchStrategyPackageId();
     const poolLabel = this.getPoolLabel();
-    return tx.moveCall({
+
+    const currentTickIndexI32 = tx.moveCall({
       target: `${strategyPackageId}::pool::current_tick_index`,
       typeArguments: [poolLabel.assetA.type, poolLabel.assetB.type],
       arguments: [tx.object(poolLabel.parentPoolId)],
     });
+
+    return tx.moveCall({
+      target: `${Cetus_math_package_id}::i32::as_u32`,
+      arguments: [currentTickIndexI32],
+    });
+
+    // const result = await this.context.blockchain.suiClient.devInspectTransactionBlock({
+    //   transactionBlock: tx,
+    //   sender: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    // });
+
+    // if (result.results && result.results[0] && result.results[0].returnValues) {
+    //   const returnValue = result.results[0].returnValues[0];
+    //   if (returnValue && returnValue[0]) {
+    //     // Parse the BCS encoded value - tick index is u32
+    //     const bytes = returnValue[0];
+    //     const view = new DataView(new Uint8Array(bytes).buffer);
+    //     return view.getUint32(0, true); // true for little-endian
+    //   }
+    // }
+
+    // throw new Error('Failed to get current tick index from pool');
   }
 
+  /**
+   * Get current sqrt price from the pool by executing a dev inspect transaction
+   * @returns The actual sqrt price value from on-chain
+   */
   async getCurrentSqrtPrice(tx: Transaction): Promise<TransactionResult> {
     const strategyPackageId = await this.fetchStrategyPackageId();
     const poolLabel = this.getPoolLabel();
+
     return tx.moveCall({
       target: `${strategyPackageId}::pool::current_sqrt_price`,
       typeArguments: [poolLabel.assetA.type, poolLabel.assetB.type],
       arguments: [tx.object(poolLabel.parentPoolId)],
     });
+
+    // const result = await this.context.blockchain.suiClient.devInspectTransactionBlock({
+    //   transactionBlock: tx,
+    //   sender: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    // });
+
+    // if (result.results && result.results[0] && result.results[0].returnValues) {
+    //   const returnValue = result.results[0].returnValues[0];
+    //   if (returnValue && returnValue[0]) {
+    //     // Parse the BCS encoded value - sqrt price is u128
+    //     const bytes = returnValue[0];
+    //     let value = 0n;
+    //     for (let i = 0; i < bytes.length && i < 16; i++) {
+    //       value = value | (BigInt(bytes[i]) << BigInt(i * 8));
+    //     }
+    //     return value.toString();
+    //   }
+    // }
+
+    // throw new Error('Failed to get current sqrt price from pool');
   }
 
   async getTicks(): Promise<{ lowerTick: number; upperTick: number }> {
@@ -454,6 +508,49 @@ export class ZapDepositStrategy {
       lowerTick: investorObject.lowerTick,
       upperTick: investorObject.upperTick,
     };
+  }
+
+  async fetchActualDepositCoins(
+    coinAFinal: TransactionObjectArgument,
+    coinBFinal: TransactionObjectArgument,
+    tx: Transaction,
+  ): Promise<TransactionResult> {
+    const current_tick_index = await this.getCurrentTickIndex(tx);
+    const current_sqrt_price = await this.getCurrentSqrtPrice(tx);
+    const lower_tick = this.getInvestorObject().lowerTick;
+    const upper_tick = this.getInvestorObject().upperTick;
+
+    const coinTypes = this.lpStrategy.fetchCoinTypes();
+    return tx.moveCall({
+      target: `${ALPHAFI_SWAPPER_PACKAGE_ID}::alphafi_swapper_utils::split_coins_in_ratio`,
+      typeArguments: [coinTypes[0], coinTypes[1]],
+      arguments: [
+        current_tick_index,
+        current_sqrt_price,
+        coinAFinal,
+        coinBFinal,
+        tx.pure.u32(lower_tick),
+        tx.pure.u32(upper_tick),
+      ],
+    });
+
+    /*
+target: `${alphafiSwapperPackageId}::alphafi_swapper_utils::split_coins_in_ratio`,
+    //   typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+    //   arguments: [
+    //     tx.object(VERSIONS.AUTOBALANCE_LP),
+    //     receiptOption,
+    //     tx.object(this.poolLabel.poolId),
+    //     depositCoinA,
+    //     depositCoinB,
+    //     tx.object(DISTRIBUTOR_OBJECT_ID),
+    //     tx.object(this.poolLabel.investorId),
+    //     tx.object(GLOBAL_CONFIGS.BLUEFIN),
+    //     tx.object(this.poolLabel.parentPoolId),
+    //     tx.object(CLOCK_PACKAGE_ID),
+    //   ],
+    // });
+    */
   }
 
   async zapdepositTx(
