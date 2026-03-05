@@ -117,6 +117,9 @@ export class LpStrategy extends BaseStrategy<
     ]);
     return {
       poolId: this.poolLabel.poolId,
+      strategyType: this.poolLabel.strategyType,
+      coinAType: this.poolLabel.assetA.type,
+      coinBType: this.poolLabel.assetB.type,
       poolName: this.poolLabel.poolName,
       apr,
       tvl: {

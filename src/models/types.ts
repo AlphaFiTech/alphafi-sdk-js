@@ -1,4 +1,5 @@
 import { Decimal } from 'decimal.js';
+import { StrategyType } from '../strategies/strategy.js';
 
 export type CoinInfo = {
   coinType: string;
@@ -46,6 +47,9 @@ export type TvlData =
 export type PoolData =
   | {
       poolId: string;
+      strategyType: StrategyType;
+      coinAType: string;
+      coinBType: string;
       poolName: string;
       apr: AprData;
       tvl: TvlData;
@@ -64,6 +68,8 @@ export type PoolData =
     }
   | {
       poolId: string;
+      strategyType: StrategyType;
+      coinType: string;
       poolName: string;
       apr: AprData;
       tvl: TvlData;
