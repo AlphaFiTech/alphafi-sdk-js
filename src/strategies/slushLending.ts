@@ -82,7 +82,7 @@ export class SlushLendingStrategy extends BaseStrategy<
    * Get comprehensive pool data including TVL and APR information
    */
   async getData(): Promise<PoolData> {
-    const [_alphafi, parent, apr] = await Promise.all([
+    const [alphafi, parent, apr] = await Promise.all([
       this.getTvl(),
       this.getParentTvl(),
       this.context.getAprData(this.poolLabel.poolId),
@@ -94,7 +94,7 @@ export class SlushLendingStrategy extends BaseStrategy<
       poolName: this.poolLabel.poolName,
       apr,
       tvl: {
-        alphafi: parent,
+        alphafi,
         parent,
       },
     };
