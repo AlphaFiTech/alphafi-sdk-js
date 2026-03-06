@@ -30,7 +30,11 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
   private receiptObjects: SlushSingleAssetLoopingReceiptObject[] = [];
   private context: StrategyContext;
 
-  constructor(poolLabel: SlushSingleAssetLoopingPoolLabel, poolObject: any, context: StrategyContext) {
+  constructor(
+    poolLabel: SlushSingleAssetLoopingPoolLabel,
+    poolObject: any,
+    context: StrategyContext,
+  ) {
     super();
     this.poolLabel = poolLabel;
     this.poolObject = this.parsePoolObject(poolObject);
@@ -42,7 +46,9 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
   }
 
   getOtherAmount(_amount: string, _isAmountA: boolean): [string, string] {
-    throw new Error('getOtherAmount is not supported for single-asset SlushSingleAssetLooping strategy');
+    throw new Error(
+      'getOtherAmount is not supported for single-asset SlushSingleAssetLooping strategy',
+    );
   }
 
   updateReceipts(receipts: any[]): void {
@@ -80,17 +86,19 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
    * Get comprehensive pool data including TVL and APR information
    */
   async getData(): Promise<PoolData> {
-    const [_alphafi, parent, apr] = await Promise.all([
+    const [alphafi, parent, apr] = await Promise.all([
       this.getTvl(),
       this.getParentTvl(),
       this.context.getAprData(this.poolLabel.poolId),
     ]);
     return {
       poolId: this.poolLabel.poolId,
+      strategyType: this.poolLabel.strategyType,
+      coinType: this.poolLabel.asset.type,
       poolName: this.poolLabel.poolName,
       apr,
       tvl: {
-        alphafi: parent,
+        alphafi,
         parent,
       },
     };
@@ -135,7 +143,6 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       this.context.getCoinPrice(this.poolLabel.asset.type),
       this.context.getCoinDecimals(this.poolLabel.asset.type),
     ]);
-
     if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokens === '0') {
       const withdrawals = await this.getWithdrawalsStatus();
       return {
@@ -189,8 +196,12 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
 
       return {
         id: this.getStringField(fields, 'id'),
-        xTokenSupply: this.getNestedField(fields, 'x_token_supply.value') || this.getNestedField(fields, 'xTokenSupply.value'),
-        tokensInvested: this.getStringField(fields, 'tokens_invested') || this.getStringField(fields, 'tokensInvested'),
+        xTokenSupply:
+          this.getNestedField(fields, 'x_token_supply.value') ||
+          this.getNestedField(fields, 'xTokenSupply.value'),
+        tokensInvested:
+          this.getStringField(fields, 'tokens_invested') ||
+          this.getStringField(fields, 'tokensInvested'),
         positionCount: this.getNestedField(fields, 'positions.size'),
         positionsTableId: this.getNestedField(fields, 'positions.id'),
         investor: {
@@ -223,8 +234,9 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       return this.safeParseObject(() => {
         const fields = this.extractFields(response);
 
-        const withdrawRequests = (fields.withdraw_requests || []).map((req: any) => {
-          const reqFields = this.extractFields(req);
+        const withdrawRequests = (fields.withdraw_requests.contents || []).map((req: any) => {
+          const reqFields = this.extractFields(req).value;
+
           return {
             id: this.getStringField(reqFields, 'id'),
             timeOfRequest: this.getStringField(reqFields, 'time_of_request'),
@@ -254,8 +266,8 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
 
   createPositionCap(tx: Transaction): TransactionResult {
     const urlBytes = Array.from(new TextEncoder().encode(IMAGE_URLS.SLUSH_POSITION_CAP));
-    // module name provided: alphalend_slush_delayed_withdraw_loop_pool
-    const target = `${this.poolLabel.packageId}::alphalend_slush_delayed_withdraw_loop_pool::create_position_cap`;
+    // module name provided: alphalend_slush_locked_loop_pool
+    const target = `${this.poolLabel.packageId}::alphalend_slush_pool::create_position_cap`;
     const positionCap = tx.moveCall({
       target,
       arguments: [tx.pure.vector('u8', urlBytes)],
@@ -282,7 +294,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
     );
 
     const positionCaps = await this.context.getSlushPositionCaps(options.address);
-    const target = `${this.poolLabel.packageId}::alphalend_slush_delayed_withdraw_loop_pool::user_deposit`;
+    const target = `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::user_deposit`;
 
     if (positionCaps.length === 0) {
       const positionCap: TransactionResult = this.createPositionCap(tx);
@@ -304,7 +316,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
         target,
         typeArguments: [this.poolLabel.asset.type],
         arguments: [
-          tx.object(VERSIONS.SLUSH),
+          tx.object('0x06bf136a15ade4884ad79f90dee79245df616886099be938ddc87b29c7f9c4ff'),
           tx.object(positionCaps[0].id),
           tx.object(this.poolLabel.poolId),
           depositCoin,
@@ -329,7 +341,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
     }
 
     const positionCaps = await this.context.getSlushPositionCaps(options.address);
-    const target = `${this.poolLabel.packageId}::alphalend_slush_delayed_withdraw_loop_pool::user_initiate_withdraw`;
+    const target = `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::user_initiate_withdraw`;
 
     tx.moveCall({
       target,
@@ -346,12 +358,14 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
   }
 
   async claimWithdraw(tx: Transaction, withdrawRequestId: string, address: string) {
+    const alphalendClient = new AlphalendClient('mainnet', this.context.blockchain.suiClient);
+    await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
     const positionCaps = await this.context.getSlushPositionCaps(address);
     if (positionCaps.length === 0) {
       throw new Error('No position cap found for claim');
     }
 
-    const target = `${this.poolLabel.packageId}::alphalend_slush_delayed_withdraw_loop_pool::user_claim_withdraw`;
+    const target = `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::user_claim_withdraw`;
     const coin = tx.moveCall({
       target,
       typeArguments: [this.poolLabel.asset.type],
@@ -420,7 +434,6 @@ export interface SlushSingleAssetLoopingReceiptObject {
 export interface SlushSingleAssetLoopingPoolLabel {
   poolId: string;
   packageId: string;
-  packageNumber: number;
   strategyType: 'SlushSingleAssetLooping';
   parentProtocol: ProtocolType;
   asset: StringMap;

@@ -23,4 +23,21 @@ export const TEST_POOLS: PoolLabel[] = [
     poolName: 'ALPHALEND-DEEPBOOK-USDC',
     isNative: true,
   },
+  {
+    poolId: '0x46688bb99cbca2d99154d287d8660a750bd056d5cbbb332c336f1db93185de83',
+    packageId: '0x8d5e0d608b60e3d928f36f4da75d2f50e0ae4446fc70c6346470d0edcb84f005',
+    strategyType: 'SlushSingleAssetLooping',
+    parentProtocol: 'Alphalend',
+    asset: {
+      name: 'WAL',
+      type: '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL',
+    },
+    events: {
+      autocompoundEventType:
+        '0x8d5e0d608b60e3d928f36f4da75d2f50e0ae4446fc70c6346470d0edcb84f005::alphalend_slush_locked_loop_pool::XtokenRatioChangeEvent',
+    },
+    isActive: true,
+    poolName: 'ALPHALEND-SLUSH-WAL-SINGLE-LOOP',
+    isNative: true,
+  },
 ];
