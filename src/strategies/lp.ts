@@ -23,6 +23,7 @@ import {
   SUI_SYSTEM_STATE,
   VERSIONS,
 } from '../utils/constants.js';
+import { getCanonicalPairKey } from '../utils/poolMap.js';
 
 /**
  * LP Strategy for dual-asset liquidity pools
@@ -1265,6 +1266,8 @@ export class LpStrategy extends BaseStrategy<
       this.poolLabel.poolName === 'BLUEFIN-ALPHA-STSUI' ||
       this.poolLabel.poolName === 'BLUEFIN-WAL-STSUI'
     ) {
+      console.log('canonical pairs', getCanonicalPairKey('SUI', 'WAL', true));
+      console.log('poolId', getCanonicalPairKey('SUI', 'WAL'));
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_bluefin_stsui_second_pool::user_deposit`,
         typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, blueCoin.coinType],
@@ -1293,6 +1296,7 @@ export class LpStrategy extends BaseStrategy<
               'SUI',
               this.poolLabel.assetA.name,
               'bluefin',
+              true,
             ),
           ), // bluefin pool with assetA, SUI
           tx.object(STSUI.LST_INFO),
@@ -1922,6 +1926,10 @@ export class LpStrategy extends BaseStrategy<
 
   fetchCoinTypes(): [string, string] {
     return [this.poolLabel.assetA.type, this.poolLabel.assetB.type];
+  }
+
+  getCurrentTickIndex(): number {
+    return this.parentPoolObject.currentTickIndex;
   }
 }
 

@@ -633,9 +633,12 @@ export class StrategyContext {
     symbolA: string,
     symbolB: string,
     protocol: 'cetus' | 'bluefin' | 'mmt',
+    fixCoinTypes?: boolean,
   ): Promise<string> {
-    const poolIds = await this.getPoolIdsBySymbols(symbolA, symbolB);
-    const poolId = poolIds[protocol as keyof ProtocolPoolIds];
+    const poolIds = await this.getPoolIdsBySymbols(symbolA, symbolB, fixCoinTypes);
+    console.log('poolIds', poolIds, protocol, symbolA, symbolB);
+    const poolId = poolIds[protocol];
+    console.log('poolId', poolId);
     if (!poolId) {
       throw new Error(
         `Pool for protocol: ${protocol} not found for coin pair: ${symbolA} or ${symbolB}`,
@@ -647,7 +650,11 @@ export class StrategyContext {
   /**
    * Lookup pool IDs by coin symbols (order-agnostic).
    */
-  async getPoolIdsBySymbols(symbolA: string, symbolB: string): Promise<ProtocolPoolIds> {
+  async getPoolIdsBySymbols(
+    symbolA: string,
+    symbolB: string,
+    fixCoinTypes?: boolean,
+  ): Promise<ProtocolPoolIds> {
     const [typeA, typeB] = await Promise.all([
       this.getCoinTypeBySymbol(symbolA),
       this.getCoinTypeBySymbol(symbolB),
@@ -655,14 +662,14 @@ export class StrategyContext {
     if (!typeA || !typeB) {
       throw new Error(`Coin not found: ${symbolA} or ${symbolB}`);
     }
-    return this.getPoolIdsByTypes(typeA, typeB);
+    return this.getPoolIdsByTypes(typeA, typeB, fixCoinTypes);
   }
 
   /**
    * Lookup pool IDs by coin types (order-agnostic).
    */
-  getPoolIdsByTypes(coinTypeA: string, coinTypeB: string): ProtocolPoolIds {
-    const key = getCanonicalPairKey(coinTypeA, coinTypeB);
+  getPoolIdsByTypes(coinTypeA: string, coinTypeB: string, fixCoinTypes?: boolean): ProtocolPoolIds {
+    const key = getCanonicalPairKey(coinTypeA, coinTypeB, fixCoinTypes);
     if (!POOL_REGISTRY[key]) {
       throw new Error(`Pool not found for coin pair: ${coinTypeA} or ${coinTypeB}`);
     }

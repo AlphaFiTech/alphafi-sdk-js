@@ -258,7 +258,7 @@ export class ZapDepositStrategy {
     // This would call into the pool's logic to calculate amounts
     // Implementation depends on the specific pool type (Cetus, Bluefin, etc.)
     // For now, returning a placeholder
-    this.lpStrategy.getOtherAmount(liquidity, isInputA);
+    // this.lpStrategy.getOtherAmount(liquidity, isInputA);
     return this.lpStrategy.getOtherAmount(liquidity, isInputA);
   }
 
@@ -273,62 +273,138 @@ export class ZapDepositStrategy {
   async getZapDepositQuote(options: ZapDepositQuoteOptions): Promise<[string, string]> {
     console.log('[ZapDeposit] Calculating zap deposit quote', options);
 
-    const { inputCoinAmount, isInputA, coinTypeA, coinTypeB, slippage } = options;
+    const { inputCoinAmount, isInputA, coinTypeA, coinTypeB } = options;
 
-    // Get initial ratio from pool
-    let [amountA, amountB] = (await this.getAmounts(isInputA, '1000000001')).map(
+    const tx = new Transaction();
+
+    const currentTickIndex = this.lpStrategy.getCurrentTickIndex();
+    console.log('currentTickIndex', currentTickIndex);
+    // const current_sqrt_price = await this.getCurrentSqrtPrice(tx);
+    const lowerTick = this.getInvestorObject().lowerTick;
+    const upperTick = this.getInvestorObject().upperTick;
+    console.log('lowerTick', lowerTick);
+    console.log('upperTick', upperTick);
+
+    // Handle edge cases where current tick is outside position range
+    if (currentTickIndex >= upperTick) {
+      // Price is too high - only need token B
+      if (isInputA) {
+        // Need to swap all input A to B
+        const quoteResponse = await this.swapContext.getCetusSwapQuote(
+          coinTypeA,
+          coinTypeB,
+          inputCoinAmount.toString(),
+          true,
+        );
+        if (!quoteResponse) {
+          throw new Error('Error fetching quote for zap deposit');
+        }
+        return ['0', quoteResponse.amountOut.toString()];
+      } else {
+        // Already have B, no swap needed
+        return ['0', inputCoinAmount.toString()];
+      }
+    } else if (currentTickIndex < lowerTick) {
+      // Price is too low - only need token A
+      if (isInputA) {
+        // Already have A, no swap needed
+        return [inputCoinAmount.toString(), '0'];
+      } else {
+        // Need to swap all input B to A
+        const quoteResponse = await this.swapContext.getCetusSwapQuote(
+          coinTypeB,
+          coinTypeA,
+          inputCoinAmount.toString(),
+          true,
+        );
+        if (!quoteResponse) {
+          throw new Error('Error fetching quote for zap deposit');
+        }
+        return [quoteResponse.amountOut.toString(), '0'];
+      }
+    }
+
+    // Normal case: tick is within range, need both tokens
+    // Get initial ratio from pool using the actual input amount
+    let [amountA, amountB] = (await this.getAmounts(isInputA, inputCoinAmount.toString())).map(
       (a) => new Decimal(a),
     );
-
-    // Convert to single coin perspective using swap quote
-    const swapGateway = this.swapContext;
-
+    console.log('amounts from getAmounts', amountA.toString(), amountB.toString());
+    // Convert one side to the other to get everything in terms of the input coin
+    // This tells us the ratio of how to split our input
     if (isInputA) {
-      const quoteResponse = await swapGateway.getCetusSwapQuote(
+      // Convert amountA to equivalent B to get total in terms of B
+      const quoteResponse = await this.swapContext.getCetusSwapQuote(
         coinTypeA,
         coinTypeB,
         amountA.toString(),
         true,
       );
-      console.log('quoteResponse', quoteResponse, quoteResponse?.amountOut.toString());
-      if (quoteResponse) {
-        amountA = new Decimal(quoteResponse.amountOut.toString());
+      if (!quoteResponse) {
+        throw new Error('Error fetching quote for zap deposit');
       }
+      amountA = new Decimal(quoteResponse.amountOut.toString());
     } else {
-      const quoteResponse = await swapGateway.getCetusSwapQuote(
+      // Convert amountB to equivalent A to get total in terms of A
+      const quoteResponse = await this.swapContext.getCetusSwapQuote(
         coinTypeB,
         coinTypeA,
         amountB.toString(),
         true,
       );
-      if (quoteResponse) {
-        amountB = new Decimal(quoteResponse.amountOut.toString());
+      if (!quoteResponse) {
+        throw new Error('Error fetching quote for zap deposit');
       }
+      amountB = new Decimal(quoteResponse.amountOut.toString());
     }
 
-    // Calculate total in terms of input coin
-    const totalAmount = isInputA ? amountA.add(amountB) : amountB.add(amountA);
+    // Calculate total amount in terms of the OTHER token (after conversion)
+    const totalAmount = amountA.add(amountB);
     const inputAmount = new Decimal(inputCoinAmount.toString());
 
-    // Calculate how much to swap
-    let amountToSwap: Decimal;
+    // Calculate how much input to swap to get the other token
+    let inputCoinToSwap: Decimal;
     if (isInputA) {
-      amountToSwap = inputAmount.mul(amountB).div(totalAmount);
+      // We have A, need to swap some A to get B
+      // Proportion: amountB / (amountA_converted_to_B + amountB)
+      inputCoinToSwap = inputAmount.mul(amountB).div(totalAmount).floor();
     } else {
-      amountToSwap = inputAmount.mul(amountA).div(totalAmount);
+      // We have B, need to swap some B to get A
+      // Proportion: amountA / (amountB_converted_to_A + amountA)
+      inputCoinToSwap = inputAmount.mul(amountA).div(totalAmount).floor();
     }
 
-    // Apply slippage buffer
-    amountToSwap = amountToSwap.mul(new Decimal(1).add(slippage));
+    // Get quote for the swap to find out how much of the other token we'll get
+    const swapQuote = await this.swapContext.getCetusSwapQuote(
+      isInputA ? coinTypeA : coinTypeB,
+      isInputA ? coinTypeB : coinTypeA,
+      inputCoinToSwap.toString(),
+      true,
+    );
 
-    const amountToDeposit = inputAmount.sub(amountToSwap);
+    if (!swapQuote) {
+      throw new Error('Error fetching quote for zap deposit swap');
+    }
+    console.log('swap quote in zap deposit quote', swapQuote, swapQuote.amountOut.toString());
+    // Calculate the final amounts after swap
+    // These are the amounts that will be used in getAmounts to get the final ratio
+    const swappedAmount = new Decimal(swapQuote.amountOut.toString());
+
+    // Get the actual deposit amounts based on the swapped amount
+    let [finalAmountA, finalAmountB] = (
+      await this.getAmounts(!isInputA, swappedAmount.toString())
+    ).map((a) => new Decimal(a));
 
     console.log('[ZapDeposit] Quote result:', {
-      amountToDeposit: amountToDeposit.toString(),
-      amountToSwap: amountToSwap.toString(),
+      inputCoinToSwap: inputCoinToSwap.toString(),
+      swappedAmount: swappedAmount.toString(),
+      finalAmountA: finalAmountA.toString(),
+      finalAmountB: finalAmountB.toString(),
     });
 
-    return [amountToDeposit.floor().toString(), amountToSwap.floor().toString()];
+    // Return [inputCoinToType1, inputCoinToType2]
+    // where Type1 is tokenA and Type2 is tokenB
+    return [finalAmountA.floor().toString(), finalAmountB.floor().toString()];
   }
 
   /**
@@ -366,7 +442,7 @@ export class ZapDepositStrategy {
     );
 
     // Calculate optimal amounts
-    const [amountToDeposit, amountToSwap] = await this.getZapDepositQuote({
+    const [quoteAmountA, quoteAmountB] = await this.getZapDepositQuote({
       inputCoinAmount,
       isInputA,
       slippage,
@@ -375,8 +451,15 @@ export class ZapDepositStrategy {
     });
 
     // Split input coin into deposit and swap portions
-    const [depositCoin] = tx.splitCoins(coinObject, [amountToDeposit]);
-    const [swapCoin] = tx.splitCoins(coinObject, [amountToSwap]);
+    const [depositCoin] = isInputA
+      ? tx.splitCoins(coinObject, [quoteAmountA])
+      : tx.splitCoins(coinObject, [quoteAmountB]);
+
+    const amountToSwap = isInputA
+      ? BigInt(inputCoinAmount) - BigInt(quoteAmountA)
+      : BigInt(inputCoinAmount) - BigInt(quoteAmountB);
+
+    const [swapCoin] = tx.splitCoins(coinObject, [amountToSwap.toString()]);
 
     // Execute swap to get the other token
     const swappedCoin = await this.zapSwap({
@@ -385,7 +468,7 @@ export class ZapDepositStrategy {
       slippage,
       tokenIn: isInputA ? coinTypeA : coinTypeB,
       tokenOut: isInputA ? coinTypeB : coinTypeA,
-      amountIn: amountToSwap,
+      amountIn: amountToSwap.toString(),
       coinIn: swapCoin,
       parentPoolId,
     });
@@ -394,6 +477,7 @@ export class ZapDepositStrategy {
       throw new Error('Swap failed during zap deposit');
     }
     console.log(' swappedCoin', swappedCoin);
+    console.log('depositCoin', depositCoin);
     // Now we have both tokens in optimal ratio
     const [coinAFinal, coinBFinal] = isInputA
       ? [depositCoin, swappedCoin]
@@ -407,12 +491,14 @@ export class ZapDepositStrategy {
       {
         poolId: parentPoolId,
         address: address,
-        amount: BigInt(amountToDeposit),
+        amount: isInputA ? BigInt(quoteAmountA) : BigInt(quoteAmountB),
         isAmountA: isInputA,
       },
       [actualDepositCoins[0], actualDepositCoins[1]],
     );
-
+    console.log('amount to deposit', isInputA ? quoteAmountA : quoteAmountB);
+    console.log('amount to swap', isInputA ? amountToSwap.toString() : amountToSwap.toString());
+    console.log('actualDepositCoins', actualDepositCoins);
     // Transfer remaining coins back to user
     tx.transferObjects([actualDepositCoins[2], actualDepositCoins[3], coinObject], address);
 
@@ -422,6 +508,7 @@ export class ZapDepositStrategy {
 
   async fetchStrategyPackageId(): Promise<string> {
     const poolLabel = this.getPoolLabel();
+    console.log('poolLabel', poolLabel);
     if (poolLabel.parentProtocol === 'Cetus') {
       return CETUS_STRATEGY_PACKAGE_ID;
     } else if (poolLabel.parentProtocol === 'Bluefin') {
@@ -434,37 +521,21 @@ export class ZapDepositStrategy {
    * Get current tick index from the pool by executing a dev inspect transaction
    * @returns The actual tick index value from on-chain
    */
-  async getCurrentTickIndex(tx: Transaction): Promise<TransactionResult> {
+  async getCurrentTickIndex(tx?: Transaction): Promise<TransactionResult> {
+    const txb = tx ? tx : new Transaction();
     const strategyPackageId = await this.fetchStrategyPackageId();
     const poolLabel = this.getPoolLabel();
 
-    const currentTickIndexI32 = tx.moveCall({
+    const currentTickIndexI32 = txb.moveCall({
       target: `${strategyPackageId}::pool::current_tick_index`,
       typeArguments: [poolLabel.assetA.type, poolLabel.assetB.type],
-      arguments: [tx.object(poolLabel.parentPoolId)],
+      arguments: [txb.object(poolLabel.parentPoolId)],
     });
 
-    return tx.moveCall({
+    return txb.moveCall({
       target: `${Cetus_math_package_id}::i32::as_u32`,
       arguments: [currentTickIndexI32],
     });
-
-    // const result = await this.context.blockchain.suiClient.devInspectTransactionBlock({
-    //   transactionBlock: tx,
-    //   sender: '0x0000000000000000000000000000000000000000000000000000000000000000',
-    // });
-
-    // if (result.results && result.results[0] && result.results[0].returnValues) {
-    //   const returnValue = result.results[0].returnValues[0];
-    //   if (returnValue && returnValue[0]) {
-    //     // Parse the BCS encoded value - tick index is u32
-    //     const bytes = returnValue[0];
-    //     const view = new DataView(new Uint8Array(bytes).buffer);
-    //     return view.getUint32(0, true); // true for little-endian
-    //   }
-    // }
-
-    // throw new Error('Failed to get current tick index from pool');
   }
 
   /**
@@ -480,26 +551,6 @@ export class ZapDepositStrategy {
       typeArguments: [poolLabel.assetA.type, poolLabel.assetB.type],
       arguments: [tx.object(poolLabel.parentPoolId)],
     });
-
-    // const result = await this.context.blockchain.suiClient.devInspectTransactionBlock({
-    //   transactionBlock: tx,
-    //   sender: '0x0000000000000000000000000000000000000000000000000000000000000000',
-    // });
-
-    // if (result.results && result.results[0] && result.results[0].returnValues) {
-    //   const returnValue = result.results[0].returnValues[0];
-    //   if (returnValue && returnValue[0]) {
-    //     // Parse the BCS encoded value - sqrt price is u128
-    //     const bytes = returnValue[0];
-    //     let value = 0n;
-    //     for (let i = 0; i < bytes.length && i < 16; i++) {
-    //       value = value | (BigInt(bytes[i]) << BigInt(i * 8));
-    //     }
-    //     return value.toString();
-    //   }
-    // }
-
-    // throw new Error('Failed to get current sqrt price from pool');
   }
 
   async getTicks(): Promise<{ lowerTick: number; upperTick: number }> {
@@ -533,97 +584,6 @@ export class ZapDepositStrategy {
         tx.pure.u32(upper_tick),
       ],
     });
-
-    /*
-target: `${alphafiSwapperPackageId}::alphafi_swapper_utils::split_coins_in_ratio`,
-    //   typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
-    //   arguments: [
-    //     tx.object(VERSIONS.AUTOBALANCE_LP),
-    //     receiptOption,
-    //     tx.object(this.poolLabel.poolId),
-    //     depositCoinA,
-    //     depositCoinB,
-    //     tx.object(DISTRIBUTOR_OBJECT_ID),
-    //     tx.object(this.poolLabel.investorId),
-    //     tx.object(GLOBAL_CONFIGS.BLUEFIN),
-    //     tx.object(this.poolLabel.parentPoolId),
-    //     tx.object(CLOCK_PACKAGE_ID),
-    //   ],
-    // });
-    */
-  }
-
-  async zapdepositTx(
-    txb: Transaction,
-    currentTickIndex: number,
-    currentSqrtPrice: bigint,
-    lowerTick: number,
-    upperTick: number,
-    coinAObject: TransactionArgument,
-    coinBObject: TransactionArgument,
-  ) {
-    /*
-public fun split_coins_in_ratio<T, S>(
-        current_tick_index_u32: u32,
-        current_sqrt_price: u128,
-        mut coin_a: Coin<T>,
-        mut coin_b: Coin<S>,
-        lower_tick_u32: u32,
-        upper_tick_u32: u32,
-        ctx: &mut TxContext
-    ): (Coin<T>, Coin<S>, Coin<T>, Coin<S>){
-    */
-
-    /*
-    current tick index = bluefin package : cetus package
-    tx.moveCall({
-      target: `${alphafiSwapperPackageId}::pool::current_tick_index`,
-      typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
-      arguments: [
-        tx.object(VERSIONS.AUTOBALANCE_LP),
-        receiptOption,
-        tx.object(this.poolLabel.poolId),
-        depositCoinA,
-        depositCoinB,
-        tx.object(DISTRIBUTOR_OBJECT_ID),
-        tx.object(this.poolLabel.investorId),
-        tx.object(GLOBAL_CONFIGS.BLUEFIN),
-        tx.object(this.poolLabel.parentPoolId),
-        tx.object(CLOCK_PACKAGE_ID),
-      ],
-    });
-
-    current_sqrt_price
-
-    lower tick n upper tick from bluefin/cetus investor
-
-
-
-
-    */
-
-    // const strategyPackageId = await this.fetchStategyPackageId();
-    // const currentTickIndex = await this.getCurrentTickIndex(tx);
-    // const currentSqrtPrice = await this.getCurrentSqrtPrice(tx);
-    // const lowerTick = await this.getLowerTick(tx);
-    // const upperTick = await this.getUpperTick(tx);
-    const tx = txb ? txb : new Transaction();
-    // tx.moveCall({
-    //   target: `${alphafiSwapperPackageId}::alphafi_swapper_utils::split_coins_in_ratio`,
-    //   typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
-    //   arguments: [
-    //     tx.object(VERSIONS.AUTOBALANCE_LP),
-    //     receiptOption,
-    //     tx.object(this.poolLabel.poolId),
-    //     depositCoinA,
-    //     depositCoinB,
-    //     tx.object(DISTRIBUTOR_OBJECT_ID),
-    //     tx.object(this.poolLabel.investorId),
-    //     tx.object(GLOBAL_CONFIGS.BLUEFIN),
-    //     tx.object(this.poolLabel.parentPoolId),
-    //     tx.object(CLOCK_PACKAGE_ID),
-    //   ],
-    // });
   }
 }
 
