@@ -602,6 +602,49 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
+    } else if (this.poolLabel.asset.name === 'USDSUI') {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [this.poolLabel.asset.type, stsuiCoin.coinType, suiCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHALEND_VERSION),
+          tx.object(this.poolLabel.investorId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('stSUI', 'SUI', 'bluefin')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(true),
+          tx.pure.bool(true),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [this.poolLabel.asset.type, suiCoin.coinType, usdcCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHALEND_VERSION),
+          tx.object(this.poolLabel.investorId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'USDC', 'bluefin')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(true),
+          tx.pure.bool(true),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [this.poolLabel.asset.type, this.poolLabel.asset.type, usdcCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHALEND_VERSION),
+          tx.object(this.poolLabel.investorId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDSUI', 'USDC', 'bluefin')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(false),
+          tx.pure.bool(true),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
     }
   }
 

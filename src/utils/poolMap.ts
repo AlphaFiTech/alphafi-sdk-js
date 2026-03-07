@@ -23,6 +23,13 @@ export function getCanonicalPairKey(coinTypeA: string, coinTypeB: string): strin
  */
 export const POOL_REGISTRY: Record<string, ProtocolPoolIds> = {
   [getCanonicalPairKey(
+    '0x44f838219cf67b058f3b37907b655f226153c18e33dfcd0da559a844fea9b1c1::usdsui::USDSUI',
+    '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
+  )]: {
+    bluefin: '0x3fe620cd2b94ed7bc333f46e984cdea6cf42cfd9ddd54f15016d61c2f8149a90',
+    cetus: '0xa7417fb5f59e23b0a7826d78f025653823c49265be07bbf6dd9e553ba4249a56',
+  },
+  [getCanonicalPairKey(
     '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
     '0x2053d08c1e2bd02791056171aab0fd12bd7cd7efad2ab8f6b9c8902f14df2ff2::ausd::AUSD',
   )]: {
