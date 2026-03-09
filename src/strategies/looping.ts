@@ -984,7 +984,7 @@ export class LoopingStrategy extends BaseStrategy<
       });
       tx.moveCall({
         target: `0x2::transfer::public_transfer`,
-        typeArguments: [`0x2::coin::Coin<${this.poolLabel.borrowAsset.type}>`],
+        typeArguments: [`0x2::coin::Coin<${this.poolLabel.supplyAsset.type}>`],
         arguments: [vsui_coin, tx.pure.address(options.address)],
       });
     } else if (this.poolLabel.supplyAsset.name === 'HASUI') {
