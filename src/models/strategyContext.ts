@@ -636,9 +636,7 @@ export class StrategyContext {
     fixCoinTypes?: boolean,
   ): Promise<string> {
     const poolIds = await this.getPoolIdsBySymbols(symbolA, symbolB, fixCoinTypes);
-    console.log('poolIds', poolIds, protocol, symbolA, symbolB);
     const poolId = poolIds[protocol];
-    console.log('poolId', poolId);
     if (!poolId) {
       throw new Error(
         `Pool for protocol: ${protocol} not found for coin pair: ${symbolA} or ${symbolB}`,
