@@ -127,9 +127,9 @@ export class ZapDepositStrategy {
   }
 
   /**
-   * Get the underlying LP strategy's pool label
+   * Get the underlying strategy's pool label
    */
-  getPoolLabel(): LpPoolLabel {
+  getPoolLabel(): LpPoolLabel | any {
     return this.lpStrategy.getPoolLabel();
   }
 
@@ -161,12 +161,6 @@ export class ZapDepositStrategy {
    * @returns TransactionObjectArgument representing the output coin
    */
   async zapSwap(params: ZapSwapParams): Promise<TransactionObjectArgument | undefined> {
-    console.log('[ZapDeposit] Executing zap swap', {
-      tokenIn: params.tokenIn,
-      tokenOut: params.tokenOut,
-      amountIn: params.amountIn,
-    });
-
     // Get swap quote from Cetus Swap Gateway
     const swapGateway = this.swapContext;
     const quoteResponse = await swapGateway.getCetusSwapQuote(
@@ -180,10 +174,6 @@ export class ZapDepositStrategy {
       console.error('[ZapDeposit] Failed to get swap quote');
       return undefined;
     }
-
-    console.log('[ZapDeposit] Quote received:', {
-      amountOut: quoteResponse.amountOut,
-    });
 
     // Execute the swap transaction
     const swapResult = await swapGateway.cetusSwapTokensTxb(
@@ -250,15 +240,8 @@ export class ZapDepositStrategy {
    * @param liquidity - Liquidity amount as string
    * @returns Array of [amountA, amountB] as strings
    */
-  async getAmounts(
-    // poolName: PoolName,
-    isInputA: boolean,
-    liquidity: string,
-  ): Promise<[string, string]> {
+  async getAmounts(isInputA: boolean, liquidity: string): Promise<[string, string]> {
     // This would call into the pool's logic to calculate amounts
-    // Implementation depends on the specific pool type (Cetus, Bluefin, etc.)
-    // For now, returning a placeholder
-    // this.lpStrategy.getOtherAmount(liquidity, isInputA);
     return this.lpStrategy.getOtherAmount(liquidity, isInputA);
   }
 
@@ -271,20 +254,15 @@ export class ZapDepositStrategy {
    * @returns Array of [amountToDeposit, amountToSwap] for both tokens
    */
   async getZapDepositQuote(options: ZapDepositQuoteOptions): Promise<[string, string]> {
-    console.log('[ZapDeposit] Calculating zap deposit quote', options);
-
     const { inputCoinAmount, isInputA, coinTypeA, coinTypeB } = options;
 
     const tx = new Transaction();
 
+    // Get current tick index from LP strategy
     const currentTickIndex = this.lpStrategy.getCurrentTickIndex();
-    console.log('currentTickIndex', currentTickIndex);
     // const current_sqrt_price = await this.getCurrentSqrtPrice(tx);
     const lowerTick = this.getInvestorObject().lowerTick;
     const upperTick = this.getInvestorObject().upperTick;
-    console.log('lowerTick', lowerTick);
-    console.log('upperTick', upperTick);
-
     // Handle edge cases where current tick is outside position range
     if (currentTickIndex >= upperTick) {
       // Price is too high - only need token B
@@ -329,7 +307,6 @@ export class ZapDepositStrategy {
     let [amountA, amountB] = (await this.getAmounts(isInputA, inputCoinAmount.toString())).map(
       (a) => new Decimal(a),
     );
-    console.log('amounts from getAmounts', amountA.toString(), amountB.toString());
     // Convert one side to the other to get everything in terms of the input coin
     // This tells us the ratio of how to split our input
     if (isInputA) {
@@ -373,7 +350,6 @@ export class ZapDepositStrategy {
       // Proportion: amountA / (amountB_converted_to_A + amountA)
       inputCoinToSwap = inputAmount.mul(amountA).div(totalAmount).floor();
     }
-
     // Get quote for the swap to find out how much of the other token we'll get
     const swapQuote = await this.swapContext.getCetusSwapQuote(
       isInputA ? coinTypeA : coinTypeB,
@@ -385,7 +361,6 @@ export class ZapDepositStrategy {
     if (!swapQuote) {
       throw new Error('Error fetching quote for zap deposit swap');
     }
-    console.log('swap quote in zap deposit quote', swapQuote, swapQuote.amountOut.toString());
     // Calculate the final amounts after swap
     // These are the amounts that will be used in getAmounts to get the final ratio
     const swappedAmount = new Decimal(swapQuote.amountOut.toString());
@@ -395,15 +370,42 @@ export class ZapDepositStrategy {
       await this.getAmounts(!isInputA, swappedAmount.toString())
     ).map((a) => new Decimal(a));
 
-    console.log('[ZapDeposit] Quote result:', {
-      inputCoinToSwap: inputCoinToSwap.toString(),
-      swappedAmount: swappedAmount.toString(),
-      finalAmountA: finalAmountA.toString(),
-      finalAmountB: finalAmountB.toString(),
-    });
+    // Important: The amounts from getAmounts are ideal ratios, but we need to ensure
+    // they don't exceed what we actually have available after the swap
+    const remainingInput = inputAmount.sub(inputCoinToSwap);
 
-    // Return [inputCoinToType1, inputCoinToType2]
-    // where Type1 is tokenA and Type2 is tokenB
+    if (isInputA) {
+      // We have: remainingInput of A, and swappedAmount of B
+      // Ensure finalAmountA doesn't exceed what we have
+      if (finalAmountA.gt(remainingInput)) {
+        // Scale down both amounts proportionally
+        const scaleFactor = remainingInput.div(finalAmountA);
+        finalAmountA = remainingInput;
+        finalAmountB = finalAmountB.mul(scaleFactor);
+      }
+      // Ensure finalAmountB doesn't exceed what we swapped to
+      if (finalAmountB.gt(swappedAmount)) {
+        const scaleFactor = swappedAmount.div(finalAmountB);
+        finalAmountB = swappedAmount;
+        finalAmountA = finalAmountA.mul(scaleFactor);
+      }
+    } else {
+      // We have: swappedAmount of A, and remainingInput of B
+      // Ensure finalAmountA doesn't exceed what we swapped to
+      if (finalAmountA.gt(swappedAmount)) {
+        const scaleFactor = swappedAmount.div(finalAmountA);
+        finalAmountA = swappedAmount;
+        finalAmountB = finalAmountB.mul(scaleFactor);
+      }
+      // Ensure finalAmountB doesn't exceed what we have
+      if (finalAmountB.gt(remainingInput)) {
+        const scaleFactor = remainingInput.div(finalAmountB);
+        finalAmountB = remainingInput;
+        finalAmountA = finalAmountA.mul(scaleFactor);
+      }
+    }
+    // Return [amountA, amountB] - these represent the amounts after optimal split
+    // Note: These are estimates; split_coins_in_ratio on-chain will do final adjustment
     return [finalAmountA.floor().toString(), finalAmountB.floor().toString()];
   }
 
@@ -416,24 +418,9 @@ export class ZapDepositStrategy {
    * @returns Promise that resolves when transaction is built
    */
   async zapDepositTxb(tx: Transaction, options: ZapDepositOptions): Promise<Transaction> {
-    console.log('[ZapDeposit] Executing zap deposit', options);
-
-    const {
-      inputCoinAmount,
-      isInputA,
-      slippage,
-      address,
-      coinTypeA,
-      coinTypeB,
-      // parentPoolId,
-      // currentTickIndex,
-      // currentSqrtPrice,
-      // lowerTick,
-      // upperTick,
-    } = options;
+    const { inputCoinAmount, isInputA, slippage, address, coinTypeA, coinTypeB } = options;
 
     const parentPoolId = this.getPoolLabel().parentPoolId;
-    console.log(' coin type for coin object', isInputA ? coinTypeA : coinTypeB);
     // Get the input coin from user's wallet
     const coinObject = await this.context.blockchain.getCoinObject(
       tx,
@@ -476,8 +463,7 @@ export class ZapDepositStrategy {
     if (!swappedCoin) {
       throw new Error('Swap failed during zap deposit');
     }
-    console.log(' swappedCoin', swappedCoin);
-    console.log('depositCoin', depositCoin);
+
     // Now we have both tokens in optimal ratio
     const [coinAFinal, coinBFinal] = isInputA
       ? [depositCoin, swappedCoin]
@@ -496,19 +482,15 @@ export class ZapDepositStrategy {
       },
       [actualDepositCoins[0], actualDepositCoins[1]],
     );
-    console.log('amount to deposit', isInputA ? quoteAmountA : quoteAmountB);
-    console.log('amount to swap', isInputA ? amountToSwap.toString() : amountToSwap.toString());
-    console.log('actualDepositCoins', actualDepositCoins);
+
     // Transfer remaining coins back to user
     tx.transferObjects([actualDepositCoins[2], actualDepositCoins[3], coinObject], address);
 
-    console.log('[ZapDeposit] Zap deposit transaction built successfully');
     return tx;
   }
 
   async fetchStrategyPackageId(): Promise<string> {
     const poolLabel = this.getPoolLabel();
-    console.log('poolLabel', poolLabel);
     if (poolLabel.parentProtocol === 'Cetus') {
       return CETUS_STRATEGY_PACKAGE_ID;
     } else if (poolLabel.parentProtocol === 'Bluefin') {
@@ -571,7 +553,9 @@ export class ZapDepositStrategy {
     const lower_tick = this.getInvestorObject().lowerTick;
     const upper_tick = this.getInvestorObject().upperTick;
 
+    // Get coin types - both LP strategies have this
     const coinTypes = this.lpStrategy.fetchCoinTypes();
+
     return tx.moveCall({
       target: `${ALPHAFI_SWAPPER_PACKAGE_ID}::alphafi_swapper_utils::split_coins_in_ratio`,
       typeArguments: [coinTypes[0], coinTypes[1]],

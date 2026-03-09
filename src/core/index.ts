@@ -110,7 +110,6 @@ export class AlphaFiSDK {
    * Supports all pool types:
    * - Single-asset pools (Lending, Looping, Alpha Vaults): Deposit one token
    * - LP pools (Lp, AutobalanceLp, FungibleLp): Deposit tokens to provide liquidity
-   * - LYF pools: Deposit SUI for leveraged yield farming
    *
    * @param options - Deposit configuration including pool ID, amount, and user address
    * @returns Transaction object ready for signing and execution
@@ -322,11 +321,11 @@ export class AlphaFiSDK {
       throw new Error(`Pool with ID ${options.poolId} not found`);
     }
 
-    // Get the LP strategy for this pool
-    const lpStrategy = await this.portfolio.getPoolStrategy(options.address, options.poolId);
+    // Get the strategy for this pool
+    const strategy = await this.portfolio.getPoolStrategy(options.address, options.poolId);
 
-    // Check if it's an LP strategy (supports zap deposits)
-    if (!(lpStrategy instanceof LpStrategy)) {
+    // Check if it's an LP strategy (both support zap deposits)
+    if (!(strategy instanceof LpStrategy)) {
       throw new Error(
         `Pool ${options.poolId} does not support zap deposits. Only LP pools support single-token deposits.`,
       );
@@ -335,29 +334,8 @@ export class AlphaFiSDK {
     // Create a CetusSwap instance for swapping
     const cetusSwap = new CetusSwap(this.config.network);
 
-    // // Create ZapDepositStrategy instance
-    const zapDeposit = new ZapDepositStrategy(lpStrategy, this.strategyContext, cetusSwap);
-
-    // // Get pool label details
-    // const poolData = poolLabel as any; // LP pool label
-
-    // // Get pool state from investor object
-    // const investorObject = (lpStrategy as any).investorObject;
-    // const parentPoolObject = (lpStrategy as any).parentPoolObject;
-
-    // // Build full options for the internal method
-    // const fullOptions = {
-    //   inputCoinAmount: options.inputCoinAmount,
-    //   isInputA: options.isInputA,
-    //   slippage: 0.01, // Default 1% slippage, can be made configurable
-    //   coinTypeA: poolData.assetA.type,
-    //   coinTypeB: poolData.assetB.type,
-    //   parentPoolId: poolData.parentPoolId,
-    //   currentTickIndex: investorObject.currentTickIndex || 0,
-    //   currentSqrtPrice: parentPoolObject.currentSqrtPrice || '0',
-    //   lowerTick: investorObject.lowerTick,
-    //   upperTick: investorObject.upperTick,
-    // };
+    // Create ZapDepositStrategy instance with the appropriate strategy
+    const zapDeposit = new ZapDepositStrategy(strategy, this.strategyContext, cetusSwap);
 
     // Calculate and return the quote
     return await zapDeposit.getZapDepositQuote(options);

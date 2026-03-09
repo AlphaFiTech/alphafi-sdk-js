@@ -1266,8 +1266,6 @@ export class LpStrategy extends BaseStrategy<
       this.poolLabel.poolName === 'BLUEFIN-ALPHA-STSUI' ||
       this.poolLabel.poolName === 'BLUEFIN-WAL-STSUI'
     ) {
-      console.log('canonical pairs', getCanonicalPairKey('SUI', 'WAL', true));
-      console.log('poolId', getCanonicalPairKey('SUI', 'WAL'));
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_bluefin_stsui_second_pool::user_deposit`,
         typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, blueCoin.coinType],
