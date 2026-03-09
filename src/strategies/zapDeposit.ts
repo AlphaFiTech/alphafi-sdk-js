@@ -9,7 +9,6 @@
 import { Decimal } from 'decimal.js';
 import {
   Transaction,
-  TransactionArgument,
   TransactionObjectArgument,
   TransactionResult,
 } from '@mysten/sui/transactions';

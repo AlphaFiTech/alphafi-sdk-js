@@ -23,7 +23,6 @@ import {
   SUI_SYSTEM_STATE,
   VERSIONS,
 } from '../utils/constants.js';
-import { getCanonicalPairKey } from '../utils/poolMap.js';
 
 /**
  * LP Strategy for dual-asset liquidity pools
