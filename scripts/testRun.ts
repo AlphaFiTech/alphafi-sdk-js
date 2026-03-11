@@ -51,8 +51,8 @@ export function getExecStuff() {
   };
 }
 
-export async function dryRunTransactionBlock(txb: Transaction) {
-  const { suiClient, address } = getExecStuff();
+export async function dryRunTransactionBlock(txb: Transaction, address: string) {
+  const { suiClient } = getExecStuff();
   txb.setSender(address);
   // txb.setGasBudget(1e9);
   try {
@@ -62,12 +62,7 @@ export async function dryRunTransactionBlock(txb: Transaction) {
         transactionBlock: serializedTxb,
       })
       .then((res) => {
-        // console.log(JSON.stringify(res, null, 2));
-        console.log(
-          res.effects.status,
-          res.balanceChanges,
-          // JSON.stringify(res.input.transaction, null, 2),
-        );
+        console.log(JSON.stringify(res, null, 2));
       })
       .catch((error) => {
         console.error(error);
@@ -212,17 +207,21 @@ async function deposit() {
 }
 
 async function withdraw() {
-  const { address, keypair, suiClient } = getExecStuff();
-  const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
+  const { keypair, suiClient } = getExecStuff();
+  const { address } = getExecStuff();
+  // const address = '0xfd839097e089804fa39e3a99a47b889dfe1fa8b5506ee5238e9b06794490f841';
+  const sdk = new AlphaFiSDK({
+    suiClient: suiClient,
+    network: 'mainnet',
+  });
   const tx = await sdk.withdraw({
-    poolId: '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
-    withdrawMax: true,
-    amount: '100000',
-    isAmountA: true,
+    poolId: '0xd013a1a0c6f2bad46045e3a1ba05932b4a32f15864021d7e0178d5c2fdcc85e3',
+    withdrawMax: false,
+    amount: '200000000000',
     address,
   });
-  tx.setGasBudget(2e8);
-  dryRunTransactionBlock(tx);
+  tx.setGasBudget(1e9);
+  dryRunTransactionBlock(tx, address);
   // executeTransactionBlock(tx);
 }
 async function claimAirdrop() {
@@ -230,7 +229,7 @@ async function claimAirdrop() {
   const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
   const tx = await sdk.claimAirdrop({ address: address, transferToWallet: false });
   tx.setGasBudget(2e8);
-  dryRunTransactionBlock(tx);
+  dryRunTransactionBlock(tx, address);
   // executeTransactionBlock(tx);
 }
 // claimAirdrop();
