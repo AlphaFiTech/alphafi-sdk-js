@@ -316,7 +316,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
         target,
         typeArguments: [this.poolLabel.asset.type],
         arguments: [
-          tx.object('0x06bf136a15ade4884ad79f90dee79245df616886099be938ddc87b29c7f9c4ff'),
+          tx.object(VERSIONS.SLUSH),
           tx.object(positionCaps[0].id),
           tx.object(this.poolLabel.poolId),
           depositCoin,
