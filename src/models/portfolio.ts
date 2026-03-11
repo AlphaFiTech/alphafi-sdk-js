@@ -21,6 +21,7 @@ import {
   FungibleLendingStrategy,
 } from '../strategies/fungibleLending.js';
 import { SlushLendingStrategy } from '../strategies/slushLending.js';
+import { LEGACY_ALPHA_POOL_RECEIPT } from '../utils/constants.js';
 
 export class Portfolio {
   protocol: Protocol;
@@ -145,6 +146,9 @@ export class Portfolio {
           break;
       }
     });
+    if (hasAlphaVault) {
+      receiptTypes.push(LEGACY_ALPHA_POOL_RECEIPT);
+    }
 
     const [slushPositions, alphafiPositions, receiptObjects, coinBalances] = await Promise.all([
       hasSlushLending
@@ -162,7 +166,7 @@ export class Portfolio {
         case 'AlphaVault': {
           const alphaVaultStrategy = strategy as AlphaVaultStrategy;
           alphaVaultStrategy.updateReceipts(
-            receiptObjects.get(alphaVaultStrategy.getPoolLabel().receipt.type) ?? [],
+            receiptObjects.get(LEGACY_ALPHA_POOL_RECEIPT) ?? [],
             alphafiPositions.get(poolId) ?? [],
           );
           break;
