@@ -585,14 +585,14 @@ export class LoopingStrategy extends BaseStrategy<
     ]);
 
     tx.moveCall({
-      target:
-        '0xc2d49bf5e75d2258ee5563efa527feb6155de7ac6f6bf025a23ee88cd12d5a83::oracle_pro::update_single_price',
+      target: `${NAVI_CONFIG.ORACLE_PRO_PACKAGE_ID}::oracle_pro::update_single_price_v2`,
       arguments: [
         tx.object(CLOCK_PACKAGE_ID),
         tx.object(NAVI_CONFIG.ORACLE_CONFIG),
         tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
         tx.object(NAVI_CONFIG.SUPRA_ORACLE_HOLDER),
         tx.object(priceInfoObjectIds[0]),
+        tx.object(NAVI_CONFIG.NAVI_AGGREGATOR),
         tx.pure.address(feedId),
       ],
     });
@@ -984,7 +984,7 @@ export class LoopingStrategy extends BaseStrategy<
       });
       tx.moveCall({
         target: `0x2::transfer::public_transfer`,
-        typeArguments: [`0x2::coin::Coin<${this.poolLabel.borrowAsset.type}>`],
+        typeArguments: [`0x2::coin::Coin<${this.poolLabel.supplyAsset.type}>`],
         arguments: [vsui_coin, tx.pure.address(options.address)],
       });
     } else if (this.poolLabel.supplyAsset.name === 'HASUI') {

@@ -46,7 +46,8 @@ export type StrategyType =
   | 'Looping'
   | 'SingleAssetLooping'
   | 'Lyf'
-  | 'FungibleLending';
+  | 'FungibleLending'
+  | 'SlushSingleAssetLooping';
 
 export type ProtocolType =
   | 'AlphaFi'
@@ -69,6 +70,8 @@ export type SingleAssetLoopingPoolLabel =
   import('./singleAssetLooping.js').SingleAssetLoopingPoolLabel;
 export type LyfPoolLabel = import('./lyf.js').LyfPoolLabel;
 export type FungibleLendingPoolLabel = import('./fungibleLending.js').FungibleLendingPoolLabel;
+export type SlushSingleAssetLoopingPoolLabel =
+  import('./slushSingleAssetLooping.js').SlushSingleAssetLoopingPoolLabel;
 
 /**
  * Union of all strategy-specific pool label types.
@@ -83,7 +86,8 @@ export type PoolLabel =
   | LoopingPoolLabel
   | SingleAssetLoopingPoolLabel
   | LyfPoolLabel
-  | FungibleLendingPoolLabel;
+  | FungibleLendingPoolLabel
+  | SlushSingleAssetLoopingPoolLabel;
 
 /**
  * Common strategy surface used by the SDK.

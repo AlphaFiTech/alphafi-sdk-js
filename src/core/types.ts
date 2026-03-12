@@ -128,6 +128,18 @@ export interface ClaimWithdrawAlphaOptions {
 }
 
 /**
+ * Configuration for claiming Slush token withdrawals.
+ */
+export interface ClaimWithdrawSlushOptions {
+  /** Unique identifier of the withdrawal ticket/request */
+  withdrawRequestId: string;
+  /** Unique identifier of the target pool */
+  poolId: string;
+  /** User's wallet address */
+  address: string;
+}
+
+/**
  * Configuration for getting Cetus swap quotes.
  */
 export interface CetusSwapQuoteOptions {
@@ -150,3 +162,6 @@ export interface CetusSwapOptions {
   /** Maximum acceptable slippage as decimal (e.g., 0.01 = 1%) */
   slippage: number;
 }
+
+// Re-export domain types for external consumers
+export type { AlphaFiReceipt } from '../models/types.js';

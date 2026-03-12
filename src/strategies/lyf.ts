@@ -489,117 +489,125 @@ export class LyfStrategy extends BaseStrategy<
   private async collectAndSwapRewards(tx: Transaction) {
     const [blueCoin, suiCoin, alphaCoin, stsuiCoin, usdcCoin] =
       await this.context.getCoinsBySymbols(['BLUE', 'SUI', 'ALPHA', 'stSUI', 'USDC']);
-    tx.moveCall({
-      target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
-      typeArguments: [
-        this.poolLabel.assetA.type,
-        this.poolLabel.assetB.type,
-        blueCoin.coinType,
-        suiCoin.coinType,
-      ],
-      arguments: [
-        tx.object(VERSIONS.LYF_LP),
-        tx.object(this.poolLabel.poolId),
-        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-        tx.object(this.poolLabel.parentPoolId),
-        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin')),
-        tx.object(GLOBAL_CONFIGS.BLUEFIN),
-        tx.pure.bool(true),
-        tx.pure.bool(true),
-        tx.pure.bool(true),
-        tx.object(SUI_SYSTEM_STATE),
-        tx.object(CLOCK_PACKAGE_ID),
-      ],
-    });
-    tx.moveCall({
-      target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
-      typeArguments: [
-        this.poolLabel.assetA.type,
-        this.poolLabel.assetB.type,
-        blueCoin.coinType,
-        suiCoin.coinType,
-      ],
-      arguments: [
-        tx.object(VERSIONS.LYF_LP),
-        tx.object(this.poolLabel.poolId),
-        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-        tx.object(this.poolLabel.parentPoolId),
-        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin')),
-        tx.object(GLOBAL_CONFIGS.BLUEFIN),
-        tx.pure.bool(true),
-        tx.pure.bool(true),
-        tx.pure.bool(false),
-        tx.object(SUI_SYSTEM_STATE),
-        tx.object(CLOCK_PACKAGE_ID),
-      ],
-    });
-    tx.moveCall({
-      target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
-      typeArguments: [
-        this.poolLabel.assetA.type,
-        this.poolLabel.assetB.type,
-        alphaCoin.coinType,
-        stsuiCoin.coinType,
-      ],
-      arguments: [
-        tx.object(VERSIONS.LYF_LP),
-        tx.object(this.poolLabel.poolId),
-        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-        tx.object(this.poolLabel.parentPoolId),
-        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('ALPHA', 'stSUI', 'bluefin')),
-        tx.object(GLOBAL_CONFIGS.BLUEFIN),
-        tx.pure.bool(true),
-        tx.pure.bool(true),
-        tx.pure.bool(false),
-        tx.object(SUI_SYSTEM_STATE),
-        tx.object(CLOCK_PACKAGE_ID),
-      ],
-    });
-    tx.moveCall({
-      target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
-      typeArguments: [
-        this.poolLabel.assetA.type,
-        this.poolLabel.assetB.type,
-        stsuiCoin.coinType,
-        suiCoin.coinType,
-      ],
-      arguments: [
-        tx.object(VERSIONS.LYF_LP),
-        tx.object(this.poolLabel.poolId),
-        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-        tx.object(this.poolLabel.parentPoolId),
-        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('stSUI', 'SUI', 'bluefin')),
-        tx.object(GLOBAL_CONFIGS.BLUEFIN),
-        tx.pure.bool(true),
-        tx.pure.bool(true),
-        tx.pure.bool(false),
-        tx.object(SUI_SYSTEM_STATE),
-        tx.object(CLOCK_PACKAGE_ID),
-      ],
-    });
-    tx.moveCall({
-      target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
-      typeArguments: [
-        this.poolLabel.assetA.type,
-        this.poolLabel.assetB.type,
-        stsuiCoin.coinType,
-        suiCoin.coinType,
-      ],
-      arguments: [
-        tx.object(VERSIONS.LYF_LP),
-        tx.object(this.poolLabel.poolId),
-        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-        tx.object(this.poolLabel.parentPoolId),
-        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('stSUI', 'SUI', 'bluefin')),
-        tx.object(GLOBAL_CONFIGS.BLUEFIN),
-        tx.pure.bool(true),
-        tx.pure.bool(true),
-        tx.pure.bool(true),
-        tx.object(SUI_SYSTEM_STATE),
-        tx.object(CLOCK_PACKAGE_ID),
-      ],
-    });
-    if (this.poolLabel.poolName === 'BLUEFIN-LYF-SUIUSDT-USDC') {
+
+    if (this.poolLabel.poolName === 'BLUEFIN-LYF-STSUI-SUI') {
+      // (BLUE, SUI) - (true, true, true)
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          blueCoin.coinType,
+          suiCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.LYF_LP),
+          tx.object(this.poolLabel.poolId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(true),
+          tx.pure.bool(true),
+          tx.pure.bool(true),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      // (BLUE, SUI) - (true, true, false)
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          blueCoin.coinType,
+          suiCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.LYF_LP),
+          tx.object(this.poolLabel.poolId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(true),
+          tx.pure.bool(true),
+          tx.pure.bool(false),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      // (ALPHA, stSUI) - (true, true, false)
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          alphaCoin.coinType,
+          stsuiCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.LYF_LP),
+          tx.object(this.poolLabel.poolId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('ALPHA', 'stSUI', 'bluefin')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(true),
+          tx.pure.bool(true),
+          tx.pure.bool(false),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (this.poolLabel.poolName === 'BLUEFIN-LYF-SUIUSDT-USDC') {
+      // (stSUI, SUI) - (true, true, true)
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          stsuiCoin.coinType,
+          suiCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.LYF_LP),
+          tx.object(this.poolLabel.poolId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('stSUI', 'SUI', 'bluefin')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(true),
+          tx.pure.bool(true),
+          tx.pure.bool(true),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      // (stSUI, SUI) - (true, true, false)
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          stsuiCoin.coinType,
+          suiCoin.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.LYF_LP),
+          tx.object(this.poolLabel.poolId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('stSUI', 'SUI', 'bluefin')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(true),
+          tx.pure.bool(true),
+          tx.pure.bool(false),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      // (SUI, USDC) - (true, true, true)
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
         typeArguments: [

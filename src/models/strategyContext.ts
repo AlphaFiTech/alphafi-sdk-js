@@ -260,6 +260,21 @@ export class StrategyContext {
         poolName: d.pool_name,
         isNative: d.is_native,
       } as PoolLabel;
+    } else if (strategyType === 'SlushSingleAssetLooping') {
+      return {
+        poolId: d.pool_id,
+        packageId: d.package_id,
+        packageNumber: d.package_number,
+        strategyType: strategyType,
+        parentProtocol: d.parent_protocol,
+        asset: d.asset,
+        events: {
+          autocompoundEventType: d.events?.autocompound_event_type,
+        },
+        isActive: d.is_active,
+        poolName: d.pool_name,
+        isNative: d.is_native,
+      } as PoolLabel;
     } else if (strategyType === 'Lending') {
       return {
         poolId: d.pool_id,
