@@ -45,7 +45,7 @@ export function getExecStuff() {
 
   return {
     address,
-    // address: '0xe25b5d16ca31ddfdc31a7219c90f88bdfc56b606c13df6619aef22515580e293',
+    // address: '0xfff7c25e859187dd8c164f5d52227f54ed33bc4595af73b81b2be3858be6b604',
     keypair,
     suiClient,
   };
@@ -222,20 +222,32 @@ async function withdraw() {
     address,
   });
   tx.setGasBudget(2e8);
-  // dryRunTransactionBlock(tx);
-  executeTransactionBlock(tx);
+  dryRunTransactionBlock(tx);
+  // executeTransactionBlock(tx);
 }
 async function claimSlushWithdraw() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
   const tx = await sdk.claimWithdrawSlush({
-    poolId: '0x46688bb99cbca2d99154d287d8660a750bd056d5cbbb332c336f1db93185de83',
-    withdrawRequestId: '0xa20c20f0e19b7c888409e79b49d47be799569c1f13f555e4e35e434305ba3fa0',
+    poolId: '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
+    withdrawRequestId: '0xd7c583c1a6b2849ed2a8164747cb4dda02b3bd56ef1f76cc0cfbd3301a9a1c7f',
     address,
   });
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx);
   // executeTransactionBlock(tx);
+}
+async function cancelSlushWithdraw() {
+  const { address, keypair, suiClient } = getExecStuff();
+  const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
+  const tx = await sdk.cancelWithdrawSlush({
+    poolId: '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
+    withdrawRequestId: '0xd7c583c1a6b2849ed2a8164747cb4dda02b3bd56ef1f76cc0cfbd3301a9a1c7f',
+    address,
+  });
+  tx.setGasBudget(2e8);
+  // dryRunTransactionBlock(tx);
+  executeTransactionBlock(tx);
 }
 async function claimAirdrop() {
   const { address, keypair, suiClient } = getExecStuff();
@@ -246,8 +258,9 @@ async function claimAirdrop() {
   // executeTransactionBlock(tx);
 }
 // claimAirdrop();
-withdraw();
+// withdraw();
 // poolsData();
-// portfolioData();
+portfolioData();
 // claimSlushWithdraw();
 // deposit();
+// cancelSlushWithdraw();

@@ -12,6 +12,7 @@ import { CetusSwap } from '../models/swap.js';
 import type { PoolBalance, PoolData, UserPortfolioData } from '../models/types.js';
 import {
   AlphaFiSDKConfig,
+  CancelWithdrawSlushOptions,
   CetusSwapOptions,
   CetusSwapQuoteOptions,
   ClaimAirdropOptions,
@@ -202,6 +203,22 @@ export class AlphaFiSDK {
       options.poolId,
     )) as SlushSingleAssetLoopingStrategy;
     await strategy.claimWithdraw(tx, options.withdrawRequestId, options.address);
+    return tx;
+  }
+
+  /**
+   * Cancel Slush token withdrawal using previously created request.
+   *
+   * @param options - Withdrawal cancel configuration with request ID, pool ID and user address
+   * @returns Transaction to cancel the withdrawal
+   */
+  async cancelWithdrawSlush(options: CancelWithdrawSlushOptions): Promise<Transaction> {
+    const tx = new Transaction();
+    const strategy = (await this.portfolio.getPoolStrategy(
+      options.address,
+      options.poolId,
+    )) as SlushSingleAssetLoopingStrategy;
+    await strategy.cancelWithdraw(tx, options.withdrawRequestId, options.address);
     return tx;
   }
 

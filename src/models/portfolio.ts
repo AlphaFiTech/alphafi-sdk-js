@@ -124,6 +124,7 @@ export class Portfolio {
       switch (poolLabel.strategyType) {
         case 'AlphaVault':
           hasAlphaVault = true;
+          receiptTypes.push(poolLabel.receipt.type);
           break;
         case 'AutobalanceLp':
         case 'Lending':
