@@ -15,6 +15,10 @@ import {
   SingleAssetLoopingPoolLabel,
   SingleAssetLoopingStrategy,
 } from '../strategies/singleAssetLooping.js';
+import {
+  SlushSingleAssetLoopingPoolLabel,
+  SlushSingleAssetLoopingStrategy,
+} from '../strategies/slushSingleAssetLooping.js';
 import { PoolLabel, Strategy, StrategyType } from '../strategies/strategy.js';
 import { PoolData } from './types.js';
 import { Cache } from '../utils/cache.js';
@@ -198,6 +202,16 @@ export class Protocol {
             poolLabel.poolId,
             new SlushLendingStrategy(
               poolLabel,
+              poolObjects.get(poolLabel.poolId),
+              this.strategyContext,
+            ),
+          );
+          break;
+        case 'SlushSingleAssetLooping':
+          resMap.set(
+            poolLabel.poolId,
+            new SlushSingleAssetLoopingStrategy(
+              poolLabel as SlushSingleAssetLoopingPoolLabel,
               poolObjects.get(poolLabel.poolId),
               this.strategyContext,
             ),

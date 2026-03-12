@@ -122,6 +122,18 @@ export interface ClaimWithdrawAlphaOptions {
 }
 
 /**
+ * Configuration for claiming Slush token withdrawals.
+ */
+export interface ClaimWithdrawSlushOptions {
+  /** Unique identifier of the withdrawal ticket/request */
+  withdrawRequestId: string;
+  /** Unique identifier of the target pool */
+  poolId: string;
+  /** User's wallet address */
+  address: string;
+}
+
+/**
  * Configuration for getting Cetus swap quotes.
  */
 export interface CetusSwapQuoteOptions {
