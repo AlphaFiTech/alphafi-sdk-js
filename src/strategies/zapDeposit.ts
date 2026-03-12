@@ -37,16 +37,6 @@ export interface ZapDepositOptions {
   slippage: number;
   /** User's wallet address */
   address: string;
-  /** Coin type strings for the pool's assets */
-  coinTypeA: string;
-  coinTypeB: string;
-  /** Parent pool ID for routing swaps */
-  // parentPoolId: string;
-  // /** Current pool state */
-  // currentTickIndex: number;
-  // currentSqrtPrice: string;
-  // lowerTick: number;
-  // upperTick: number;
 }
 
 /**
@@ -62,16 +52,6 @@ export interface ZapDepositQuoteOptions {
   // poolName: PoolName;
   /** Slippage tolerance */
   slippage: number;
-  /** Coin type strings */
-  coinTypeA: string;
-  coinTypeB: string;
-  // /** Parent pool ID */
-  // parentPoolId: string;
-  // /** Pool tick information */
-  // currentTickIndex: number;
-  // currentSqrtPrice: string;
-  // lowerTick: number;
-  // upperTick: number;
 }
 
 /**
@@ -253,10 +233,11 @@ export class ZapDepositStrategy {
    * @returns Array of [amountToDeposit, amountToSwap] for both tokens
    */
   async getZapDepositQuote(options: ZapDepositQuoteOptions): Promise<[string, string]> {
-    const { inputCoinAmount, isInputA, coinTypeA, coinTypeB } = options;
-
-    const tx = new Transaction();
-
+    const { inputCoinAmount, isInputA } = options;
+    const poolDetails = this.getPoolLabel();
+    console.log('pool details', poolDetails);
+    const coinTypeA = poolDetails.assetA.type;
+    const coinTypeB = poolDetails.assetB.type;
     // Get current tick index from LP strategy
     const currentTickIndex = this.lpStrategy.getCurrentTickIndex();
     // const current_sqrt_price = await this.getCurrentSqrtPrice(tx);
@@ -417,8 +398,10 @@ export class ZapDepositStrategy {
    * @returns Promise that resolves when transaction is built
    */
   async zapDepositTxb(tx: Transaction, options: ZapDepositOptions): Promise<Transaction> {
-    const { inputCoinAmount, isInputA, slippage, address, coinTypeA, coinTypeB } = options;
-
+    const { inputCoinAmount, isInputA, slippage, address } = options;
+    const poolDetails = this.getPoolLabel();
+    const coinTypeA = poolDetails.assetA.type;
+    const coinTypeB = poolDetails.assetB.type;
     const parentPoolId = this.getPoolLabel().parentPoolId;
     // Get the input coin from user's wallet
     const coinObject = await this.context.blockchain.getCoinObject(
@@ -432,8 +415,6 @@ export class ZapDepositStrategy {
       inputCoinAmount,
       isInputA,
       slippage,
-      coinTypeA,
-      coinTypeB,
     });
 
     // Split input coin into deposit and swap portions
