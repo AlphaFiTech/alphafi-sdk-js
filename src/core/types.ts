@@ -144,3 +144,6 @@ export interface CetusSwapOptions {
   /** Maximum acceptable slippage as decimal (e.g., 0.01 = 1%) */
   slippage: number;
 }
+
+// Re-export domain types for external consumers
+export type { AlphaFiReceipt } from '../models/types.js';
