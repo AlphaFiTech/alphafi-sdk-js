@@ -51,9 +51,10 @@ export function getExecStuff() {
   };
 }
 
-export async function dryRunTransactionBlock(txb: Transaction, address: string) {
-  const { suiClient } = getExecStuff();
-  txb.setSender(address);
+export async function dryRunTransactionBlock(txb: Transaction, add?: string) {
+  const { suiClient, address } = getExecStuff();
+
+  add ? txb.setSender(add) : txb.setSender(address);
   // txb.setGasBudget(1e9);
   try {
     const serializedTxb = await txb.build({ client: suiClient });
@@ -260,7 +261,7 @@ async function claimAirdrop() {
 // claimAirdrop();
 // withdraw();
 // poolsData();
-portfolioData();
+// portfolioData();
 // claimSlushWithdraw();
-// deposit();
+deposit();
 // cancelSlushWithdraw();
