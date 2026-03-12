@@ -51,41 +51,42 @@ export class CetusSwap {
     }
   }
 
-  //   async cetusSwapTokensTxb(router: RouterDataV3, slippage: number): Promise<Transaction> {
-  //     try {
-  //       if (!router) {
-  //         throw new Error('No routers found');
-  //       }
-  //       const txb = new Transaction();
-  //       await this.client.fastRouterSwap({
-  //         router,
-  //         txb,
-  //         slippage: slippage || 0.01, // 1% slippage
-  //       });
-  //       return txb;
-  //     } catch (error) {
-  //       console.error('Error swapping tokens in cetus swap', error);
-  //       throw error;
-  //     }
-  //   }
-  // }
+  async cetusSimpleSwapTokensTxb(
+    router: RouterDataV3,
+    slippage: number,
+    existingTx?: Transaction,
+  ): Promise<Transaction> {
+    try {
+      if (!router) {
+        throw new Error('No routers found');
+      }
+      const txb = existingTx || new Transaction();
+      await this.client.fastRouterSwap({
+        router,
+        txb,
+        slippage: slippage || 0.01, // 1% slippage
+      });
+      return txb;
+    } catch (error) {
+      console.error('Error swapping tokens in cetus swap', error);
+      throw error;
+    }
+  }
 
   async cetusSwapTokensTxb(
     router: RouterDataV3,
     slippage: number,
     inputCoin?: TransactionObjectArgument | string,
     address?: string,
-    existingTx?: Transaction,
-  ): Promise<TransactionObjectArgument | Transaction> {
+    txb?: Transaction,
+  ): Promise<TransactionObjectArgument | undefined> {
     //Promise<{ tx: Transaction; coinOut?: TransactionObjectArgument }> {
     try {
       if (!router) {
         throw new Error('No routers found');
       }
-      // Use existing transaction if provided, otherwise create new one
-      const txb = existingTx || new Transaction();
 
-      if (inputCoin && address) {
+      if (inputCoin && address && txb) {
         // Use routerSwapWithMaxAmountIn when explicit coin control is needed
         const coinOut = await this.client.routerSwapWithMaxAmountIn({
           router,
@@ -96,16 +97,8 @@ export class CetusSwap {
         });
 
         return coinOut;
-      } else {
-        // Use fastRouterSwap for simple swaps
-        await this.client.fastRouterSwap({
-          router,
-          txb,
-          slippage: slippage || 0.01,
-        });
-
-        return txb;
       }
+      return undefined;
     } catch (error) {
       console.error('Error swapping tokens in cetus swap', error);
       throw error;

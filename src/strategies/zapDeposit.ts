@@ -235,17 +235,34 @@ export class ZapDepositStrategy {
   async getZapDepositQuote(options: ZapDepositQuoteOptions): Promise<[string, string]> {
     const { inputCoinAmount, isInputA } = options;
     const poolDetails = this.getPoolLabel();
-    console.log('pool details', poolDetails);
     const coinTypeA = poolDetails.assetA.type;
     const coinTypeB = poolDetails.assetB.type;
     // Get current tick index from LP strategy
-    const currentTickIndex = this.lpStrategy.getCurrentTickIndex();
+    const currentTickIndex = this.lpStrategy.getCurrentTickIndex() >> 0;
     // const current_sqrt_price = await this.getCurrentSqrtPrice(tx);
-    const lowerTick = this.getInvestorObject().lowerTick;
-    const upperTick = this.getInvestorObject().upperTick;
+    const lowerTick = this.getInvestorObject().lowerTick >> 0;
+    const upperTick = this.getInvestorObject().upperTick >> 0;
     // Handle edge cases where current tick is outside position range
+
     if (currentTickIndex >= upperTick) {
       // Price is too high - only need token B
+      if (isInputA) {
+        return [inputCoinAmount.toString(), '0'];
+      } else {
+        // Swap B to A
+        const quoteResponse = await this.swapContext.getCetusSwapQuote(
+          coinTypeB,
+          coinTypeA,
+          inputCoinAmount.toString(),
+          true,
+        );
+        if (!quoteResponse) {
+          throw new Error('Error fetching quote for zap deposit');
+        }
+        return [quoteResponse.amountOut.toString(), '0'];
+      }
+    } else if (currentTickIndex < lowerTick) {
+      // Price is too low - only need token A
       if (isInputA) {
         // Need to swap all input A to B
         const quoteResponse = await this.swapContext.getCetusSwapQuote(
@@ -261,24 +278,6 @@ export class ZapDepositStrategy {
       } else {
         // Already have B, no swap needed
         return ['0', inputCoinAmount.toString()];
-      }
-    } else if (currentTickIndex < lowerTick) {
-      // Price is too low - only need token A
-      if (isInputA) {
-        // Already have A, no swap needed
-        return [inputCoinAmount.toString(), '0'];
-      } else {
-        // Need to swap all input B to A
-        const quoteResponse = await this.swapContext.getCetusSwapQuote(
-          coinTypeB,
-          coinTypeA,
-          inputCoinAmount.toString(),
-          true,
-        );
-        if (!quoteResponse) {
-          throw new Error('Error fetching quote for zap deposit');
-        }
-        return [quoteResponse.amountOut.toString(), '0'];
       }
     }
 
@@ -416,7 +415,6 @@ export class ZapDepositStrategy {
       isInputA,
       slippage,
     });
-
     // Split input coin into deposit and swap portions
     const [depositCoin] = isInputA
       ? tx.splitCoins(coinObject, [quoteAmountA])
@@ -426,19 +424,36 @@ export class ZapDepositStrategy {
       ? BigInt(inputCoinAmount) - BigInt(quoteAmountA)
       : BigInt(inputCoinAmount) - BigInt(quoteAmountB);
 
-    const [swapCoin] = tx.splitCoins(coinObject, [amountToSwap.toString()]);
-
+    let swappedCoin: TransactionObjectArgument | undefined;
     // Execute swap to get the other token
-    const swappedCoin = await this.zapSwap({
-      tx,
-      address,
-      slippage,
-      tokenIn: isInputA ? coinTypeA : coinTypeB,
-      tokenOut: isInputA ? coinTypeB : coinTypeA,
-      amountIn: amountToSwap.toString(),
-      coinIn: swapCoin,
-      parentPoolId,
-    });
+    if (parseFloat(amountToSwap.toString()) > 0) {
+      const [swapCoin] = tx.splitCoins(coinObject, [amountToSwap.toString()]);
+
+      swappedCoin = await this.zapSwap({
+        tx,
+        address,
+        slippage,
+        tokenIn: isInputA ? coinTypeA : coinTypeB,
+        tokenOut: isInputA ? coinTypeB : coinTypeA,
+        amountIn: amountToSwap.toString(),
+        coinIn: swapCoin,
+        parentPoolId,
+      });
+    } else {
+      if (
+        (isInputA && coinTypeB === '0x2::sui::SUI') ||
+        (!isInputA && coinTypeA === '0x2::sui::SUI')
+      ) {
+        swappedCoin = tx.splitCoins(tx.gas, [0]);
+      } else {
+        const coinObject = await this.context.blockchain.getCoinObject(
+          tx,
+          isInputA ? coinTypeB : coinTypeA,
+          address,
+        );
+        swappedCoin = tx.splitCoins(coinObject, [0]);
+      }
+    }
 
     if (!swappedCoin) {
       throw new Error('Swap failed during zap deposit');
@@ -450,7 +465,6 @@ export class ZapDepositStrategy {
       : [swappedCoin, depositCoin];
 
     const actualDepositCoins = await this.fetchActualDepositCoins(coinAFinal, coinBFinal, tx);
-
     // Execute the actual LP deposit using the strategy's deposit method
     await this.lpStrategy.deposit(
       tx,
