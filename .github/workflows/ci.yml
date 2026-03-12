@@ -6,10 +6,12 @@ on:
   pull_request:
     branches: [main, develop]
 
+# Skip all jobs for fork PRs — prevents runner abuse and secret exposure
 jobs:
   lint:
     name: lint
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
       - name: Checkout alphafi-sdk-js
@@ -48,6 +50,7 @@ jobs:
   test:
     name: test
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
       - name: Checkout alphafi-sdk-js
@@ -90,6 +93,7 @@ jobs:
   build:
     name: build
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
       - name: Checkout alphafi-sdk-js

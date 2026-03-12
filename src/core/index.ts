@@ -9,7 +9,7 @@ import { Protocol } from '../models/protocol.js';
 import { Portfolio } from '../models/portfolio.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { CetusSwap } from '../models/swap.js';
-import type { PoolBalance, PoolData, UserPortfolioData } from '../models/types.js';
+import type { AlphaFiReceipt, PoolBalance, PoolData, UserPortfolioData } from '../models/types.js';
 import {
   AlphaFiSDKConfig,
   CancelWithdrawSlushOptions,
@@ -323,6 +323,26 @@ export class AlphaFiSDK {
   async cetusSwapTxb(options: CetusSwapOptions): Promise<Transaction> {
     const swap = new CetusSwap(this.config.network);
     return await swap.cetusSwapTokensTxb(options.router, options.slippage);
+  }
+
+  /**
+   * Get all AlphaFi receipts for a user address.
+   *
+   * @param userAddress - User's wallet address
+   * @returns Parsed AlphaFi receipt objects
+   */
+  async getAlphaFiReceipts(userAddress: string): Promise<AlphaFiReceipt[]> {
+    return this.strategyContext.getAlphaFiReceipts(userAddress);
+  }
+
+  /**
+   * Get AlphaFi positions grouped by pool ID, derived from user receipts.
+   *
+   * @param userAddress - User's wallet address
+   * @returns Map of pool ID to position objects
+   */
+  async getPositionsFromAlphaFiReceipts(userAddress: string): Promise<Map<string, any[]>> {
+    return this.strategyContext.getPositionsFromAlphaFiReceipts(userAddress);
   }
 
   /**
