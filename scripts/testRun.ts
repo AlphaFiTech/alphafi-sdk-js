@@ -174,7 +174,7 @@ async function poolsData() {
     network: 'mainnet',
   });
   const data = await sdk.getSinglePoolData(
-    '0x6ae707d20a057d48100539c716072725e068aa1bc13ea9fe39700ec6e75401ee',
+    '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
   );
   console.log('data', data);
 }
@@ -186,7 +186,7 @@ async function portfolioData() {
   });
   const data = await sdk.getUserSinglePoolBalance(
     address,
-    '0x6ae707d20a057d48100539c716072725e068aa1bc13ea9fe39700ec6e75401ee',
+    '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
   );
   console.log('user data', data);
 }
@@ -197,13 +197,13 @@ async function deposit() {
     network: 'mainnet',
   });
   const tx = await sdk.deposit({
-    poolId: '0x6ae707d20a057d48100539c716072725e068aa1bc13ea9fe39700ec6e75401ee',
-    amount: 10_000n,
+    poolId: '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
+    amount: 10_000_000n,
     address: address,
     isAmountA: false,
   });
-  // dryRunTransactionBlock(tx);
-  executeTransactionBlock(tx);
+  dryRunTransactionBlock(tx);
+  // executeTransactionBlock(tx);
 }
 
 async function withdraw() {
@@ -215,13 +215,26 @@ async function withdraw() {
     network: 'mainnet',
   });
   const tx = await sdk.withdraw({
-    poolId: '0xd013a1a0c6f2bad46045e3a1ba05932b4a32f15864021d7e0178d5c2fdcc85e3',
+    poolId: '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
     withdrawMax: false,
-    amount: '200000000000',
+    amount: '5_000_000',
+    isAmountA: true,
     address,
   });
-  tx.setGasBudget(1e9);
-  dryRunTransactionBlock(tx, address);
+  tx.setGasBudget(2e8);
+  // dryRunTransactionBlock(tx);
+  executeTransactionBlock(tx);
+}
+async function claimSlushWithdraw() {
+  const { address, keypair, suiClient } = getExecStuff();
+  const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
+  const tx = await sdk.claimWithdrawSlush({
+    poolId: '0x46688bb99cbca2d99154d287d8660a750bd056d5cbbb332c336f1db93185de83',
+    withdrawRequestId: '0xa20c20f0e19b7c888409e79b49d47be799569c1f13f555e4e35e434305ba3fa0',
+    address,
+  });
+  tx.setGasBudget(2e8);
+  dryRunTransactionBlock(tx);
   // executeTransactionBlock(tx);
 }
 async function claimAirdrop() {
@@ -236,4 +249,5 @@ async function claimAirdrop() {
 withdraw();
 // poolsData();
 // portfolioData();
+// claimSlushWithdraw();
 // deposit();

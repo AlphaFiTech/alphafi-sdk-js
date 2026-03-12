@@ -9,7 +9,7 @@ import { Protocol } from '../models/protocol.js';
 import { Portfolio } from '../models/portfolio.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { CetusSwap } from '../models/swap.js';
-import type { PoolBalance, PoolData, UserPortfolioData } from '../models/types.js';
+import type { AlphaFiReceipt, PoolBalance, PoolData, UserPortfolioData } from '../models/types.js';
 import {
   AlphaFiSDKConfig,
   CetusSwapOptions,
@@ -17,6 +17,7 @@ import {
   ClaimAirdropOptions,
   ClaimOptions,
   ClaimWithdrawAlphaOptions,
+  ClaimWithdrawSlushOptions,
   DepositOptions,
   EstimateLpAmountsOptions,
   WithdrawOptions,
@@ -25,6 +26,7 @@ import { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 import { Strategy, StrategyType } from '../strategies/strategy.js';
 import { LEGACY_ALPHA_POOL_RECEIPT, PACKAGE_IDS, VERSIONS } from '../utils/constants.js';
 import { AlphaVaultStrategy } from '../strategies/alphaVault.js';
+import { SlushSingleAssetLoopingStrategy } from '../strategies/slushSingleAssetLooping.js';
 
 // Re-export types for external use
 export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
@@ -188,6 +190,22 @@ export class AlphaFiSDK {
   }
 
   /**
+   * Complete Slush token withdrawal using previously created request.
+   *
+   * @param options - Withdrawal claim configuration with request ID, pool ID and user address
+   * @returns Transaction to claim the withdrawn tokens
+   */
+  async claimWithdrawSlush(options: ClaimWithdrawSlushOptions): Promise<Transaction> {
+    const tx = new Transaction();
+    const strategy = (await this.portfolio.getPoolStrategy(
+      options.address,
+      options.poolId,
+    )) as SlushSingleAssetLoopingStrategy;
+    await strategy.claimWithdraw(tx, options.withdrawRequestId, options.address);
+    return tx;
+  }
+
+  /**
    * Claim available airdrop tokens.
    *
    * @param options - Airdrop claim configuration with user address and transfer preference
@@ -288,6 +306,26 @@ export class AlphaFiSDK {
   async cetusSwapTxb(options: CetusSwapOptions): Promise<Transaction> {
     const swap = new CetusSwap(this.config.network);
     return await swap.cetusSwapTokensTxb(options.router, options.slippage);
+  }
+
+  /**
+   * Get all AlphaFi receipts for a user address.
+   *
+   * @param userAddress - User's wallet address
+   * @returns Parsed AlphaFi receipt objects
+   */
+  async getAlphaFiReceipts(userAddress: string): Promise<AlphaFiReceipt[]> {
+    return this.strategyContext.getAlphaFiReceipts(userAddress);
+  }
+
+  /**
+   * Get AlphaFi positions grouped by pool ID, derived from user receipts.
+   *
+   * @param userAddress - User's wallet address
+   * @returns Map of pool ID to position objects
+   */
+  async getPositionsFromAlphaFiReceipts(userAddress: string): Promise<Map<string, any[]>> {
+    return this.strategyContext.getPositionsFromAlphaFiReceipts(userAddress);
   }
 
   /**
