@@ -254,6 +254,18 @@ export const PYTH_STATE_ID = '0x1f9310238ee9298fb703c3419030b35b22bb1cc37113e3bb
 export const WORMHOLE_STATE_ID =
   '0xaeab97f96cf9877fee2883315d459552b2b921edc16d7ceac6eab944dd88919c';
 
+export const BLUEFIN_STRATEGY_PACKAGE_ID =
+  '0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c';
+
+export const CETUS_STRATEGY_PACKAGE_ID =
+  '0x1eabed72c53feb3805120a081dc15963c204dc8d091542592abaf7a35689b2fb';
+
+export const ALPHAFI_SWAPPER_PACKAGE_ID =
+  '0x6bf7fe0f664a5607a2f871ab9ddb824e8a1b22b77b2e60fce382c6cee71c86b9';
+
+export const Cetus_math_package_id =
+  '0xdfaadf86be9af246900d1e3f3b996cf549e7948e662a9977bdd7646d8fa3a778';
+
 // ============================================================
 // Cache TTLs (milliseconds)
 // ============================================================

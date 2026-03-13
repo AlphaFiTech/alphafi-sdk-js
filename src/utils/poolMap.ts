@@ -13,8 +13,15 @@ export type ProtocolPoolIds = {
  * Creates a canonical key from two coin types by sorting them alphabetically.
  * This ensures the same key is returned regardless of the order of coin types.
  */
-export function getCanonicalPairKey(coinTypeA: string, coinTypeB: string): string {
-  return [coinTypeA, coinTypeB].sort().join('-');
+export function getCanonicalPairKey(
+  coinTypeA: string,
+  coinTypeB: string,
+  fixCoinTypes?: boolean,
+): string {
+  if (fixCoinTypes && fixCoinTypes === true) {
+    return [coinTypeA, coinTypeB].join('-');
+  }
+  return [coinTypeA, coinTypeB].sort((a, b) => b.localeCompare(a)).join('-');
 }
 
 /**
@@ -47,8 +54,15 @@ export const POOL_REGISTRY: Record<string, ProtocolPoolIds> = {
     '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
     '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL',
   )]: {
-    bluefin: '0xe60bc7ade245b9f35b49686dfab0a18e5ca9176d49bef1b90f60d67d06315ff0',
+    bluefin: '0x41dcd6735e948e80b458d2007ca4fb90f9738b503e66572b6ef2f3d61fb9ada3',
     cetus: '0x72f5c6eef73d77de271886219a2543e7c29a33de19a6c69c5cf1899f729c3f17',
+  },
+  [getCanonicalPairKey(
+    '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
+    '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL',
+    true,
+  )]: {
+    bluefin: '0x41dcd6735e948e80b458d2007ca4fb90f9738b503e66572b6ef2f3d61fb9ada3',
   },
   [getCanonicalPairKey(
     '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',

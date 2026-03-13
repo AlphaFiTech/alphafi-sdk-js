@@ -89,6 +89,8 @@ export interface ZapDepositQuoteOptions {
   inputCoinAmount: bigint;
   /** True if input token is token A, false for token B */
   isInputA: boolean;
+  address: string;
+  slippage: number;
 }
 
 /**

@@ -789,6 +789,10 @@ export class LyfStrategy extends BaseStrategy<
       });
     });
   }
+
+  async getCurrentTickIndex(): Promise<number> {
+    return this.parentPoolObject.currentTickIndex;
+  }
 }
 
 /**

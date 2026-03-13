@@ -39,5 +39,14 @@ export type { SlushLendingPoolLabel } from './slushLending.js';
 export type { LoopingPoolLabel } from './looping.js';
 export type { SingleAssetLoopingPoolLabel } from './singleAssetLooping.js';
 export type { LyfPoolLabel } from './lyf.js';
+
+// Zap deposit utilities (not a strategy in the traditional sense)
+export { ZapDepositStrategy } from './zapDeposit.js';
+export type {
+  ZapDepositOptions,
+  ZapDepositQuoteOptions,
+  ZapSwapParams,
+  CoinsInRatioResult,
+} from './zapDeposit.js';
 export type { FungibleLendingPoolLabel } from './fungibleLending.js';
 export type { SlushSingleAssetLoopingPoolLabel } from './slushSingleAssetLooping.js';

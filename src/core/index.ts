@@ -22,11 +22,15 @@ import {
   DepositOptions,
   EstimateLpAmountsOptions,
   WithdrawOptions,
+  ZapDepositOptions,
+  ZapDepositQuoteOptions,
 } from './types.js';
 import { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 import { Strategy, StrategyType } from '../strategies/strategy.js';
 import { LEGACY_ALPHA_POOL_RECEIPT, PACKAGE_IDS, VERSIONS } from '../utils/constants.js';
 import { AlphaVaultStrategy } from '../strategies/alphaVault.js';
+import { ZapDepositStrategy } from '../strategies/zapDeposit.js';
+import { LpStrategy } from '../strategies/lp.js';
 import { SlushSingleAssetLoopingStrategy } from '../strategies/slushSingleAssetLooping.js';
 
 // Re-export types for external use
@@ -109,7 +113,6 @@ export class AlphaFiSDK {
    * Supports all pool types:
    * - Single-asset pools (Lending, Looping, Alpha Vaults): Deposit one token
    * - LP pools (Lp, AutobalanceLp, FungibleLp): Deposit tokens to provide liquidity
-   * - LYF pools: Deposit SUI for leveraged yield farming
    *
    * @param options - Deposit configuration including pool ID, amount, and user address
    * @returns Transaction object ready for signing and execution
@@ -322,7 +325,7 @@ export class AlphaFiSDK {
    */
   async cetusSwapTxb(options: CetusSwapOptions): Promise<Transaction> {
     const swap = new CetusSwap(this.config.network);
-    return await swap.cetusSwapTokensTxb(options.router, options.slippage);
+    return await swap.cetusSimpleSwapTokensTxb(options.router, options.slippage);
   }
 
   /**
@@ -358,5 +361,63 @@ export class AlphaFiSDK {
    */
   clearUserCaches(userAddress: string): void {
     this.strategyContext.clearUserCaches(userAddress);
+  }
+
+  /**
+   * Get a quote for zap deposit (single-token deposit into LP pool)
+   * Calculates optimal swap amounts without executing the transaction
+   *
+   * @param options - Zap deposit quote options
+   * @returns Tuple of [amountToDeposit, amountToSwap]
+   */
+  async getZapDepositQuote(options: ZapDepositQuoteOptions): Promise<[string, string]> {
+    const poolLabel = await this.strategyContext.getPoolLabel(options.poolId);
+    if (!poolLabel) {
+      throw new Error(`Pool with ID ${options.poolId} not found`);
+    }
+
+    // Get the strategy for this pool
+    const strategy = await this.portfolio.getPoolStrategy(options.address, options.poolId);
+
+    // Check if it's an LP strategy (both support zap deposits)
+    if (!(strategy instanceof LpStrategy)) {
+      throw new Error(
+        `Pool ${options.poolId} does not support zap deposits. Only LP pools support single-token deposits.`,
+      );
+    }
+
+    // Create a CetusSwap instance for swapping
+    const cetusSwap = new CetusSwap(this.config.network);
+
+    // Create ZapDepositStrategy instance with the appropriate strategy
+    const zapDeposit = new ZapDepositStrategy(strategy, this.strategyContext, cetusSwap);
+
+    // Calculate and return the quote
+    return await zapDeposit.getZapDepositQuote(options);
+  }
+
+  async zapDepositTxb(options: ZapDepositOptions): Promise<Transaction> {
+    const poolLabel = await this.strategyContext.getPoolLabel(options.poolId);
+    if (!poolLabel) {
+      throw new Error(`Pool with ID ${options.poolId} not found`);
+    }
+
+    // Get the LP strategy for this pool
+    const lpStrategy = await this.portfolio.getPoolStrategy(options.address, options.poolId);
+
+    // Check if it's an LP strategy (supports zap deposits)
+    if (!(lpStrategy instanceof LpStrategy)) {
+      throw new Error(
+        `Pool ${options.poolId} does not support zap deposits. Only LP pools support single-token deposits.`,
+      );
+    }
+
+    // Create a CetusSwap instance for swapping
+    const cetusSwap = new CetusSwap(this.config.network);
+
+    // // Create ZapDepositStrategy instance
+    const zapDeposit = new ZapDepositStrategy(lpStrategy, this.strategyContext, cetusSwap);
+    const tx = new Transaction();
+    return await zapDeposit.zapDepositTxb(tx, options);
   }
 }
