@@ -159,11 +159,10 @@ export class ZapDepositStrategy {
       quoteResponse,
       params.slippage,
       params.coinIn,
-      params.address,
       params.tx,
     );
 
-    return swapResult as TransactionObjectArgument;
+    return swapResult.coinOut as TransactionObjectArgument;
   }
 
   /**
