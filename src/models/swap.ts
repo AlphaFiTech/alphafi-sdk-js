@@ -77,14 +77,13 @@ export class CetusSwap {
     router: RouterDataV3,
     slippage: number,
     inputCoin: TransactionObjectArgument | string,
-    existingTx?: Transaction,
-  ): Promise<{ tx: Transaction; coinOut?: TransactionObjectArgument }> {
-    //Promise<{ tx: Transaction; coinOut?: TransactionObjectArgument }> {
+    txb: Transaction,
+  ): Promise<{ tx: Transaction; coinOut: TransactionObjectArgument | undefined }> {
     try {
       if (!router) {
         throw new Error('No routers found');
       }
-      const txb = existingTx || new Transaction();
+
       if (inputCoin && txb) {
         // Use routerSwapWithMaxAmountIn when explicit coin control is needed
         const coinOut = await this.client.routerSwapWithMaxAmountIn({
