@@ -78,25 +78,22 @@ export class CetusSwap {
     slippage: number,
     inputCoin: TransactionObjectArgument | string,
     txb: Transaction,
-  ): Promise<{ tx: Transaction; coinOut: TransactionObjectArgument | undefined }> {
+  ): Promise<{ tx: Transaction; coinOut: TransactionObjectArgument }> {
     try {
       if (!router) {
         throw new Error('No routers found');
       }
 
-      if (inputCoin && txb) {
-        // Use routerSwapWithMaxAmountIn when explicit coin control is needed
-        const coinOut = await this.client.routerSwapWithMaxAmountIn({
-          router,
-          txb,
-          inputCoin: inputCoin as TransactionObjectArgument,
-          slippage: slippage || 0.01,
-          maxAmountIn: new BN(router.amountIn.toString()),
-        });
+      // Use routerSwapWithMaxAmountIn when explicit coin control is needed
+      const coinOut = await this.client.routerSwapWithMaxAmountIn({
+        router,
+        txb,
+        inputCoin: inputCoin as TransactionObjectArgument,
+        slippage: slippage || 0.01,
+        maxAmountIn: new BN(router.amountIn.toString()),
+      });
 
-        return { tx: txb, coinOut };
-      }
-      return { tx: txb, coinOut: undefined };
+      return { tx: txb, coinOut };
     } catch (error) {
       console.error('Error swapping tokens in cetus swap', error);
       throw error;
