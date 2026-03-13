@@ -381,6 +381,28 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
 
     tx.transferObjects([coin], address);
   }
+  async cancelWithdraw(tx: Transaction, withdrawRequestId: string, address: string) {
+    const alphalendClient = new AlphalendClient('mainnet', this.context.blockchain.suiClient);
+    await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
+    const positionCaps = await this.context.getSlushPositionCaps(address);
+    if (positionCaps.length === 0) {
+      throw new Error('No position cap found for cancellation');
+    }
+
+    const target = `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::user_cancel_withdraw`;
+    tx.moveCall({
+      target,
+      typeArguments: [this.poolLabel.asset.type],
+      arguments: [
+        tx.object(VERSIONS.SLUSH),
+        tx.object(positionCaps[0].id),
+        tx.object(this.poolLabel.poolId),
+        tx.pure.id(withdrawRequestId),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+  }
 
   async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {
     return;

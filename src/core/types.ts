@@ -133,6 +133,8 @@ export interface ClaimWithdrawSlushOptions {
   address: string;
 }
 
+export type CancelWithdrawSlushOptions = ClaimWithdrawSlushOptions;
+
 /**
  * Configuration for getting Cetus swap quotes.
  */
