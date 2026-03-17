@@ -661,6 +661,25 @@ export class StrategyContext {
   }
 
   /**
+   * Get pool ID by coin types and protocol.
+   */
+  async getPoolIdByTypesAndProtocol(
+    typeA: string,
+    typeB: string,
+    protocol: 'cetus' | 'bluefin' | 'mmt',
+    fixCoinTypes?: boolean,
+  ): Promise<string> {
+    const poolIds = await this.getPoolIdsByTypes(typeA, typeB, fixCoinTypes);
+    const poolId = poolIds[protocol];
+    if (!poolId) {
+      throw new Error(
+        `Pool for protocol: ${protocol} not found for coin pair: ${typeA} or ${typeB}`,
+      );
+    }
+    return poolId;
+  }
+
+  /**
    * Lookup pool IDs by coin symbols (order-agnostic).
    */
   async getPoolIdsBySymbols(

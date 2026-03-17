@@ -590,9 +590,9 @@ export class LpStrategy extends BaseStrategy<
             ),
           ),
           tx.object(
-            await this.context.getPoolIdBySymbolsAndProtocol(
-              this.poolLabel.assetA.name,
-              this.poolLabel.assetB.name,
+            await this.context.getPoolIdByTypesAndProtocol(
+              this.poolLabel.assetA.type,
+              this.poolLabel.assetB.type,
               'cetus',
             ),
           ),
@@ -663,9 +663,9 @@ export class LpStrategy extends BaseStrategy<
             ),
           ),
           tx.object(
-            await this.context.getPoolIdBySymbolsAndProtocol(
-              this.poolLabel.assetA.name,
-              this.poolLabel.assetB.name,
+            await this.context.getPoolIdByTypesAndProtocol(
+              this.poolLabel.assetA.type,
+              this.poolLabel.assetB.type,
               'cetus',
             ),
           ),
