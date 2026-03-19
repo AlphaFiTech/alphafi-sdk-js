@@ -215,7 +215,6 @@ export const POOL_REGISTRY: Record<string, ProtocolPoolIds> = {
     true,
   )]: {
     bluefin: '0xdc2482bdecb5237cba36332d5dea4204fb7df077fbf7b50054d24a678e0f61c9',
-    cetus: '0xda7347c3192a27ddac32e659c9d9cbed6f8c9d1344e605c71c8886d7b787d720',
   },
   [getCanonicalPairKey(
     '0x0041f9f9344cac094454cd574e333c4fdb132d7bcc9379bcd4aab485b2a63942::wbtc::WBTC',
