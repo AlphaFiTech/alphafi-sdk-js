@@ -81,6 +81,7 @@ export const DEEPBOOK_CONFIG = {
     DEEP: '0x1d723c5cd113296868b55208f2ab5a905184950dd59c48eb7345607d6b5e6af7',
     USDC: '0xba473d9ae278f10af75c50a8fa341e9c6a1c087dc91a3f23e8048baf67d0754f',
     WAL: '0x38decd3dbb62bd4723144349bf57bc403b393aee86a51596846a824a1e0c2c01',
+    USDSUI: '0x78a0ddd02745d9b500fb7e9aae2ff8b665d974f00fd1f6060d59f4a8e891402c',
   } as Record<string, string>,
 };
 export const NAVI_CONFIG = {
