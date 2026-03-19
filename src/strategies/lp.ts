@@ -1378,6 +1378,7 @@ export class LpStrategy extends BaseStrategy<
               'SUI',
               this.poolLabel.assetA.name,
               'bluefin',
+              true,
             ),
           ), // bluefin pool with assetA, SUI
           tx.object(STSUI.LST_INFO),
