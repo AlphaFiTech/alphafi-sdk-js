@@ -935,13 +935,17 @@ export class AlphaVaultStrategy extends BaseStrategy<
 
       // Convert alpha receipt to ember position
       tx.moveCall({
-        target: `${this.poolLabel.packageId}::alphafi_ember_pool::migrate_alpha_receipt_to_new_alpha_strategy`,
+        target: `${this.poolLabel.packageId}::alphafi_ember_pool::merge_alpha_receipt_to_new_alpha_strategy`,
         typeArguments: [alphaCoin.coinType],
         arguments: [
           tx.object(VERSIONS.ALPHA_EMBER),
           tx.object(this.poolLabel.poolId),
           alphafiReceiptObj,
-          tx.object(legacyReceipt.id),
+          tx.object(
+            tx.makeMoveVec({
+              elements: this.legacyReceiptObjects.map((obj) => tx.object(obj.id)),
+            }),
+          ),
           tx.object(POOLS.ALPHA_LEGACY),
         ],
       });
@@ -974,15 +978,19 @@ export class AlphaVaultStrategy extends BaseStrategy<
       }
 
       // Convert alpha receipt to ember position if needed
-      if (!isPresent && legacyReceipt) {
+      if (legacyReceipt) {
         tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_ember_pool::migrate_alpha_receipt_to_new_alpha_strategy`,
+          target: `${this.poolLabel.packageId}::alphafi_ember_pool::merge_alpha_receipt_to_new_alpha_strategy`,
           typeArguments: [alphaCoin.coinType],
           arguments: [
             tx.object(VERSIONS.ALPHA_EMBER),
             tx.object(this.poolLabel.poolId),
             tx.object(existingReceipt.id),
-            tx.object(legacyReceipt.id),
+            tx.object(
+              tx.makeMoveVec({
+                elements: this.legacyReceiptObjects.map((obj) => tx.object(obj.id)),
+              }),
+            ),
             tx.object(POOLS.ALPHA_LEGACY),
           ],
         });
