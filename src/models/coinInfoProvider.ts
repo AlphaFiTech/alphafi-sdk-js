@@ -34,11 +34,12 @@ export class CoinInfoProvider {
     return this.cache.getOrFetch(() => this.fetchFromApi());
   }
 
-  /** Get coin metadata by symbol. */
+  /** Get coin metadata by symbol. Prefers exact case match; falls back to case-insensitive. */
   async getCoinBySymbol(symbol: string): Promise<CoinInfo | undefined> {
-    const coins = await this.getAllCoins();
-    return Array.from(coins.values()).find(
-      (coin) => coin.symbol.toUpperCase() === symbol.toUpperCase(),
+    const coins = Array.from((await this.getAllCoins()).values());
+    return (
+      coins.find((coin) => coin.symbol === symbol) ??
+      coins.find((coin) => coin.symbol.toUpperCase() === symbol.toUpperCase())
     );
   }
 
