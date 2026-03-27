@@ -468,7 +468,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
     } else if (this.poolLabel.asset.name in ['DEEP', 'WAL']) {
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_bluefin`,
-        typeArguments: [deepCoin.coinType, this.poolLabel.asset.type, suiCoin.coinType],
+        typeArguments: [this.poolLabel.asset.type, this.poolLabel.asset.type, suiCoin.coinType],
         arguments: [
           tx.object(VERSIONS.ALPHALEND_VERSION),
           tx.object(this.poolLabel.investorId),
