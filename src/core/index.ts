@@ -32,6 +32,7 @@ import { AlphaVaultStrategy } from '../strategies/alphaVault.js';
 import { ZapDepositStrategy } from '../strategies/zapDeposit.js';
 import { LpStrategy } from '../strategies/lp.js';
 import { SlushSingleAssetLoopingStrategy } from '../strategies/slushSingleAssetLooping.js';
+import { SingleAssetLoopingStrategy } from 'src/strategies/singleAssetLooping.js';
 
 // Re-export types for external use
 export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
@@ -80,7 +81,13 @@ export class AlphaFiSDK {
     const strategy = await this.protocol.getSinglePoolStrategy(poolId);
     return strategy.getData();
   }
-
+  async updatePool(poolId: string): Promise<Transaction> {
+    const strategy = (await this.protocol.getSinglePoolStrategy(
+      poolId,
+    )) as SingleAssetLoopingStrategy;
+    const tx = new Transaction();
+    return strategy.updatePool(tx);
+  }
   /**
    * Get balance for a single pool.
    *
