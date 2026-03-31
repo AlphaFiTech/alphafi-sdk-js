@@ -81,11 +81,11 @@ export class AlphaFiSDK {
     const strategy = await this.protocol.getSinglePoolStrategy(poolId);
     return strategy.getData();
   }
-  async updatePool(poolId: string): Promise<Transaction> {
+  async updatePool(poolId: string, existingTx?: Transaction): Promise<Transaction> {
     const strategy = (await this.protocol.getSinglePoolStrategy(
       poolId,
     )) as SingleAssetLoopingStrategy;
-    const tx = new Transaction();
+    const tx = existingTx ?? new Transaction();
     return strategy.updatePool(tx);
   }
   /**
@@ -130,7 +130,7 @@ export class AlphaFiSDK {
       throw new Error(`Pool with ID ${options.poolId} not found`);
     }
 
-    const tx = new Transaction();
+    const tx = options.tx ?? new Transaction();
     const strategy = await this.portfolio.getPoolStrategy(options.address, options.poolId);
     await strategy.deposit(tx, options);
     return tx;
@@ -161,7 +161,7 @@ export class AlphaFiSDK {
    * @returns Transaction object ready for signing and execution
    */
   async withdraw(options: WithdrawOptions): Promise<Transaction> {
-    const tx = new Transaction();
+    const tx = options.tx ?? new Transaction();
     const strategy = await this.portfolio.getPoolStrategy(options.address, options.poolId);
     await strategy.withdraw(tx, options);
     return tx;
@@ -175,7 +175,7 @@ export class AlphaFiSDK {
    * @returns Transaction to create withdrawal ticket
    */
   async initiateWithdrawAlpha(options: WithdrawOptions): Promise<Transaction> {
-    const tx = new Transaction();
+    const tx = options.tx ?? new Transaction();
     const strategy = (await this.portfolio.getPoolStrategy(
       options.address,
       '0x06a4922346ae433e9a2fff4db900d760e0cbfdef748f48385f430ef4d042a6f8',
@@ -191,7 +191,7 @@ export class AlphaFiSDK {
    * @returns Transaction to claim the withdrawn ALPHA tokens
    */
   async claimWithdrawAlpha(options: ClaimWithdrawAlphaOptions): Promise<Transaction> {
-    const tx = new Transaction();
+    const tx = options.tx ?? new Transaction();
     const strategy = (await this.portfolio.getPoolStrategy(
       options.address,
       '0x06a4922346ae433e9a2fff4db900d760e0cbfdef748f48385f430ef4d042a6f8',
@@ -207,7 +207,7 @@ export class AlphaFiSDK {
    * @returns Transaction to claim the withdrawn tokens
    */
   async claimWithdrawSlush(options: ClaimWithdrawSlushOptions): Promise<Transaction> {
-    const tx = new Transaction();
+    const tx = options.tx ?? new Transaction();
     const strategy = (await this.portfolio.getPoolStrategy(
       options.address,
       options.poolId,
@@ -223,7 +223,7 @@ export class AlphaFiSDK {
    * @returns Transaction to cancel the withdrawal
    */
   async cancelWithdrawSlush(options: CancelWithdrawSlushOptions): Promise<Transaction> {
-    const tx = new Transaction();
+    const tx = options.tx ?? new Transaction();
     const strategy = (await this.portfolio.getPoolStrategy(
       options.address,
       options.poolId,
@@ -239,7 +239,7 @@ export class AlphaFiSDK {
    * @returns Transaction to claim airdrop rewards
    */
   async claimAirdrop(options: ClaimAirdropOptions): Promise<Transaction> {
-    const tx = new Transaction();
+    const tx = options.tx ?? new Transaction();
     const strategy = (await this.portfolio.getPoolStrategy(
       options.address,
       '0x06a4922346ae433e9a2fff4db900d760e0cbfdef748f48385f430ef4d042a6f8',
@@ -260,7 +260,7 @@ export class AlphaFiSDK {
    * @returns Transaction to claim all available rewards
    */
   async claim(options: ClaimOptions): Promise<Transaction> {
-    const tx = new Transaction();
+    const tx = options.tx ?? new Transaction();
     const alphaReceipt = tx.moveCall({
       target: `0x1::option::none`,
       typeArguments: [LEGACY_ALPHA_POOL_RECEIPT],
@@ -294,8 +294,12 @@ export class AlphaFiSDK {
    * @param proposalId - The ID of the proposal to vote on
    * @returns Transaction object ready for signing and execution
    */
-  async vote(voteIndex: number, proposalId: string): Promise<Transaction | undefined> {
-    const tx = new Transaction();
+  async vote(
+    voteIndex: number,
+    proposalId: string,
+    existingTx?: Transaction,
+  ): Promise<Transaction | undefined> {
+    const tx = existingTx ?? new Transaction();
     if (voteIndex === undefined) {
       console.error('Vote index is undefined');
       return undefined;
@@ -332,7 +336,7 @@ export class AlphaFiSDK {
    */
   async cetusSwapTxb(options: CetusSwapOptions): Promise<Transaction> {
     const swap = new CetusSwap(this.config.network);
-    return await swap.cetusSimpleSwapTokensTxb(options.router, options.slippage);
+    return await swap.cetusSimpleSwapTokensTxb(options.router, options.slippage, options.tx);
   }
 
   /**
@@ -424,7 +428,7 @@ export class AlphaFiSDK {
 
     // // Create ZapDepositStrategy instance
     const zapDeposit = new ZapDepositStrategy(lpStrategy, this.strategyContext, cetusSwap);
-    const tx = new Transaction();
+    const tx = options.tx ?? new Transaction();
     return await zapDeposit.zapDepositTxb(tx, options);
   }
 }

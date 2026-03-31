@@ -4,6 +4,7 @@
  */
 
 import { SuiClient } from '@mysten/sui/client';
+import { Transaction } from '@mysten/sui/transactions';
 import { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 
 /**
@@ -30,6 +31,8 @@ export interface DepositOptions {
   amount: bigint;
   /** For LP pools: true to deposit token A, false for token B */
   isAmountA?: boolean;
+  /** Optional existing transaction to append to (for PTB composition) */
+  tx?: Transaction;
 }
 
 /**
@@ -59,6 +62,8 @@ export interface WithdrawOptions {
   isAmountA?: boolean;
   /** If true, withdraw entire position regardless of amount */
   withdrawMax: boolean;
+  /** Optional existing transaction to append to (for PTB composition) */
+  tx?: Transaction;
 }
 
 /**
@@ -76,6 +81,8 @@ export interface ZapDepositOptions {
   address: string;
   /** Maximum acceptable slippage as decimal (e.g., 0.005 = 0.5%) */
   slippage: number;
+  /** Optional existing transaction to append to (for PTB composition) */
+  tx?: Transaction;
 }
 
 /**
@@ -101,6 +108,8 @@ export interface ClaimOptions {
   poolId?: string;
   /** User's wallet address */
   address: string;
+  /** Optional existing transaction to append to (for PTB composition) */
+  tx?: Transaction;
 }
 
 /**
@@ -111,6 +120,8 @@ export interface ClaimAirdropOptions {
   address: string;
   /** Whether to transfer tokens directly to wallet */
   transferToWallet: boolean;
+  /** Optional existing transaction to append to (for PTB composition) */
+  tx?: Transaction;
 }
 
 /**
@@ -121,6 +132,8 @@ export interface ClaimWithdrawAlphaOptions {
   ticketId: string;
   /** User's wallet address */
   address: string;
+  /** Optional existing transaction to append to (for PTB composition) */
+  tx?: Transaction;
 }
 
 /**
@@ -133,6 +146,8 @@ export interface ClaimWithdrawSlushOptions {
   poolId: string;
   /** User's wallet address */
   address: string;
+  /** Optional existing transaction to append to (for PTB composition) */
+  tx?: Transaction;
 }
 
 export type CancelWithdrawSlushOptions = ClaimWithdrawSlushOptions;
@@ -159,6 +174,8 @@ export interface CetusSwapOptions {
   router: RouterDataV3;
   /** Maximum acceptable slippage as decimal (e.g., 0.01 = 1%) */
   slippage: number;
+  /** Optional existing transaction to append to (for PTB composition) */
+  tx?: Transaction;
 }
 
 // Re-export domain types for external consumers
