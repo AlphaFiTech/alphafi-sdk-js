@@ -12,6 +12,7 @@ import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import {
   ALPHALEND_LENDING_PROTOCOL_ID,
   CLOCK_PACKAGE_ID,
+  GLOBAL_CONFIGS,
   IMAGE_URLS,
   VERSIONS,
 } from '../utils/constants.js';
@@ -207,6 +208,15 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
         investor: {
           id: this.getStringField(fields.investor, 'id'),
           marketId: this.getStringField(fields.investor, 'market_id'),
+          positionCap: {
+            clientAddress: this.getNestedField(
+              fields,
+              'investor.alphalend_position_cap.client_address',
+            ),
+            id: this.getNestedField(fields, 'investor.alphalend_position_cap.id'),
+            imageUrl: this.getNestedField(fields, 'investor.alphalend_position_cap.image_url'),
+            positionId: this.getNestedField(fields, 'investor.alphalend_position_cap.position_id'),
+          },
         },
       };
     }, 'Failed to parse SlushSingleAssetLooping pool object');
@@ -285,6 +295,8 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
     const alphalendClient = new AlphalendClient('mainnet', this.context.blockchain.suiClient);
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
 
+    await this.collectAndSwapRewards(tx);
+
     // Get coin object
     const depositCoin = await this.context.blockchain.getCoinObject(
       tx,
@@ -334,6 +346,8 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
 
     const alphalendClient = new AlphalendClient('mainnet', this.context.blockchain.suiClient);
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
+
+    await this.collectAndSwapRewards(tx);
 
     let xTokenAmount = this.coinAmountToXToken(options.amount);
     if (options.withdrawMax) {
@@ -407,6 +421,164 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
   async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {
     return;
   }
+
+  /**
+   * Collect rewards from the position and swap them to the base asset
+   * Follows the same pattern as SingleAssetLooping strategy
+   */
+  private async collectAndSwapRewards(tx: Transaction) {
+    const [
+      alphaCoin,
+      stsuiCoin,
+      suiCoin,
+      blueCoin,
+      deepCoin,
+      usdcCoin,
+      walCoin,
+      tbtcCoin,
+      suibtcCoin,
+      xaumCoin,
+    ] = await this.context.getCoinsBySymbols([
+      'ALPHA',
+      'stSUI',
+      'SUI',
+      'BLUE',
+      'DEEP',
+      'USDC',
+      'WAL',
+      'tBTC',
+      'wBTC',
+      'XAUm',
+    ]);
+
+    let coinTypes = [
+      alphaCoin,
+      stsuiCoin,
+      suiCoin,
+      blueCoin,
+      deepCoin,
+      usdcCoin,
+      walCoin,
+      tbtcCoin,
+      suibtcCoin,
+      xaumCoin,
+    ].map((entry) => entry.coinType);
+
+    const alphalendClient = new AlphalendClient(
+      this.context.blockchain.network,
+      this.context.blockchain.suiClient,
+    );
+
+    // Get position ID from the pool object (investor is embedded)
+    const positionId = this.poolObject.investor.positionCap.positionId;
+
+    let portfolio = await alphalendClient.getUserPortfolioFromPosition(positionId);
+    let rewards = portfolio?.rewardsToClaim;
+
+    if (!rewards) {
+      console.log('no rewards for pool id: ', this.poolLabel.poolId);
+      return;
+    }
+
+    // Loop through rewards and collect/swap each one
+    for (const x of rewards) {
+      if (x.coinType == alphaCoin.coinType) {
+        // ALPHA -> stSUI -> SUI
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin`,
+          typeArguments: [this.poolLabel.asset.type, alphaCoin.coinType, stsuiCoin.coinType],
+          arguments: [
+            tx.object(VERSIONS.SLUSH),
+            tx.object(this.poolLabel.poolId),
+            tx.object(this.poolObject.investor.id),
+            tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+            tx.object(
+              await this.context.getPoolIdBySymbolsAndProtocol('ALPHA', 'stSUI', 'bluefin'),
+            ),
+            tx.object(GLOBAL_CONFIGS.BLUEFIN),
+            tx.pure.bool(true),
+            tx.pure.bool(false),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin`,
+          typeArguments: [this.poolLabel.asset.type, stsuiCoin.coinType, suiCoin.coinType],
+          arguments: [
+            tx.object(VERSIONS.SLUSH),
+            tx.object(this.poolLabel.poolId),
+            tx.object(this.poolObject.investor.id),
+            tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+            tx.object(await this.context.getPoolIdBySymbolsAndProtocol('stSUI', 'SUI', 'bluefin')),
+            tx.object(GLOBAL_CONFIGS.BLUEFIN),
+            tx.pure.bool(true),
+            tx.pure.bool(true),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+      } else if (coinTypes.includes(x.coinType) && x.coinType != this.poolLabel.asset.type) {
+        // Other rewards -> SUI
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin`,
+          typeArguments: [this.poolLabel.asset.type, x.coinType, suiCoin.coinType],
+          arguments: [
+            tx.object(VERSIONS.SLUSH),
+            tx.object(this.poolLabel.poolId),
+            tx.object(this.poolObject.investor.id),
+            tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+            tx.object(
+              await this.context.getPoolIdByTypesAndProtocol(
+                x.coinType,
+                suiCoin.coinType,
+                'bluefin',
+              ),
+            ),
+            tx.object(GLOBAL_CONFIGS.BLUEFIN),
+            tx.pure.bool(true),
+            tx.pure.bool(true),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+      }
+    }
+
+    // After collecting all rewards, handle base asset conversion
+    // If pool asset is USDSUI, convert SUI -> USDC, then USDC -> USDSUI
+    if (this.poolLabel.asset.name === 'USDSUI') {
+      // SUI -> USDC
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [this.poolLabel.asset.type, suiCoin.coinType, usdcCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.SLUSH),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolObject.investor.id),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'USDC', 'bluefin')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(true),
+          tx.pure.bool(true),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      // USDC -> USDSUI (base asset)
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [this.poolLabel.asset.type, this.poolLabel.asset.type, usdcCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.SLUSH),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolObject.investor.id),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDC', 'USDSUI', 'bluefin')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(false),
+          tx.pure.bool(true),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+  }
 }
 
 /**
@@ -421,6 +593,12 @@ export interface SlushSingleAssetLoopingPoolObject {
   investor: {
     id: string;
     marketId: string;
+    positionCap: {
+      clientAddress: string;
+      id: string;
+      imageUrl: string;
+      positionId: string;
+    };
   };
 }
 

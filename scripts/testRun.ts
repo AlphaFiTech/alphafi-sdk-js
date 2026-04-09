@@ -63,7 +63,8 @@ export async function dryRunTransactionBlock(txb: Transaction, add?: string) {
         transactionBlock: serializedTxb,
       })
       .then((res) => {
-        console.log(JSON.stringify(res, null, 2));
+        // console.log(JSON.stringify(res, null, 2));
+        console.log(res.effects.status, res.balanceChanges);
       })
       .catch((error) => {
         console.error(error);
@@ -259,9 +260,9 @@ async function claimAirdrop() {
   // executeTransactionBlock(tx);
 }
 // claimAirdrop();
-// withdraw();
+withdraw();
 // poolsData();
 // portfolioData();
 // claimSlushWithdraw();
-deposit();
+// deposit();
 // cancelSlushWithdraw();
