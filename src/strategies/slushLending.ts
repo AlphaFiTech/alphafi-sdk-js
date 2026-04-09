@@ -250,7 +250,7 @@ export class SlushLendingStrategy extends BaseStrategy<
   }
 
   private async collectAndSwapRewards(tx: Transaction) {
-    const [alphaCoin, stsuiCoin, suiCoin, blueCoin, deepCoin, usdcCoin, walCoin] =
+    const [alphaCoin, stsuiCoin, suiCoin, blueCoin, deepCoin, usdcCoin, walCoin, usdsuiCoin] =
       await this.context.getCoinsBySymbols([
         'ALPHA',
         'stSUI',
@@ -259,6 +259,7 @@ export class SlushLendingStrategy extends BaseStrategy<
         'DEEP',
         'USDC',
         'WAL',
+        'USDSUI',
       ]);
 
     tx.moveCall({
@@ -363,6 +364,35 @@ export class SlushLendingStrategy extends BaseStrategy<
           tx.object(GLOBAL_CONFIGS.BLUEFIN),
           tx.pure.bool(false),
           tx.pure.bool(true),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (this.poolLabel.asset.type === usdsuiCoin.coinType) {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphalend_slush_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [this.poolLabel.asset.type, suiCoin.coinType, usdcCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.SLUSH),
+          tx.object(this.poolLabel.poolId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'USDC', 'bluefin')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(true),
+          tx.pure.bool(false),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphalend_slush_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [this.poolLabel.asset.type, this.poolLabel.asset.type, usdcCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.SLUSH),
+          tx.object(this.poolLabel.poolId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDSUI', 'USDC', 'bluefin')),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(false),
+          tx.pure.bool(false),
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
