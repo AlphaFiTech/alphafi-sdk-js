@@ -57,4 +57,22 @@ export const TEST_POOLS: PoolLabel[] = [
     poolName: 'ALPHALEND-SLUSH-WAL-SINGLE-LOOP',
     isNative: true,
   },
+  {
+    poolId: '0xccc08b2e42a88002b4bd505e7e0b5bed17079d4cafc2ccbe82da0172d5291867',
+    packageId: '0xf48bef4f768cb5dbd2c8993a1036a032a61ab526e5d0a940775611e8e24c09ca',
+    packageNumber: 12,
+    strategyType: 'SlushLending',
+    parentProtocol: 'Alphalend',
+    asset: {
+      name: 'USDSUI',
+      type: '0x44f838219cf67b058f3b37907b655f226153c18e33dfcd0da559a844fea9b1c1::usdsui::USDSUI',
+    },
+    events: {
+      autocompoundEventType:
+        '0x41b1def47b6259cd7306e049d6500eabb1a984e25558b56eefa9b6c000a038c3::alphalend_slush_investor::AutoCompoundingEvent',
+    },
+    isActive: true,
+    poolName: 'ALPHALEND-SLUSH-LENDING-USDSUI',
+    isNative: true,
+  },
 ];
