@@ -490,7 +490,6 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
           arguments: [
             tx.object(VERSIONS.SLUSH),
             tx.object(this.poolLabel.poolId),
-            tx.object(this.poolObject.investor.id),
             tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
             tx.object(
               await this.context.getPoolIdBySymbolsAndProtocol('ALPHA', 'stSUI', 'bluefin'),
@@ -498,6 +497,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
             tx.object(GLOBAL_CONFIGS.BLUEFIN),
             tx.pure.bool(true),
             tx.pure.bool(false),
+            tx.pure.u64(1000),
             tx.object(CLOCK_PACKAGE_ID),
           ],
         });
@@ -507,12 +507,12 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
           arguments: [
             tx.object(VERSIONS.SLUSH),
             tx.object(this.poolLabel.poolId),
-            tx.object(this.poolObject.investor.id),
             tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
             tx.object(await this.context.getPoolIdBySymbolsAndProtocol('stSUI', 'SUI', 'bluefin')),
             tx.object(GLOBAL_CONFIGS.BLUEFIN),
             tx.pure.bool(true),
             tx.pure.bool(true),
+            tx.pure.u64(10),
             tx.object(CLOCK_PACKAGE_ID),
           ],
         });
@@ -524,7 +524,6 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
           arguments: [
             tx.object(VERSIONS.SLUSH),
             tx.object(this.poolLabel.poolId),
-            tx.object(this.poolObject.investor.id),
             tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
             tx.object(
               await this.context.getPoolIdByTypesAndProtocol(
@@ -536,6 +535,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
             tx.object(GLOBAL_CONFIGS.BLUEFIN),
             tx.pure.bool(true),
             tx.pure.bool(true),
+            tx.pure.u64(10000),
             tx.object(CLOCK_PACKAGE_ID),
           ],
         });
@@ -552,12 +552,12 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
         arguments: [
           tx.object(VERSIONS.SLUSH),
           tx.object(this.poolLabel.poolId),
-          tx.object(this.poolObject.investor.id),
           tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
           tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'USDC', 'bluefin')),
           tx.object(GLOBAL_CONFIGS.BLUEFIN),
           tx.pure.bool(true),
           tx.pure.bool(true),
+          tx.pure.u64(10000),
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
@@ -568,12 +568,12 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
         arguments: [
           tx.object(VERSIONS.SLUSH),
           tx.object(this.poolLabel.poolId),
-          tx.object(this.poolObject.investor.id),
           tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
           tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDC', 'USDSUI', 'bluefin')),
           tx.object(GLOBAL_CONFIGS.BLUEFIN),
           tx.pure.bool(false),
           tx.pure.bool(true),
+          tx.pure.u64(10),
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });

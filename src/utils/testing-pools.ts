@@ -42,7 +42,7 @@ export const TEST_POOLS: PoolLabel[] = [
   },
   {
     poolId: '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
-    packageId: '0x3221f39ee2ebdb94bff679589d836c9b4d6879194af745edf47f37c9d2c2e7c7',
+    packageId: '0xad19911966b8ba9d6c5240da9389ccf347059385a0e90fd19f9cce644560a989',
     strategyType: 'SlushSingleAssetLooping',
     parentProtocol: 'Alphalend',
     asset: {
@@ -58,10 +58,9 @@ export const TEST_POOLS: PoolLabel[] = [
     isNative: true,
   },
   {
-    poolId: '0xccc08b2e42a88002b4bd505e7e0b5bed17079d4cafc2ccbe82da0172d5291867',
-    packageId: '0xf48bef4f768cb5dbd2c8993a1036a032a61ab526e5d0a940775611e8e24c09ca',
-    packageNumber: 12,
-    strategyType: 'SlushLending',
+    poolId: '0x0e1399fe66eca3147766bb113ae7b52b31243874c9e4a64a48e6d8cb91aa3c04',
+    packageId: '0xad19911966b8ba9d6c5240da9389ccf347059385a0e90fd19f9cce644560a989',
+    strategyType: 'SlushSingleAssetLooping',
     parentProtocol: 'Alphalend',
     asset: {
       name: 'USDSUI',
@@ -69,10 +68,10 @@ export const TEST_POOLS: PoolLabel[] = [
     },
     events: {
       autocompoundEventType:
-        '0x41b1def47b6259cd7306e049d6500eabb1a984e25558b56eefa9b6c000a038c3::alphalend_slush_investor::AutoCompoundingEvent',
+        '0xad19911966b8ba9d6c5240da9389ccf347059385a0e90fd19f9cce644560a989::alphalend_slush_locked_loop_pool::XtokenRatioChangeEventV2',
     },
     isActive: true,
-    poolName: 'ALPHALEND-SLUSH-LENDING-USDSUI',
+    poolName: 'ALPHALEND-SLUSH-USDSUI-SINGLE-LOOP',
     isNative: true,
   },
 ];
