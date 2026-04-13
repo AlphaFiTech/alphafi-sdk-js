@@ -42,7 +42,7 @@ export const TEST_POOLS: PoolLabel[] = [
   },
   {
     poolId: '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
-    packageId: '0xad19911966b8ba9d6c5240da9389ccf347059385a0e90fd19f9cce644560a989',
+    packageId: '0xcd3c28d6643fa2060d73d6e98bcc8049744b32804b017213a897e9466c5feb4d',
     strategyType: 'SlushSingleAssetLooping',
     parentProtocol: 'Alphalend',
     asset: {
@@ -59,7 +59,7 @@ export const TEST_POOLS: PoolLabel[] = [
   },
   {
     poolId: '0x0e1399fe66eca3147766bb113ae7b52b31243874c9e4a64a48e6d8cb91aa3c04',
-    packageId: '0xad19911966b8ba9d6c5240da9389ccf347059385a0e90fd19f9cce644560a989',
+    packageId: '0xcd3c28d6643fa2060d73d6e98bcc8049744b32804b017213a897e9466c5feb4d',
     strategyType: 'SlushSingleAssetLooping',
     parentProtocol: 'Alphalend',
     asset: {
