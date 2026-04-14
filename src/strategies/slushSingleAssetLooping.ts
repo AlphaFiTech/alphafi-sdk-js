@@ -374,6 +374,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
   async claimWithdraw(tx: Transaction, withdrawRequestId: string, address: string) {
     const alphalendClient = new AlphalendClient('mainnet', this.context.blockchain.suiClient);
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
+    await this.collectAndSwapRewards(tx);
     const positionCaps = await this.context.getSlushPositionCaps(address);
     if (positionCaps.length === 0) {
       throw new Error('No position cap found for claim');
@@ -398,6 +399,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
   async cancelWithdraw(tx: Transaction, withdrawRequestId: string, address: string) {
     const alphalendClient = new AlphalendClient('mainnet', this.context.blockchain.suiClient);
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
+    await this.collectAndSwapRewards(tx);
     const positionCaps = await this.context.getSlushPositionCaps(address);
     if (positionCaps.length === 0) {
       throw new Error('No position cap found for cancellation');
@@ -451,7 +453,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       'XAUm',
     ]);
 
-    let coinTypes = [
+    const coinTypes = [
       alphaCoin,
       stsuiCoin,
       suiCoin,
