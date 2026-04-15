@@ -199,13 +199,13 @@ async function deposit() {
     network: 'mainnet',
   });
   const tx = await sdk.deposit({
-    poolId: '0xccc08b2e42a88002b4bd505e7e0b5bed17079d4cafc2ccbe82da0172d5291867',
+    poolId: '0x0e1399fe66eca3147766bb113ae7b52b31243874c9e4a64a48e6d8cb91aa3c04',
     amount: 10_000n,
     address: address,
     isAmountA: false,
   });
-  // dryRunTransactionBlock(tx);
-  executeTransactionBlock(tx);
+  dryRunTransactionBlock(tx);
+  // executeTransactionBlock(tx);
 }
 
 async function withdraw() {
@@ -217,7 +217,7 @@ async function withdraw() {
     network: 'mainnet',
   });
   const tx = await sdk.withdraw({
-    poolId: '0xccc08b2e42a88002b4bd505e7e0b5bed17079d4cafc2ccbe82da0172d5291867',
+    poolId: '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
     withdrawMax: true,
     amount: '5_000_000',
     isAmountA: true,

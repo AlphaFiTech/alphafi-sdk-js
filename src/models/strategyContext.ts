@@ -264,12 +264,11 @@ export class StrategyContext {
       return {
         poolId: d.pool_id,
         packageId: d.package_id,
-        packageNumber: d.package_number,
         strategyType: strategyType,
         parentProtocol: d.parent_protocol,
         asset: d.asset,
         events: {
-          autocompoundEventType: d.events?.autocompound_event_type,
+          autocompoundEventType: d.events?.xtoken_ratio_change_event_type,
         },
         isActive: d.is_active,
         poolName: d.pool_name,
