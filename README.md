@@ -159,6 +159,21 @@ Get balance for a single pool.
 const balance = await sdk.getUserSinglePoolBalance(userAddress, '0x...');
 ```
 
+##### autobalanceLpPendingRewardAmount(userAddress: string, poolId: string): Promise\<UserAutoBalanceRewardAmounts>
+
+Get the user's pending non-ALPHA rewards for an `AutobalanceLp` pool. Returns a map of reward coin type
+(with `0x` prefix) to pending amount as a decimal string. Throws if `poolId` does not correspond to an
+`AutobalanceLp` pool.
+
+```typescript
+interface UserAutoBalanceRewardAmounts {
+  [coinType: string]: string; // reward coin type (0x-prefixed) -> pending amount (decimal string)
+}
+
+const rewards = await sdk.autobalanceLpPendingRewardAmount(userAddress, '0x...');
+// e.g. { '0x2::sui::SUI': '0.0123', '0x...::deep::DEEP': '4.56' }
+```
+
 ##### getUserPortfolio(address: string, strategiesType?: StrategyType[]): Promise\<UserPortfolioData>
 
 Get complete portfolio summary for a user address.

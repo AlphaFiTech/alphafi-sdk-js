@@ -538,6 +538,122 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     return;
   }
 
+  async pendingRewardAmount(userAddress: string): Promise<UserAutoBalanceRewardAmounts> {
+    try {
+      const tx = new Transaction();
+      this.collectReward(tx);
+
+      if (this.poolLabel.assetA.name === 'SUI') {
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_first_pool::update_pool_v4`,
+          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+          arguments: [
+            tx.object(VERSIONS.AUTOBALANCE_LP),
+            tx.object(this.poolLabel.poolId),
+            tx.object(this.poolLabel.investorId),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.BLUEFIN),
+            tx.object(this.poolLabel.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_first_pool::get_cur_acc_per_xtoken`,
+          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+          arguments: [tx.object(this.poolLabel.poolId)],
+        });
+      } else if (this.poolLabel.assetB.name === 'SUI') {
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_second_pool::update_pool_v3`,
+          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+          arguments: [
+            tx.object(VERSIONS.AUTOBALANCE_LP),
+            tx.object(this.poolLabel.poolId),
+            tx.object(this.poolLabel.investorId),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.BLUEFIN),
+            tx.object(this.poolLabel.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_second_pool::get_cur_acc_per_xtoken`,
+          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+          arguments: [tx.object(this.poolLabel.poolId)],
+        });
+      } else {
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::update_pool_v3`,
+          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+          arguments: [
+            tx.object(VERSIONS.AUTOBALANCE_LP),
+            tx.object(this.poolLabel.poolId),
+            tx.object(this.poolLabel.investorId),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.BLUEFIN),
+            tx.object(this.poolLabel.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::get_cur_acc_per_xtoken`,
+          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
+          arguments: [tx.object(this.poolLabel.poolId)],
+        });
+      }
+
+      const res = await this.context.blockchain.simulateTransaction(tx, userAddress);
+
+      const receipt = this.receiptObjects[0];
+      if (!receipt) {
+        return {};
+      }
+
+      const userXtokenBalance = receipt.xTokenBalance;
+      const totalPendingRewardAmounts: UserAutoBalanceRewardAmounts = {};
+      const userPendingReward: { [key in string]: string } = {};
+      const curAcc: { [key in string]: string } = {};
+      const lastAcc: { [key in string]: string } = {};
+
+      for (let i = 0; i < receipt.pendingRewards.length; i++) {
+        const rewardType = this.normalizeRewardType(receipt.pendingRewards[i].key);
+        userPendingReward[rewardType] = receipt.pendingRewards[i].value;
+      }
+
+      const lastOutput = res?.outputs?.[res.outputs.length - 1];
+      const currAccForAllRewards: Array<{ key: string; value: string }> =
+        lastOutput?.returnValues?.[0]?.value?.json?.contents ?? [];
+      currAccForAllRewards.forEach((reward) => {
+        curAcc[this.normalizeRewardType(reward.key)] = String(reward.value);
+      });
+
+      receipt.lastAccRewardPerXtoken.forEach((reward) => {
+        lastAcc[this.normalizeRewardType(reward.key)] = reward.value;
+      });
+
+      for (const type of Object.keys(curAcc)) {
+        const cur = new Decimal(curAcc[type]);
+        const last = new Decimal(type in lastAcc ? lastAcc[type] : '0');
+        const pending = new Decimal(type in userPendingReward ? userPendingReward[type] : '0');
+        const decimals = await this.context.getCoinDecimals(type);
+
+        const totalPending = cur
+          .minus(last)
+          .mul(userXtokenBalance)
+          .div(1e36)
+          .plus(pending)
+          .div(Math.pow(10, decimals))
+          .toString();
+        totalPendingRewardAmounts[type] = totalPending;
+      }
+
+      return totalPendingRewardAmounts;
+    } catch (e) {
+      console.error('error in calculate pending blue rewards', e);
+      return {};
+    }
+  }
+
   private collectReward(tx: Transaction) {
     if (this.poolLabel.assetA.name === 'SUI') {
       for (const reward of this.parentPoolObject.rewardInfos) {
@@ -674,6 +790,13 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     }
     return rewards;
   }
+
+  private normalizeRewardType(rewardType: string): string {
+    if (rewardType.startsWith('0x')) {
+      return rewardType;
+    }
+    return `0x${rewardType}`;
+  }
 }
 
 /**
@@ -746,6 +869,10 @@ export interface AutobalanceLpReceiptObject {
   pendingRewards: StringMap[];
   poolId: string;
   xTokenBalance: string;
+}
+
+export interface UserAutoBalanceRewardAmounts {
+  [key: string]: string;
 }
 
 /**

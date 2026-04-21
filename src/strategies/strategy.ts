@@ -374,7 +374,8 @@ export abstract class BaseStrategy<TPool = any, TInvestor = any, TParentPool = a
     }
 
     return contents.map((entry: any) => {
-      const key = entry?.key?.name;
+      const rawKey = entry?.key;
+      const key = typeof rawKey === 'string' ? rawKey : rawKey?.name;
       const value = entry?.value;
       return { key, value };
     });

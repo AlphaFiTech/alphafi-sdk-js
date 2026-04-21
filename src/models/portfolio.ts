@@ -34,12 +34,10 @@ export class Portfolio {
 
   /** Get all coin balances in user's wallet. */
   async getWalletCoins(userAddress: string): Promise<Map<string, string>> {
-    const res = await this.strategyContext.blockchain.suiClient.getAllBalances({
-      owner: userAddress,
-    });
+    const res = await this.strategyContext.blockchain.getAllBalances(userAddress);
 
     const resMap: Map<string, string> = new Map();
-    res.forEach((entry: { coinType: string; totalBalance: string }) => {
+    res.forEach((entry) => {
       resMap.set(normalizeStructTag(entry.coinType), entry.totalBalance);
     });
     return resMap;
