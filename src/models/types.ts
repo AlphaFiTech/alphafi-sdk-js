@@ -123,6 +123,49 @@ export type AlphaFiReceipt = {
   imageUrl: string;
 };
 
+/**
+ * Typed shape of `simulateTransaction` GraphQL responses.
+ * Mirrors the selection set used by `Blockchain.simulateTransaction`.
+ * Scalar numeric fields arrive as `string | number` depending on size,
+ * so callers should coerce via `Number(..)` / `BigInt(..)` as appropriate.
+ */
+export interface SimulationGasSummary {
+  computationCost: string | number;
+  storageCost: string | number;
+  storageRebate: string | number;
+  nonRefundableStorageFee: string | number;
+}
+
+export interface SimulationGasEffects {
+  gasSummary: SimulationGasSummary | null;
+}
+
+export interface SimulationEffects {
+  status: string | null;
+  /** `JSON` scalar — shape not statically knowable; coerce at the call-site if needed. */
+  balanceChangesJson: unknown;
+  gasEffects: SimulationGasEffects | null;
+}
+
+export interface SimulationReturnValue {
+  argument: { __typename: string } | null;
+  value: {
+    type: { repr: string };
+    /** Move value JSON-encoded; the concrete shape depends on the function's return type. */
+    json: unknown;
+    display: unknown | null;
+  };
+}
+
+export interface SimulationOutput {
+  returnValues: SimulationReturnValue[];
+}
+
+export interface SimulationResult {
+  effects: SimulationEffects | null;
+  outputs: SimulationOutput[];
+}
+
 export type DistributorObject = {
   airdropWallet: string;
   airdropWalletBalance: string;

@@ -2,10 +2,12 @@
  * Blockchain interface wrapper for Sui network operations using GraphQL and JSON-RPC clients.
  */
 
-import { CoinStruct, SuiClient } from '@mysten/sui/client';
+import { SuiClient } from '@mysten/sui/client';
 import { SuiGraphQLClient } from '@mysten/sui/graphql';
 import { graphql } from '@mysten/sui/graphql/schemas/latest';
 import { Transaction } from '@mysten/sui/transactions';
+import { toBase64 } from '@mysten/sui/utils';
+import type { SimulationGasSummary, SimulationResult } from './types.js';
 
 export type BlockchainOptions = {
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
@@ -47,29 +49,49 @@ export class Blockchain {
       }
     }
 
+    const query = graphql(`
+      query getCoins($address: SuiAddress!, $coinType: String!, $cursor: String) {
+        address(address: $address) {
+          objects(after: $cursor, filter: { type: $coinType }) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              address
+            }
+          }
+        }
+      }
+    `);
+
+    const wrappedCoinType = `0x2::coin::Coin<${coinType}>`;
     let currentCursor: string | null | undefined = null;
-    let coins1: CoinStruct[] = [];
+    const coinObjectIds: string[] = [];
     do {
-      const response = await this.suiClient.getCoins({
-        owner: address,
-        coinType,
-        cursor: currentCursor,
+      const response: any = await this.gqlClient.query({
+        query,
+        variables: { address, coinType: wrappedCoinType, cursor: currentCursor },
       });
-      coins1 = coins1.concat(response.data);
-      if (response.hasNextPage && response.nextCursor) {
-        currentCursor = response.nextCursor;
+      const objects: any = response.data?.address?.objects;
+      if (objects?.nodes) {
+        for (const node of objects.nodes) {
+          if (node?.address) {
+            coinObjectIds.push(node.address);
+          }
+        }
+      }
+      if (objects?.pageInfo?.hasNextPage && objects.pageInfo.endCursor) {
+        currentCursor = objects.pageInfo.endCursor;
       } else break;
     } while (true);
 
-    if (coins1.length === 0) {
+    if (coinObjectIds.length === 0) {
       throw new Error(`No coins found for ${coinType} for owner ${address}`);
     }
 
-    const [coin] = tx.splitCoins(tx.object(coins1[0].coinObjectId), [0]);
-    tx.mergeCoins(
-      coin,
-      coins1.map((c) => c.coinObjectId),
-    );
+    const [coin] = tx.splitCoins(tx.object(coinObjectIds[0]), [0]);
+    tx.mergeCoins(coin, coinObjectIds);
 
     if (amount) {
       const returnCoin = tx.splitCoins(coin, [amount]);
@@ -98,22 +120,119 @@ export class Blockchain {
     return receiptOption;
   }
 
+  /** Simulate a transaction via GraphQL and return a typed simulation result. */
+  async simulateTransaction(
+    tx: Transaction,
+    sender: string,
+  ): Promise<SimulationResult | undefined> {
+    tx.setSenderIfNotSet(sender);
+    const txBytes = await tx.build({ client: this.suiClient });
+    const txBase64 = toBase64(txBytes);
+
+    const query = graphql(`
+      query simulate($tx: JSON!) {
+        simulateTransaction(transaction: $tx, checksEnabled: true, doGasSelection: false) {
+          effects {
+            status
+            balanceChangesJson
+            gasEffects {
+              gasSummary {
+                computationCost
+                storageCost
+                storageRebate
+                nonRefundableStorageFee
+              }
+            }
+          }
+          outputs {
+            returnValues {
+              argument {
+                __typename
+              }
+              value {
+                type {
+                  repr
+                }
+                json
+                display {
+                  output
+                }
+              }
+            }
+          }
+        }
+      }
+    `);
+
+    const result = await this.gqlClient.query({
+      query,
+      variables: { tx: { bcs: { value: txBase64 } } },
+    });
+
+    return result.data?.simulateTransaction as SimulationResult | undefined;
+  }
+
   /** Estimate gas budget for transaction execution. */
   async getEstimatedGasBudget(tx: Transaction, sender: string): Promise<number | undefined> {
     try {
-      const simResult = await this.suiClient.devInspectTransactionBlock({
-        transactionBlock: tx,
-        sender,
-      });
-      return (
-        Number(simResult.effects.gasUsed.computationCost) +
-        Number(simResult.effects.gasUsed.nonRefundableStorageFee) +
-        1e8
-      );
+      const simResult = await this.simulateTransaction(tx, sender);
+      const gasSummary: SimulationGasSummary | null | undefined =
+        simResult?.effects?.gasEffects?.gasSummary;
+      if (!gasSummary) {
+        throw new Error('Simulation returned no gas summary');
+      }
+      return Number(gasSummary.computationCost) + Number(gasSummary.nonRefundableStorageFee) + 1e8;
     } catch (err) {
       console.error(`Error estimating transaction gasBudget`, err);
       return undefined;
     }
+  }
+
+  /** Get all coin balances owned by an address using GraphQL, paginated. */
+  async getAllBalances(address: string): Promise<{ coinType: string; totalBalance: string }[]> {
+    const query = graphql(`
+      query getBalances($address: SuiAddress!, $cursor: String) {
+        address(address: $address) {
+          balances(after: $cursor) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              coinType {
+                repr
+              }
+              coinBalance
+            }
+          }
+        }
+      }
+    `);
+
+    const balances: { coinType: string; totalBalance: string }[] = [];
+    let currentCursor: string | null | undefined = null;
+    do {
+      const response: any = await this.gqlClient.query({
+        query,
+        variables: { address, cursor: currentCursor },
+      });
+      const balancesConn: any = response.data?.address?.balances;
+      if (balancesConn?.nodes) {
+        for (const node of balancesConn.nodes) {
+          if (node?.coinType?.repr && node?.coinBalance) {
+            balances.push({
+              coinType: node.coinType.repr,
+              totalBalance: node.coinBalance,
+            });
+          }
+        }
+      }
+      if (balancesConn?.pageInfo?.hasNextPage && balancesConn.pageInfo.endCursor) {
+        currentCursor = balancesConn.pageInfo.endCursor;
+      } else break;
+    } while (true);
+
+    return balances;
   }
 
   /** Get object contents by ID using GraphQL. */

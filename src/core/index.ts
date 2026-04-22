@@ -29,6 +29,10 @@ import { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 import { Strategy, StrategyType } from '../strategies/strategy.js';
 import { LEGACY_ALPHA_POOL_RECEIPT, PACKAGE_IDS, VERSIONS } from '../utils/constants.js';
 import { AlphaVaultStrategy } from '../strategies/alphaVault.js';
+import {
+  AutobalanceLpStrategy,
+  UserAutoBalanceRewardAmounts,
+} from '../strategies/autobalanceLp.js';
 import { ZapDepositStrategy } from '../strategies/zapDeposit.js';
 import { LpStrategy } from '../strategies/lp.js';
 import { SlushSingleAssetLoopingStrategy } from '../strategies/slushSingleAssetLooping.js';
@@ -98,6 +102,29 @@ export class AlphaFiSDK {
   async getUserSinglePoolBalance(address: string, poolId: string): Promise<PoolBalance> {
     const strategy = await this.portfolio.getPoolStrategy(address, poolId);
     return strategy.getBalance(address);
+  }
+
+  /**
+   * Get the user's pending non-ALPHA rewards for an AutobalanceLp pool.
+   * This method is only valid for pools using the AutobalanceLp strategy
+   *
+   * @param userAddress - The user's wallet address
+   * @param poolId - The AutobalanceLp pool's object ID
+   * @returns A map of reward coin type (with `0x` prefix) to pending amount as a decimal string.
+   *   Returns an empty map only when the user has no position in the pool.
+   * @throws If `poolId` does not correspond to an AutobalanceLp pool, or if the on-chain
+   *   simulation / reward calculation fails. Errors are propagated so callers can distinguish
+   *   failures from a genuinely empty reward state.
+   */
+  async autobalanceLpPendingRewardAmount(
+    userAddress: string,
+    poolId: string,
+  ): Promise<UserAutoBalanceRewardAmounts> {
+    const strategy = await this.portfolio.getPoolStrategy(userAddress, poolId);
+    if (!(strategy instanceof AutobalanceLpStrategy)) {
+      throw new Error(`Pool ${poolId} is not an AutobalanceLp pool`);
+    }
+    return strategy.pendingRewardAmount(userAddress);
   }
 
   /**

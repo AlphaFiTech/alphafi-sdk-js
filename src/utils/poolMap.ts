@@ -230,13 +230,13 @@ export const POOL_REGISTRY: Record<string, ProtocolPoolIds> = {
     cetus: '0x0fea99ed9c65068638963a81587c3b8cafb71dc38c545319f008f7e9feb2b5f8',
   },
   [getCanonicalPairKey(
-    '0x27792d9fed7f9844eb4839566001bb6f6cb4804f66aa2da6fe1ee242d896881::coin::COIN',
+    '0x027792d9fed7f9844eb4839566001bb6f6cb4804f66aa2da6fe1ee242d896881::coin::COIN',
     '0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN',
   )]: {
     cetus: '0xaa57c66ba6ee8f2219376659f727f2b13d49ead66435aa99f57bb008a64a8042',
   },
   [getCanonicalPairKey(
-    '0x27792d9fed7f9844eb4839566001bb6f6cb4804f66aa2da6fe1ee242d896881::coin::COIN',
+    '0x027792d9fed7f9844eb4839566001bb6f6cb4804f66aa2da6fe1ee242d896881::coin::COIN',
     '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
   )]: {
     bluefin: '0x38282481e3a024c50254c31ebfc4710e003fe1b219c0aa31482a860bd58c4ab0',
