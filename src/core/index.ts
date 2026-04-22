@@ -110,8 +110,11 @@ export class AlphaFiSDK {
    *
    * @param userAddress - The user's wallet address
    * @param poolId - The AutobalanceLp pool's object ID
-   * @returns A map of reward coin type (with `0x` prefix) to pending amount as a decimal string
-   * @throws If `poolId` does not correspond to an AutobalanceLp pool
+   * @returns A map of reward coin type (with `0x` prefix) to pending amount as a decimal string.
+   *   Returns an empty map only when the user has no position in the pool.
+   * @throws If `poolId` does not correspond to an AutobalanceLp pool, or if the on-chain
+   *   simulation / reward calculation fails. Errors are propagated so callers can distinguish
+   *   failures from a genuinely empty reward state.
    */
   async autobalanceLpPendingRewardAmount(
     userAddress: string,

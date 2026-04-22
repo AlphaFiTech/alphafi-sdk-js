@@ -7,6 +7,7 @@ import { SuiGraphQLClient } from '@mysten/sui/graphql';
 import { graphql } from '@mysten/sui/graphql/schemas/latest';
 import { Transaction } from '@mysten/sui/transactions';
 import { toBase64 } from '@mysten/sui/utils';
+import type { SimulationGasSummary, SimulationResult } from './types.js';
 
 export type BlockchainOptions = {
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
@@ -119,8 +120,11 @@ export class Blockchain {
     return receiptOption;
   }
 
-  /** Simulate a transaction via GraphQL and return the raw simulation result. */
-  async simulateTransaction(tx: Transaction, sender: string) {
+  /** Simulate a transaction via GraphQL and return a typed simulation result. */
+  async simulateTransaction(
+    tx: Transaction,
+    sender: string,
+  ): Promise<SimulationResult | undefined> {
     tx.setSenderIfNotSet(sender);
     const txBytes = await tx.build({ client: this.suiClient });
     const txBase64 = toBase64(txBytes);
@@ -160,19 +164,20 @@ export class Blockchain {
       }
     `);
 
-    const result: any = await this.gqlClient.query({
+    const result = await this.gqlClient.query({
       query,
       variables: { tx: { bcs: { value: txBase64 } } },
     });
 
-    return result.data?.simulateTransaction;
+    return result.data?.simulateTransaction as SimulationResult | undefined;
   }
 
   /** Estimate gas budget for transaction execution. */
   async getEstimatedGasBudget(tx: Transaction, sender: string): Promise<number | undefined> {
     try {
       const simResult = await this.simulateTransaction(tx, sender);
-      const gasSummary = simResult?.effects?.gasEffects?.gasSummary;
+      const gasSummary: SimulationGasSummary | null | undefined =
+        simResult?.effects?.gasEffects?.gasSummary;
       if (!gasSummary) {
         throw new Error('Simulation returned no gas summary');
       }
@@ -205,21 +210,27 @@ export class Blockchain {
     `);
 
     const balances: { coinType: string; totalBalance: string }[] = [];
-    const response: any = await this.gqlClient.query({
-      query,
-      variables: { address },
-    });
-    const balancesConn: any = response.data?.address?.balances;
-    if (balancesConn?.nodes) {
-      for (const node of balancesConn.nodes) {
-        if (node?.coinType?.repr && node?.coinBalance) {
-          balances.push({
-            coinType: node.coinType.repr,
-            totalBalance: node.coinBalance,
-          });
+    let currentCursor: string | null | undefined = null;
+    do {
+      const response: any = await this.gqlClient.query({
+        query,
+        variables: { address, cursor: currentCursor },
+      });
+      const balancesConn: any = response.data?.address?.balances;
+      if (balancesConn?.nodes) {
+        for (const node of balancesConn.nodes) {
+          if (node?.coinType?.repr && node?.coinBalance) {
+            balances.push({
+              coinType: node.coinType.repr,
+              totalBalance: node.coinBalance,
+            });
+          }
         }
       }
-    }
+      if (balancesConn?.pageInfo?.hasNextPage && balancesConn.pageInfo.endCursor) {
+        currentCursor = balancesConn.pageInfo.endCursor;
+      } else break;
+    } while (true);
 
     return balances;
   }

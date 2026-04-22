@@ -18,6 +18,14 @@ import {
 } from '../utils/constants.js';
 
 /**
+ * Fixed-point precision scaling factor used by the on-chain `acc_reward_per_xtoken`
+ * accumulator (1e36). Pending rewards are computed as
+ * `(currentAcc - lastAcc) * userXtokenBalance / ACC_REWARD_PER_XTOKEN_PRECISION`,
+ * then divided by the reward coin's own decimal scale to produce a human amount.
+ */
+const ACC_REWARD_PER_XTOKEN_PRECISION = new Decimal(10).pow(36);
+
+/**
  * AutobalanceLp Strategy for dual-asset liquidity pools with automatic rebalancing
  */
 export class AutobalanceLpStrategy extends BaseStrategy<
@@ -539,119 +547,84 @@ export class AutobalanceLpStrategy extends BaseStrategy<
   }
 
   async pendingRewardAmount(userAddress: string): Promise<UserAutoBalanceRewardAmounts> {
-    try {
-      const tx = new Transaction();
-      this.collectReward(tx);
+    const tx = new Transaction();
+    this.collectReward(tx);
 
-      if (this.poolLabel.assetA.name === 'SUI') {
-        tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_first_pool::update_pool_v4`,
-          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
-          arguments: [
-            tx.object(VERSIONS.AUTOBALANCE_LP),
-            tx.object(this.poolLabel.poolId),
-            tx.object(this.poolLabel.investorId),
-            tx.object(DISTRIBUTOR_OBJECT_ID),
-            tx.object(GLOBAL_CONFIGS.BLUEFIN),
-            tx.object(this.poolLabel.parentPoolId),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-        tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_first_pool::get_cur_acc_per_xtoken`,
-          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
-          arguments: [tx.object(this.poolLabel.poolId)],
-        });
-      } else if (this.poolLabel.assetB.name === 'SUI') {
-        tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_second_pool::update_pool_v3`,
-          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
-          arguments: [
-            tx.object(VERSIONS.AUTOBALANCE_LP),
-            tx.object(this.poolLabel.poolId),
-            tx.object(this.poolLabel.investorId),
-            tx.object(DISTRIBUTOR_OBJECT_ID),
-            tx.object(GLOBAL_CONFIGS.BLUEFIN),
-            tx.object(this.poolLabel.parentPoolId),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-        tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_second_pool::get_cur_acc_per_xtoken`,
-          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
-          arguments: [tx.object(this.poolLabel.poolId)],
-        });
-      } else {
-        tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::update_pool_v3`,
-          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
-          arguments: [
-            tx.object(VERSIONS.AUTOBALANCE_LP),
-            tx.object(this.poolLabel.poolId),
-            tx.object(this.poolLabel.investorId),
-            tx.object(DISTRIBUTOR_OBJECT_ID),
-            tx.object(GLOBAL_CONFIGS.BLUEFIN),
-            tx.object(this.poolLabel.parentPoolId),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-        tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::get_cur_acc_per_xtoken`,
-          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
-          arguments: [tx.object(this.poolLabel.poolId)],
-        });
-      }
+    const moduleName = this.getPoolModule();
+    const updatePoolFn = this.getUpdatePoolFn();
+    const typeArguments = [this.poolLabel.assetA.type, this.poolLabel.assetB.type];
 
-      const res = await this.context.blockchain.simulateTransaction(tx, userAddress);
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::${moduleName}::${updatePoolFn}`,
+      typeArguments,
+      arguments: [
+        tx.object(VERSIONS.AUTOBALANCE_LP),
+        tx.object(this.poolLabel.poolId),
+        tx.object(this.poolLabel.investorId),
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.object(this.poolLabel.parentPoolId),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::${moduleName}::get_cur_acc_per_xtoken`,
+      typeArguments,
+      arguments: [tx.object(this.poolLabel.poolId)],
+    });
 
-      const receipt = this.receiptObjects[0];
-      if (!receipt) {
-        return {};
-      }
+    const res = await this.context.blockchain.simulateTransaction(tx, userAddress);
 
-      const userXtokenBalance = receipt.xTokenBalance;
-      const totalPendingRewardAmounts: UserAutoBalanceRewardAmounts = {};
-      const userPendingReward: { [key in string]: string } = {};
-      const curAcc: { [key in string]: string } = {};
-      const lastAcc: { [key in string]: string } = {};
-
-      for (let i = 0; i < receipt.pendingRewards.length; i++) {
-        const rewardType = this.normalizeRewardType(receipt.pendingRewards[i].key);
-        userPendingReward[rewardType] = receipt.pendingRewards[i].value;
-      }
-
-      const lastOutput = res?.outputs?.[res.outputs.length - 1];
-      const currAccForAllRewards: Array<{ key: string; value: string }> =
-        lastOutput?.returnValues?.[0]?.value?.json?.contents ?? [];
-      currAccForAllRewards.forEach((reward) => {
-        curAcc[this.normalizeRewardType(reward.key)] = String(reward.value);
-      });
-
-      receipt.lastAccRewardPerXtoken.forEach((reward) => {
-        lastAcc[this.normalizeRewardType(reward.key)] = reward.value;
-      });
-
-      for (const type of Object.keys(curAcc)) {
-        const cur = new Decimal(curAcc[type]);
-        const last = new Decimal(type in lastAcc ? lastAcc[type] : '0');
-        const pending = new Decimal(type in userPendingReward ? userPendingReward[type] : '0');
-        const decimals = await this.context.getCoinDecimals(type);
-
-        const totalPending = cur
-          .minus(last)
-          .mul(userXtokenBalance)
-          .div(1e36)
-          .plus(pending)
-          .div(Math.pow(10, decimals))
-          .toString();
-        totalPendingRewardAmounts[type] = totalPending;
-      }
-
-      return totalPendingRewardAmounts;
-    } catch (e) {
-      console.error('error in calculate pending blue rewards', e);
+    const receipt = this.receiptObjects[0];
+    if (!receipt) {
       return {};
     }
+
+    const userXtokenBalance = receipt.xTokenBalance;
+    const totalPendingRewardAmounts: UserAutoBalanceRewardAmounts = {};
+    const userPendingReward: { [key in string]: string } = {};
+    const curAcc: { [key in string]: string } = {};
+    const lastAcc: { [key in string]: string } = {};
+
+    for (let i = 0; i < receipt.pendingRewards.length; i++) {
+      const rewardType = this.normalizeRewardType(receipt.pendingRewards[i].key);
+      userPendingReward[rewardType] = receipt.pendingRewards[i].value;
+    }
+
+    // `get_cur_acc_per_xtoken` returns a `VecMap<TypeName, u256>` which GraphQL
+    // encodes as `{ contents: [{ key, value }, ...] }`.
+    const lastOutput = res?.outputs?.[res.outputs.length - 1];
+    const rawJson = lastOutput?.returnValues?.[0]?.value?.json;
+    const currAccForAllRewards: Array<{ key: string; value: string }> = isVecMapJson(rawJson)
+      ? rawJson.contents
+      : [];
+    currAccForAllRewards.forEach((reward) => {
+      curAcc[this.normalizeRewardType(reward.key)] = String(reward.value);
+    });
+
+    receipt.lastAccRewardPerXtoken.forEach((reward) => {
+      lastAcc[this.normalizeRewardType(reward.key)] = reward.value;
+    });
+
+    for (const rewardType of Object.keys(curAcc)) {
+      const cur = new Decimal(curAcc[rewardType]);
+      const last = new Decimal(rewardType in lastAcc ? lastAcc[rewardType] : '0');
+      const pending = new Decimal(
+        rewardType in userPendingReward ? userPendingReward[rewardType] : '0',
+      );
+      const decimals = await this.context.getCoinDecimals(rewardType);
+
+      const totalPending = cur
+        .minus(last)
+        .mul(userXtokenBalance)
+        .div(ACC_REWARD_PER_XTOKEN_PRECISION)
+        .plus(pending)
+        .div(Math.pow(10, decimals))
+        .toString();
+      totalPendingRewardAmounts[rewardType] = totalPending;
+    }
+
+    return totalPendingRewardAmounts;
   }
 
   private collectReward(tx: Transaction) {
@@ -797,6 +770,32 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     }
     return `0x${rewardType}`;
   }
+
+  /** Get the Move module name for this pool's autobalance-lp variant. */
+  private getPoolModule(): string {
+    if (this.poolLabel.assetA.name === 'SUI') return 'alphafi_bluefin_sui_first_pool';
+    if (this.poolLabel.assetB.name === 'SUI') return 'alphafi_bluefin_sui_second_pool';
+    return 'alphafi_bluefin_type_1_pool';
+  }
+
+  /** Get the versioned `update_pool` entry function for this pool variant. */
+  private getUpdatePoolFn(): string {
+    return this.poolLabel.assetA.name === 'SUI' ? 'update_pool_v4' : 'update_pool_v3';
+  }
+}
+
+/** GraphQL JSON shape of a Move `VecMap<K, V>` return value. */
+interface MoveVecMapJson {
+  contents: Array<{ key: string; value: string }>;
+}
+
+/** Narrow a `SimulationReturnValue.value.json` blob to a `VecMap` shape. */
+function isVecMapJson(json: unknown): json is MoveVecMapJson {
+  return (
+    typeof json === 'object' &&
+    json !== null &&
+    Array.isArray((json as { contents?: unknown }).contents)
+  );
 }
 
 /**
