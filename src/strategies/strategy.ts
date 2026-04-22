@@ -323,13 +323,16 @@ export abstract class BaseStrategy<TPool = any, TInvestor = any, TParentPool = a
   /**
    * Helper function to get string field from JSON with validation
    */
-  protected getStringField(fieldsJson: any, fieldName: string): string {
+  protected getStringField(fieldsJson: any, fieldName: string, default_val?: string): string {
     const value = fieldsJson?.[fieldName];
     if (typeof value === 'string') {
       return value;
     }
     if (value !== undefined && value !== null) {
       return String(value);
+    }
+    if (default_val) {
+      return default_val;
     }
     return '';
   }
