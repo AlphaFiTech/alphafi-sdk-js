@@ -209,6 +209,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
           id: this.getStringField(fields.investor, 'id'),
           marketId,
           borrowMarketId: this.getStringField(fields.investor, 'borrow_market_id', marketId),
+          isReversedForSwap: this.getBooleanField(fields.investor, 'is_reversed_for_swap', false),
           positionCap: {
             clientAddress: this.getNestedField(
               fields,
@@ -313,6 +314,13 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
     if (!isSingle) {
       target = `${this.poolLabel.packageId}::alphalend_slush_loop_pool::user_deposit`;
       typeArguments.push(this.poolLabel.assetB.type);
+      if (this.poolObject.investor.isReversedForSwap) {
+        typeArguments.push(this.poolLabel.assetB.type);
+        typeArguments.push(this.poolLabel.assetA.type);
+      } else {
+        typeArguments.push(this.poolLabel.assetA.type);
+        typeArguments.push(this.poolLabel.assetB.type);
+      }
     }
 
     if (positionCaps.length === 0) {
@@ -375,16 +383,33 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
     if (!isSingle) {
       target = `${this.poolLabel.packageId}::alphalend_slush_loop_pool::user_initiate_withdraw`;
       typeArguments.push(this.poolLabel.assetB.type);
-      args.push(
-        tx.object(
-          await this.context.getPoolIdByTypesAndProtocol(
-            this.poolLabel.assetA.type,
-            this.poolLabel.assetB.type,
-            'bluefin',
-            true,
+      if (this.poolObject.investor.isReversedForSwap) {
+        typeArguments.push(this.poolLabel.assetB.type);
+        typeArguments.push(this.poolLabel.assetA.type);
+        args.push(
+          tx.object(
+            await this.context.getPoolIdByTypesAndProtocol(
+              this.poolLabel.assetB.type,
+              this.poolLabel.assetA.type,
+              'bluefin',
+              true,
+            ),
           ),
-        ),
-      );
+        );
+      } else {
+        typeArguments.push(this.poolLabel.assetA.type);
+        typeArguments.push(this.poolLabel.assetB.type);
+        args.push(
+          tx.object(
+            await this.context.getPoolIdByTypesAndProtocol(
+              this.poolLabel.assetA.type,
+              this.poolLabel.assetB.type,
+              'bluefin',
+              true,
+            ),
+          ),
+        );
+      }
       args.push(tx.object(GLOBAL_CONFIGS.BLUEFIN));
     }
     args.push(tx.object(CLOCK_PACKAGE_ID));
@@ -416,16 +441,33 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
     if (!isSingle) {
       target = `${this.poolLabel.packageId}::alphalend_slush_loop_pool::user_claim_withdraw`;
       typeArguments.push(this.poolLabel.assetB.type);
-      args.push(
-        tx.object(
-          await this.context.getPoolIdByTypesAndProtocol(
-            this.poolLabel.assetA.type,
-            this.poolLabel.assetB.type,
-            'bluefin',
-            true,
+      if (this.poolObject.investor.isReversedForSwap) {
+        typeArguments.push(this.poolLabel.assetB.type);
+        typeArguments.push(this.poolLabel.assetA.type);
+        args.push(
+          tx.object(
+            await this.context.getPoolIdByTypesAndProtocol(
+              this.poolLabel.assetB.type,
+              this.poolLabel.assetA.type,
+              'bluefin',
+              true,
+            ),
           ),
-        ),
-      );
+        );
+      } else {
+        typeArguments.push(this.poolLabel.assetA.type);
+        typeArguments.push(this.poolLabel.assetB.type);
+        args.push(
+          tx.object(
+            await this.context.getPoolIdByTypesAndProtocol(
+              this.poolLabel.assetA.type,
+              this.poolLabel.assetB.type,
+              'bluefin',
+              true,
+            ),
+          ),
+        );
+      }
       args.push(tx.object(GLOBAL_CONFIGS.BLUEFIN));
     }
     args.push(tx.object(CLOCK_PACKAGE_ID));
@@ -650,6 +692,7 @@ export interface SlushSingleAssetLoopingPoolObject {
     id: string;
     marketId: string;
     borrowMarketId: string;
+    isReversedForSwap: boolean;
     positionCap: {
       clientAddress: string;
       id: string;
