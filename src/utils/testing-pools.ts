@@ -28,7 +28,11 @@ export const TEST_POOLS: PoolLabel[] = [
     packageId: '0x8d5e0d608b60e3d928f36f4da75d2f50e0ae4446fc70c6346470d0edcb84f005',
     strategyType: 'SlushSingleAssetLooping',
     parentProtocol: 'Alphalend',
-    asset: {
+    assetA: {
+      name: 'WAL',
+      type: '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL',
+    },
+    assetB: {
       name: 'WAL',
       type: '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL',
     },
@@ -45,7 +49,11 @@ export const TEST_POOLS: PoolLabel[] = [
     packageId: '0xcd3c28d6643fa2060d73d6e98bcc8049744b32804b017213a897e9466c5feb4d',
     strategyType: 'SlushSingleAssetLooping',
     parentProtocol: 'Alphalend',
-    asset: {
+    assetA: {
+      name: 'WAL',
+      type: '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL',
+    },
+    assetB: {
       name: 'WAL',
       type: '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL',
     },
@@ -62,7 +70,11 @@ export const TEST_POOLS: PoolLabel[] = [
     packageId: '0xcd3c28d6643fa2060d73d6e98bcc8049744b32804b017213a897e9466c5feb4d',
     strategyType: 'SlushSingleAssetLooping',
     parentProtocol: 'Alphalend',
-    asset: {
+    assetA: {
+      name: 'USDSUI',
+      type: '0x44f838219cf67b058f3b37907b655f226153c18e33dfcd0da559a844fea9b1c1::usdsui::USDSUI',
+    },
+    assetB: {
       name: 'USDSUI',
       type: '0x44f838219cf67b058f3b37907b655f226153c18e33dfcd0da559a844fea9b1c1::usdsui::USDSUI',
     },

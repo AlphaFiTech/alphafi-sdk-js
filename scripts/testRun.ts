@@ -176,7 +176,7 @@ async function poolsData() {
     network: 'mainnet',
   });
   const data = await sdk.getSinglePoolData(
-    '0xccc08b2e42a88002b4bd505e7e0b5bed17079d4cafc2ccbe82da0172d5291867',
+    '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
   );
   console.log('data', data);
 }
@@ -188,7 +188,7 @@ async function portfolioData() {
   });
   const data = await sdk.getUserSinglePoolBalance(
     address,
-    '0xccc08b2e42a88002b4bd505e7e0b5bed17079d4cafc2ccbe82da0172d5291867',
+    '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
   );
   console.log('user data', data);
 }
@@ -232,7 +232,7 @@ async function claimSlushWithdraw() {
   const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
   const tx = await sdk.claimWithdrawSlush({
     poolId: '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
-    withdrawRequestId: '0xd7c583c1a6b2849ed2a8164747cb4dda02b3bd56ef1f76cc0cfbd3301a9a1c7f',
+    withdrawRequestId: '0xdd9adca11bea0925ad8e1eaec8f68896087c12c6449740f356141ec9bfd52a58',
     address,
   });
   tx.setGasBudget(2e8);
@@ -244,12 +244,12 @@ async function cancelSlushWithdraw() {
   const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
   const tx = await sdk.cancelWithdrawSlush({
     poolId: '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
-    withdrawRequestId: '0xd7c583c1a6b2849ed2a8164747cb4dda02b3bd56ef1f76cc0cfbd3301a9a1c7f',
+    withdrawRequestId: '0xdd9adca11bea0925ad8e1eaec8f68896087c12c6449740f356141ec9bfd52a58',
     address,
   });
   tx.setGasBudget(2e8);
-  // dryRunTransactionBlock(tx);
-  executeTransactionBlock(tx);
+  dryRunTransactionBlock(tx);
+  // executeTransactionBlock(tx);
 }
 async function claimAirdrop() {
   const { address, keypair, suiClient } = getExecStuff();
@@ -260,9 +260,9 @@ async function claimAirdrop() {
   // executeTransactionBlock(tx);
 }
 // claimAirdrop();
-withdraw();
+// withdraw();
 // poolsData();
 // portfolioData();
 // claimSlushWithdraw();
-// deposit();
+deposit();
 // cancelSlushWithdraw();

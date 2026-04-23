@@ -266,7 +266,8 @@ export class StrategyContext {
         packageId: d.package_id,
         strategyType: strategyType,
         parentProtocol: d.parent_protocol,
-        asset: d.asset,
+        assetA: d.asset_a,
+        assetB: d.asset_b,
         events: {
           autocompoundEventType: d.events?.xtoken_ratio_change_event_type,
         },
