@@ -1,6 +1,7 @@
 export const PACKAGE_IDS = {
   ALPHAFI_RECEIPT: '0x18533807391b15db5f1f530f54b32553372e5c204d179928d8da0a1753cbb63c',
   ALPHA_LATEST: '0xe4848d05267f8775861aeed7bdd37c99b7703a45a7a52a2a03b32a67019fb10f',
+  // ALPHAFI_RECEIPT: '0x9976c0502882d392050680f4418e1539917de5571db1c0e7efb533631b7f4d5d',
 };
 
 export const VERSIONS = {
@@ -50,8 +51,11 @@ export const ALPHAFI_RECEIPT_WHITELISTED_ADDRESSES =
 export const SLUSH_POSITION_CAP_TYPE =
   '0x41b1def47b6259cd7306e049d6500eabb1a984e25558b56eefa9b6c000a038c3::alphalend_slush_pool::PositionCap';
 
-export const ALPHAFI_RECEIPT_TYPE =
-  '0x18533807391b15db5f1f530f54b32553372e5c204d179928d8da0a1753cbb63c::alphafi_receipt::AlphaFiReceipt';
+export const ALPHAFI_RECEIPT_TYPE = `${PACKAGE_IDS.ALPHAFI_RECEIPT}::alphafi_receipt::AlphaFiReceipt`;
+
+export const ALPHAFI_TRANSFER_REQUEST_TYPE = `${PACKAGE_IDS.ALPHAFI_RECEIPT}::alphafi_receipt::TransferRequest`;
+
+export const ALPHAFI_TRANSFER_REQUEST_KEY_TYPE = `${PACKAGE_IDS.ALPHAFI_RECEIPT}::alphafi_receipt::TransferRequestKey`;
 
 export const LEGACY_ALPHA_POOL_RECEIPT =
   '0x9bbd650b8442abb082c20f3bc95a9434a8d47b4bef98b0832dab57c1a8ba7123::alphapool::Receipt';

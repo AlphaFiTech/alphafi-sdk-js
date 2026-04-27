@@ -178,5 +178,40 @@ export interface CetusSwapOptions {
   tx?: Transaction;
 }
 
+/**
+ * Options for initiating a receipt transfer (creates an on-chain TransferRequest).
+ * Starts the 24-hour cooldown period.
+ */
+export interface CreateTransferRequestOptions {
+  /** Object ID of the AlphaFiReceipt to transfer */
+  receiptId: string;
+  /** Wallet address of the intended recipient */
+  receiver: string;
+  /** Sender's wallet address */
+  address: string;
+  /** Optional existing transaction to append to (for PTB composition) */
+  tx?: Transaction;
+}
+
+// Options for cancelling a pending receipt transfer. Can be called at any stage (cooldown or confirm).
+export interface CancelTransferRequestOptions {
+  /** Object ID of the AlphaFiReceipt whose transfer request should be cancelled */
+  receiptId: string;
+  /** Owner's wallet address */
+  address: string;
+  /** Optional existing transaction to append to (for PTB composition) */
+  tx?: Transaction;
+}
+
+// Options for fulfilling (confirming) a receipt transfer. Can only be called after the 24-hour cooldown has passed. Consumes the receipt and transfers it to the receiver.
+export interface FulfillTransferRequestOptions {
+  /** Object ID of the AlphaFiReceipt to fulfill the transfer for */
+  receiptId: string;
+  /** Current owner's wallet address */
+  address: string;
+  /** Optional existing transaction to append to (for PTB composition) */
+  tx?: Transaction;
+}
+
 // Re-export domain types for external consumers
-export type { AlphaFiReceipt } from '../models/types.js';
+export type { AlphaFiReceipt, TransferRequest } from '../models/types.js';
