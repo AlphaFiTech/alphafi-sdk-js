@@ -8,8 +8,19 @@
   "types": "dist/cjs/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/cjs/index.d.ts",
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.js"
+    },
+    "./admin": {
+      "types": "./dist/cjs/admin/index.d.ts",
+      "import": "./dist/esm/admin/index.js",
+      "require": "./dist/cjs/admin/index.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "admin": ["./dist/cjs/admin/index.d.ts"]
     }
   },
   "scripts": {
@@ -44,6 +55,7 @@
     "@apollo/client": "^4.0.11",
     "@cetusprotocol/aggregator-sdk": "^1.4.2",
     "@cetusprotocol/cetus-sui-clmm-sdk": "5.4.0",
+    "@naviprotocol/lending": "^1.4.3",
     "bech32": "^2.0.0",
     "bn.js": "^5.2.2",
     "decimal.js": "^10.6.0",
