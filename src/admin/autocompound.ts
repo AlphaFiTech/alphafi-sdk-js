@@ -14,7 +14,6 @@ import { SuiPriceServiceConnection, SuiPythClient } from '@pythnetwork/pyth-sui-
 import { LendingReward, getUserAvailableLendingRewards } from '@naviprotocol/lending';
 import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import { StrategyContext } from '../models/strategyContext.js';
-import { PoolLabel } from '../strategies/strategy.js';
 import { LpPoolLabel } from '../strategies/lp.js';
 import { LendingPoolLabel } from '../strategies/lending.js';
 import { LoopingPoolLabel } from '../strategies/looping.js';
@@ -226,7 +225,6 @@ async function _autocompoundLp(
   context: StrategyContext,
 ): Promise<void> {
   const poolName = label.poolName;
-  const coinA = label.assetA.name;
   const coinB = label.assetB.name;
   const coinAType = label.assetA.type;
   const coinBType = label.assetB.type;
@@ -584,7 +582,6 @@ async function _autocompoundLp(
         ],
       });
     } else if (poolName === 'BLUEFIN-STSUI-SUI') {
-      const [stsuiInfo] = await context.getCoinsBySymbols(['STSUI']);
       tx.moveCall({
         target: `${label.packageId}::alphafi_bluefin_stsui_sui_pool::update_pool`,
         typeArguments: [coinAType, coinBType, blueType],
@@ -686,7 +683,6 @@ async function _autocompoundLp(
     } else if (poolName === 'BLUEFIN-SUIBTC-USDC') {
       const cetusUsdcSuibtc = await context.getPoolIdBySymbolsAndProtocol('USDC', 'SUIBTC', 'cetus');
       const cetusSuiUsdc = await context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus');
-      const [suibtcInfo] = await context.getCoinsBySymbols(['SUIBTC']);
       tx.moveCall({
         target: `${label.packageId}::alphafi_bluefin_type_1_investor::collect_and_swap_rewards_to_token_b_bluefin`,
         typeArguments: [coinAType, coinBType, blueType, suiType, deepType],
@@ -727,8 +723,6 @@ async function _autocompoundLp(
       const cetusSuibtcLbtc = await context.getPoolIdBySymbolsAndProtocol('SUIBTC', 'LBTC', 'cetus');
       const cetusSuibtcSui = await context.getPoolIdBySymbolsAndProtocol('SUIBTC', 'SUI', 'cetus');
       const bluefinSuiSuibtc = await context.getPoolIdBySymbolsAndProtocol('SUI', 'SUIBTC', 'bluefin');
-      const [lbtcInfo] = await context.getCoinsBySymbols(['LBTC']);
-      const [suibtcInfo] = await context.getCoinsBySymbols(['SUIBTC']);
       tx.moveCall({
         target: `${label.packageId}::alphafi_bluefin_type_1_investor::collect_and_swap_rewards_to_token_b_bluefin`,
         typeArguments: [coinAType, coinBType, blueType, suiType, deepType],
@@ -1015,7 +1009,6 @@ async function _autocompoundLyf(
       });
     }
   } else if (label.poolName === 'BLUEFIN-LYF-SUIUSDT-USDC') {
-    const [usdiInfo] = await context.getCoinsBySymbols(['SUI']);
     const [usdcInfo] = await context.getCoinsBySymbols(['USDC']);
     for (const [rewardType, toType, pool, isBorrow] of [
       [stsuiInfo.coinType, suiInfo.coinType, ADMIN.BLUEFIN_STSUI_SUI_ZERO_ZERO_POOL, true],
@@ -1652,7 +1645,6 @@ async function _autocompoundSingleAssetLooping(
 ): Promise<void> {
   const poolName = label.poolName;
   const assetType = label.asset.type;
-  const assetName = label.asset.name;
 
   const alphalendClient = new AlphalendClient('mainnet', context.blockchain.suiClient);
   await alphalendClient.updatePrices(tx, [assetType]);

@@ -8,7 +8,7 @@ import { Decimal } from 'decimal.js';
 import { TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
 import { SuiClient } from '@mysten/sui/client';
 import { StrategyContext } from '../models/strategyContext.js';
-import { PoolLabel, LpPoolLabel } from '../strategies/strategy.js';
+import { LpPoolLabel } from '../strategies/strategy.js';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Internal helpers

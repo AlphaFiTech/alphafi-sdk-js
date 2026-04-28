@@ -76,6 +76,7 @@ export async function getManualRebalanceUsingTicksTxb(
       loops,
       context,
       swap_using_bluefin,
+      rebalance_using_base_pool,
     );
   } else if (label.strategyType === 'Lyf') {
     await _rebalanceLyf(
@@ -107,12 +108,11 @@ async function _rebalanceLp(
   loops: number,
   context: StrategyContext,
   swap_using_bluefin?: boolean,
+  rebalance_using_base_pool?: boolean,
 ): Promise<void> {
   const poolName = label.poolName;
   const coinAType = label.assetA.type;
   const coinBType = label.assetB.type;
-  const coinAName = label.assetA.name;
-  const coinBName = label.assetB.name;
 
   const lo = toTwosComplementIfPossible(Number(lowerTick));
   const hi = toTwosComplementIfPossible(Number(upperTick));
@@ -147,6 +147,7 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
+        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -190,6 +191,7 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
+        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -232,6 +234,7 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
+        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -292,6 +295,7 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
+        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -353,6 +357,7 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
+        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -398,6 +403,7 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
+        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -458,6 +464,7 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
+        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -503,6 +510,7 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
+        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -547,6 +555,7 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
+        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -592,6 +601,7 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
+        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -652,6 +662,7 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
+        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -677,7 +688,6 @@ async function _rebalanceLp(
   } else if (poolName === 'BLUEFIN-SUIBTC-USDC') {
     const cetusUsdcSuibtc = await context.getPoolIdBySymbolsAndProtocol('USDC', 'SUIBTC', 'cetus');
     const cetusSuiUsdc = await context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus');
-    const [suibtcInfo] = await context.getCoinsBySymbols(['SUIBTC']);
     tx.moveCall({
       target: `${label.packageId}::alphafi_bluefin_type_1_investor::collect_and_swap_rewards_to_token_b_bluefin`,
       typeArguments: [coinAType, coinBType, blueType, suiType, deepType],
@@ -715,6 +725,7 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
+        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -742,7 +753,6 @@ async function _rebalanceLp(
     const cetusSuibtcLbtc = await context.getPoolIdBySymbolsAndProtocol('SUIBTC', 'LBTC', 'cetus');
     const cetusSuibtcSui = await context.getPoolIdBySymbolsAndProtocol('SUIBTC', 'SUI', 'cetus');
     const bluefinSuiSuibtc = await context.getPoolIdBySymbolsAndProtocol('SUI', 'SUIBTC', 'bluefin');
-    const [lbtcInfo, suibtcInfo] = await context.getCoinsBySymbols(['LBTC', 'SUIBTC']);
     tx.moveCall({
       target: `${label.packageId}::alphafi_bluefin_type_1_investor::collect_and_swap_rewards_to_token_b_bluefin`,
       typeArguments: [coinAType, coinBType, blueType, suiType, deepType],
@@ -780,6 +790,7 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
+        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -842,6 +853,7 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
+        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
