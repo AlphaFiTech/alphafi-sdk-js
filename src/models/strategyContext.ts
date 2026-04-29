@@ -604,11 +604,12 @@ export class StrategyContext {
   // ============================================================
 
   /**
-   * Get coin decimals (defaults to 9 if unknown).
+   * Get coin decimals from the AlphaLend API. Throws if the coin type is unknown.
    */
   async getCoinDecimals(coinType: string): Promise<number> {
     const info = await this.coinInfoProvider.getCoinByType(coinType);
-    return info?.decimals ?? 9;
+    if (!info) throw new Error(`Coin decimals not found for type: ${coinType}`);
+    return info.decimals;
   }
 
   /**
