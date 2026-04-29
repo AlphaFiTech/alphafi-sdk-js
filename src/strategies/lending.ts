@@ -1055,9 +1055,8 @@ export class LendingStrategy extends BaseStrategy<
 
   async updatePool(tx: Transaction): Promise<Transaction> {
     // Step A: Update Pyth price using existing private method
-    const priceFeed = NAVI_CONFIG.PRICE_FEED[
-      this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.PRICE_FEED
-    ];
+    const priceFeed =
+      NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.PRICE_FEED];
 
     if (priceFeed) {
       await this.updateSingleTokenPrice(tx, priceFeed.pythPriceInfo, priceFeed.feedId);
@@ -1067,9 +1066,8 @@ export class LendingStrategy extends BaseStrategy<
     await this.collectAndClaimRewards(tx);
 
     // Step C: Call Move update_pool based on package number
-    const assetIndex = NAVI_CONFIG.ASSET_MAP[
-      this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.ASSET_MAP
-    ];
+    const assetIndex =
+      NAVI_CONFIG.ASSET_MAP[this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.ASSET_MAP];
 
     if (this.poolLabel.packageNumber === 1) {
       // Package 1: Basic NAVI pools (SUI, USDC, USDT, WETH, VSUI, HASUI)
@@ -1132,13 +1130,37 @@ export class LendingStrategy extends BaseStrategy<
         ],
       });
     } else {
-      throw new Error(
-        `updatePool not supported for packageNumber: ${this.poolLabel.packageNumber}`,
-      );
+      if (this.poolLabel.parentProtocol === 'Bucket') {
+        await this.updateBucketPool(tx);
+      } else {
+        throw new Error(
+          `updatePool not supported for packageNumber: ${this.poolLabel.packageNumber}`,
+        );
+      }
     }
 
     // Step D: Return transaction
     return tx;
+  }
+
+  private async updateBucketPool(tx: Transaction): Promise<void> {
+    const usdcSuiPool = await this.context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus');
+
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_bucket_pool_v1::update_pool`,
+      arguments: [
+        tx.object(VERSIONS.ALPHA_VERSIONS[3]),
+        tx.object(this.poolLabel.poolId),
+        tx.object(this.poolLabel.investorId),
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(BUCKET_CONFIG.PROTOCOL_ID),
+        tx.object(BUCKET_CONFIG.FOUNTAIN_ID),
+        tx.object(BUCKET_CONFIG.FLASK_ID),
+        tx.object(usdcSuiPool),
+        tx.object(GLOBAL_CONFIGS.CETUS),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
   }
 
   async claimRewards(tx: Transaction, alphaReceipt: TransactionResult) {

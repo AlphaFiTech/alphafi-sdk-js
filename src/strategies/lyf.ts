@@ -11,6 +11,7 @@ import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/cetus-sui
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
+  ADMIN,
   ALPHALEND_LENDING_PROTOCOL_ID,
   CLOCK_PACKAGE_ID,
   DISTRIBUTOR_OBJECT_ID,
@@ -19,6 +20,7 @@ import {
   SUI_SYSTEM_STATE,
   VERSIONS,
 } from '../utils/constants.js';
+import { toTwosComplementU32 } from '../utils/math.js';
 import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import { getConf as getStsuiConf } from '@alphafi/stsui-sdk';
 
@@ -821,6 +823,76 @@ export class LyfStrategy extends BaseStrategy<
 
   async getCurrentTickIndex(): Promise<number> {
     return this.parentPoolObject.currentTickIndex;
+  }
+  async rebalanceLyf(
+    tx: Transaction,
+    label: LyfPoolLabel,
+    rebalanceCap: string,
+    lowerTick: string,
+    upperTick: string,
+    loops: number,
+    context: StrategyContext,
+  ): Promise<void> {
+    const coinAType = label.assetA.type;
+    const coinBType = label.assetB.type;
+    const lo = toTwosComplementU32(Number(lowerTick));
+    const hi = toTwosComplementU32(Number(upperTick));
+
+    const alphalendClient = new AlphalendClient('mainnet', context.blockchain.suiClient);
+    await alphalendClient.updatePrices(tx, [coinAType, coinBType]);
+
+    // Call collect rewards for LYF
+    // This is inline equivalent of collectAndSwapRewardsLyf
+    if (label.poolName === 'BLUEFIN-LYF-STSUI-SUI') {
+      const [blueInfo, suiInfo, stsuiInfo, alphaInfo] = await context.getCoinsBySymbols([
+        'BLUE',
+        'SUI',
+        'STSUI',
+        'ALPHA',
+      ]);
+      // isBorrow sequence must match legacy collectAndSwapRewardsLyf: true, false, false
+      for (const [rewardType, toType, pool, isBorrow] of [
+        [blueInfo.coinType, suiInfo.coinType, ADMIN.BLUEFIN_BLUE_SUI_POOL_AUTOCOMPOUND, true],
+        [blueInfo.coinType, suiInfo.coinType, ADMIN.BLUEFIN_BLUE_SUI_POOL_AUTOCOMPOUND, false],
+        [alphaInfo.coinType, stsuiInfo.coinType, ADMIN.BLUEFIN_ALPHA_STSUI_POOL, false],
+      ] as [string, string, string, boolean][]) {
+        tx.moveCall({
+          target: `${label.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
+          typeArguments: [coinAType, coinBType, rewardType, toType],
+          arguments: [
+            tx.object(VERSIONS.LYF_LP),
+            tx.object(label.poolId),
+            tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+            tx.object(label.parentPoolId),
+            tx.object(pool),
+            tx.object(GLOBAL_CONFIGS.BLUEFIN),
+            tx.pure.bool(true),
+            tx.pure.bool(true),
+            tx.pure.bool(isBorrow),
+            tx.object(SUI_SYSTEM_STATE),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+      }
+    }
+
+    tx.moveCall({
+      target: `${label.packageId}::alphafi_lyf_pool::rebalance_bluefin`,
+      typeArguments: [coinAType, coinBType],
+      arguments: [
+        tx.object(rebalanceCap),
+        tx.object(VERSIONS.LYF_LP),
+        tx.object(label.poolId),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.pure.u32(lo),
+        tx.pure.u32(hi),
+        tx.pure.u32(loops),
+        tx.object(label.parentPoolId),
+        tx.object(SUI_SYSTEM_STATE),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
   }
 }
 

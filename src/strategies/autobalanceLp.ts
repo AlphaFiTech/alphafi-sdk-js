@@ -11,11 +11,15 @@ import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/cetus-sui
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
+  ADMIN,
   GLOBAL_CONFIGS,
   CLOCK_PACKAGE_ID,
   DISTRIBUTOR_OBJECT_ID,
   VERSIONS,
+  STSUI,
+  SUI_SYSTEM_STATE,
 } from '../utils/constants.js';
+import { toTwosComplementU32 } from '../utils/math.js';
 
 /**
  * AutobalanceLp Strategy for dual-asset liquidity pools with automatic rebalancing
@@ -724,6 +728,260 @@ export class AutobalanceLpStrategy extends BaseStrategy<
       }
     }
     return rewards;
+  }
+
+  /**
+   * Build a manual rebalance transaction for this AutobalanceLp pool.
+   *
+   * Uses `rebalance_v2` which embeds autocompound internally — no separate
+   * reward-collection call is required before invoking this method.
+   */
+  async rebalanceLp(
+    tx: Transaction,
+    rebalanceCap: string,
+    lowerTick: string,
+    upperTick: string,
+    loops: number,
+    context: StrategyContext,
+    swap_using_bluefin?: boolean,
+  ): Promise<void> {
+    const poolName = this.poolLabel.poolName;
+    const coinAType = this.poolLabel.assetA.type;
+    const coinBType = this.poolLabel.assetB.type;
+    const coinAName = this.poolLabel.assetA.name;
+    const coinBName = this.poolLabel.assetB.name;
+
+    const lo = toTwosComplementU32(Number(lowerTick));
+    const hi = toTwosComplementU32(Number(upperTick));
+
+    const [blueInfo, suiInfo, deepInfo] = await context.getCoinsBySymbols(['BLUE', 'SUI', 'DEEP']);
+    const blueType = blueInfo.coinType;
+    const suiType = suiInfo.coinType;
+    const deepType = deepInfo.coinType;
+
+    const blueSuiPool = await context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin');
+    const deepSuiPool = await context.getPoolIdBySymbolsAndProtocol('DEEP', 'SUI', 'bluefin');
+
+    // All autobalance update_pool calls share this simplified argument structure
+    // (no cetus_config, no external swap pools — just version, pool, investor, distributor, config, parent, clock)
+    const addUpdatePool = (poolModule: string, updateFn: string) => {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::${poolModule}::${updateFn}`,
+        typeArguments: [coinAType, coinBType],
+        arguments: [
+          tx.object(VERSIONS.AUTOBALANCE_LP),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    };
+
+    if (
+      poolName === 'BLUEFIN-AUTOBALANCE-SUI-USDC' ||
+      poolName === 'BLUEFIN-AUTOBALANCE-SUI-USDC-175' ||
+      poolName === 'BLUEFIN-AUTOBALANCE-SUI-LBTC'
+    ) {
+      // SUI is coinA — alphafi_bluefin_sui_first_investor::rebalance_v2<SUI, coinB, BLUE, SUI>
+      // cetus_pool = CetusPool<coinB, SUI>
+      const cetusCoinBSui = await context.getPoolIdBySymbolsAndProtocol(coinBName, 'SUI', 'cetus');
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_first_investor::rebalance_v2`,
+        typeArguments: [coinAType, coinBType, blueType, suiType],
+        arguments: [
+          tx.object(this.poolLabel.investorId),
+          tx.object(rebalanceCap),
+          tx.object(VERSIONS.AUTOBALANCE_LP),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.pure.u32(lo),
+          tx.pure.u32(hi),
+          tx.pure.u32(loops),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(cetusCoinBSui),
+          tx.object(blueSuiPool),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.pure.bool(swap_using_bluefin ?? false),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      addUpdatePool('alphafi_bluefin_sui_first_pool', 'update_pool_v4');
+    } else if (poolName === 'BLUEFIN-AUTOBALANCE-BLUE-SUI') {
+      // BLUE-SUI is special: reward coin is DEEP (not BLUE), so _bluefin_sui_pool = Pool<DEEP, SUI>
+      // cetus_pool = CetusPool<BLUE, SUI>
+      const cetusBlueSui = await context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'cetus');
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_second_investor::rebalance_v2`,
+        typeArguments: [coinAType, coinBType, deepType],
+        arguments: [
+          tx.object(this.poolLabel.investorId),
+          tx.object(rebalanceCap),
+          tx.object(VERSIONS.AUTOBALANCE_LP),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.pure.u32(lo),
+          tx.pure.u32(hi),
+          tx.pure.u32(loops),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(cetusBlueSui),
+          tx.object(deepSuiPool),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.pure.bool(swap_using_bluefin ?? false),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      addUpdatePool('alphafi_bluefin_sui_second_pool', 'update_pool_v3');
+    } else if (
+      poolName === 'BLUEFIN-AUTOBALANCE-DEEP-SUI' ||
+      poolName === 'BLUEFIN-AUTOBALANCE-DEEP-SUI-175' ||
+      poolName === 'BLUEFIN-AUTOBALANCE-WAL-SUI'
+    ) {
+      // SUI is coinB — alphafi_bluefin_sui_second_investor::rebalance_v2<coinA, SUI, BLUE>
+      // cetus_pool = CetusPool<coinA, SUI>, _bluefin_sui_pool = Pool<BLUE, SUI>
+      const cetusCoinASui = await context.getPoolIdBySymbolsAndProtocol(coinAName, 'SUI', 'cetus');
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_second_investor::rebalance_v2`,
+        typeArguments: [coinAType, coinBType, blueType],
+        arguments: [
+          tx.object(this.poolLabel.investorId),
+          tx.object(rebalanceCap),
+          tx.object(VERSIONS.AUTOBALANCE_LP),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.pure.u32(lo),
+          tx.pure.u32(hi),
+          tx.pure.u32(loops),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(cetusCoinASui),
+          tx.object(blueSuiPool),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.pure.bool(swap_using_bluefin ?? false),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      addUpdatePool('alphafi_bluefin_sui_second_pool', 'update_pool_v3');
+    } else if (poolName === 'BLUEFIN-AUTOBALANCE-DEEP-BLUE') {
+      // DEEP-BLUE: reward coin is BLUE (same as coinB)
+      // cetus_pool = CetusPool<BLUE, DEEP>, _cetus_sui_pool = CetusPool<BLUE, SUI>
+      const cetusBlueDeep = await context.getPoolIdBySymbolsAndProtocol('BLUE', 'DEEP', 'cetus');
+      const cetusBlueSui = await context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'cetus');
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_investor::rebalance_v2`,
+        typeArguments: [coinAType, coinBType, blueType, suiType],
+        arguments: [
+          tx.object(this.poolLabel.investorId),
+          tx.object(rebalanceCap),
+          tx.object(VERSIONS.AUTOBALANCE_LP),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.pure.u32(lo),
+          tx.pure.u32(hi),
+          tx.pure.u32(loops),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(cetusBlueDeep),
+          tx.object(blueSuiPool),
+          tx.object(cetusBlueSui),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.pure.bool(swap_using_bluefin ?? false),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      addUpdatePool('alphafi_bluefin_type_1_pool', 'update_pool_v3');
+    } else if (poolName === 'BLUEFIN-AUTOBALANCE-SUIUSDT-USDC-ZERO-ZERO') {
+      // Uses the dedicated autocompound BLUE-SUI pool (different fee tier) instead of the standard one
+      // cetus_pool = CetusPool<USDC, SUIUSDT>, _cetus_sui_pool = CetusPool<USDC, SUI>
+      const cetusUsdcSuiusdt = await context.getPoolIdBySymbolsAndProtocol('USDC', 'SUIUSDT', 'cetus');
+      const cetusUsdcSui = await context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus');
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_investor::rebalance_v2`,
+        typeArguments: [coinAType, coinBType, blueType, suiType],
+        arguments: [
+          tx.object(this.poolLabel.investorId),
+          tx.object(rebalanceCap),
+          tx.object(VERSIONS.AUTOBALANCE_LP),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.pure.u32(lo),
+          tx.pure.u32(hi),
+          tx.pure.u32(loops),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(cetusUsdcSuiusdt),
+          tx.object(ADMIN.BLUEFIN_BLUE_SUI_POOL_AUTOCOMPOUND),
+          tx.object(cetusUsdcSui),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.pure.bool(swap_using_bluefin ?? false),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      addUpdatePool('alphafi_bluefin_type_1_pool', 'update_pool_v3');
+    } else if (poolName === 'BLUEFIN-AUTOBALANCE-XBTC-SUIBTC') {
+      // XBTC-SUIBTC: cetus pool is SUIBTC-XBTC; bluefin/cetus SUI pools are not in use
+      const cetusSuibtcXbtc = await context.getPoolIdBySymbolsAndProtocol('SUIBTC', 'XBTC', 'cetus');
+      const cetusSuibtcSui = await context.getPoolIdBySymbolsAndProtocol('SUIBTC', 'SUI', 'cetus');
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_investor::rebalance_v2`,
+        typeArguments: [coinAType, coinBType, blueType, suiType],
+        arguments: [
+          tx.object(this.poolLabel.investorId),
+          tx.object(rebalanceCap),
+          tx.object(VERSIONS.AUTOBALANCE_LP),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.pure.u32(lo),
+          tx.pure.u32(hi),
+          tx.pure.u32(loops),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(cetusSuibtcXbtc),
+          tx.object(blueSuiPool),    // not in use by Move function
+          tx.object(cetusSuibtcSui), // not in use by Move function
+          tx.object(STSUI.LST_INFO), // not in use by Move function
+          tx.object(SUI_SYSTEM_STATE), // not in use by Move function
+          tx.pure.bool(swap_using_bluefin ?? false),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      addUpdatePool('alphafi_bluefin_type_1_pool', 'update_pool_v3');
+    } else if (
+      poolName === 'BLUEFIN-AUTOBALANCE-USDT-USDC' ||
+      poolName === 'BLUEFIN-AUTOBALANCE-SUIUSDT-USDC' ||
+      poolName === 'BLUEFIN-AUTOBALANCE-WAL-USDC'
+    ) {
+      // type-1 USDC-pair pools — alphafi_bluefin_type_1_investor::rebalance_v2<coinA, USDC, BLUE, SUI>
+      // cetus_pool = CetusPool<USDC, coinA>, _cetus_sui_pool = CetusPool<USDC, SUI>
+      const cetusUsdcCoinA = await context.getPoolIdBySymbolsAndProtocol('USDC', coinAName, 'cetus');
+      const cetusUsdcSui = await context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus');
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_investor::rebalance_v2`,
+        typeArguments: [coinAType, coinBType, blueType, suiType],
+        arguments: [
+          tx.object(this.poolLabel.investorId),
+          tx.object(rebalanceCap),
+          tx.object(VERSIONS.AUTOBALANCE_LP),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.pure.u32(lo),
+          tx.pure.u32(hi),
+          tx.pure.u32(loops),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(cetusUsdcCoinA),
+          tx.object(blueSuiPool),
+          tx.object(cetusUsdcSui),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.pure.bool(swap_using_bluefin ?? false),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      addUpdatePool('alphafi_bluefin_type_1_pool', 'update_pool_v3');
+    }
   }
 }
 
