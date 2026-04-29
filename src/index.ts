@@ -10,3 +10,6 @@ export * from './core/types.js';
 
 // Export StrategyContext for admin usage
 export { StrategyContext } from './models/strategyContext.js';
+
+// Export all admin utilities directly
+export * from './admin/index.js';

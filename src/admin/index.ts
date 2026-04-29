@@ -1,8 +1,6 @@
 /**
  * Admin utilities barrel export.
- *
- * Import via:
- *   import { getAutoCompoundSingleTxb, groupedRewards, ... } from '@alphafi/alphafi-sdk/admin';
+ * Re-exported from the main package entry — import directly from '@alphafi/alphafi-sdk'.
  */
 
 export { groupedRewards, getAutoCompoundSingleTxb, LendingReward } from './autocompound.js';
