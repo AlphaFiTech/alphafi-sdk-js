@@ -917,7 +917,10 @@ export class AlphaVaultStrategy extends BaseStrategy<
   }
 
   async claimAirdrop(tx: Transaction, address: string, transferToWallet: boolean) {
-    const alphalendClient = new AlphalendClient('mainnet', this.context.blockchain.suiClient);
+    const alphalendClient = new AlphalendClient(
+      this.context.blockchain.network,
+      this.context.blockchain.graphqlUrl,
+    );
     let airdropCoin;
     const [suiCoin, alphaCoin] = await this.context.getCoinsBySymbols(['SUI', 'ALPHA']);
     const airdropCoinMarketId = '1';
@@ -1012,8 +1015,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
       await alphalendClient.updatePrices(tx, ['0x2::sui::SUI']);
       const alphalendConstants = getConstants('mainnet');
       const userPositionCapId = await getUserPositionCapId(
-        this.context.blockchain.suiClient,
-        'mainnet',
+        this.context.alphalendClient.blockchain,
         address,
       );
       if (!userPositionCapId) {
