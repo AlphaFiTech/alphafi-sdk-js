@@ -242,6 +242,11 @@ export class FungibleLendingStrategy extends BaseStrategy<
   async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {
     return;
   }
+
+  async updatePool(tx: Transaction): Promise<Transaction> {
+    // FungibleLending has no autocompound operation
+    return tx;
+  }
 }
 
 /**

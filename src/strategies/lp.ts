@@ -15,6 +15,7 @@ import {
   TransactionResult,
 } from '@mysten/sui/transactions';
 import {
+  BUCKET_CONFIG,
   CLOCK_PACKAGE_ID,
   DISTRIBUTOR_OBJECT_ID,
   GLOBAL_CONFIGS,
@@ -1928,6 +1929,407 @@ export class LpStrategy extends BaseStrategy<
 
   getCurrentTickIndex(): number {
     return this.parentPoolObject.currentTickIndex;
+  }
+
+  async updatePool(tx: Transaction): Promise<Transaction> {
+    const poolName = this.poolLabel.poolName;
+    const parentProtocol = this.poolLabel.parentProtocol;
+    const coinAType = this.poolLabel.assetA.type;
+    const coinBType = this.poolLabel.assetB.type;
+    const coinAName = this.poolLabel.assetA.name;
+    const coinBName = this.poolLabel.assetB.name;
+
+    // Handle Bluefin protocol
+    if (parentProtocol === 'Bluefin') {
+      await this.updateBluefinPool(tx, coinAType, coinBType, coinAName, coinBName);
+    }
+    // Handle Cetus protocol
+    else if (parentProtocol === 'Cetus') {
+      await this.updateCetusPool(tx, poolName, coinAType, coinBType, coinAName, coinBName);
+    }
+    // Handle Bucket protocol
+    else if (parentProtocol === 'Bucket') {
+      await this.updateBucketPool(tx);
+    } else {
+      throw new Error(`Unsupported parent protocol for LP pool: ${parentProtocol}`);
+    }
+
+    return tx;
+  }
+
+  private async updateBluefinPool(
+    tx: Transaction,
+    coinAType: string,
+    coinBType: string,
+    coinAName: string,
+    coinBName: string,
+  ): Promise<void> {
+    const [blueInfo] = await this.context.getCoinsBySymbols(['BLUE']);
+    const [deepInfo] = await this.context.getCoinsBySymbols(['DEEP']);
+    const [suiInfo] = await this.context.getCoinsBySymbols(['SUI']);
+
+    const blueSuiPool = await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin');
+    const deepSuiPool = await this.context.getPoolIdBySymbolsAndProtocol('DEEP', 'SUI', 'bluefin');
+
+    // Determine which module to use based on coin positions
+    let poolModule: string;
+    let typeArgs: string[];
+    let rewardSwapPool: string;
+
+    if (coinAName === 'stSUI' && coinBName === 'SUI') {
+      // Special case: stSUI-SUI pool (must be checked before general SUI checks)
+      poolModule = 'alphafi_bluefin_stsui_sui_pool';
+      typeArgs = [coinAType, coinBType, blueInfo.coinType];
+
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::${poolModule}::update_pool`,
+        typeArguments: typeArgs,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(blueSuiPool),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (coinAName === 'SUI') {
+      // SUI is first coin - use sui_first_pool
+      poolModule = 'alphafi_bluefin_sui_first_pool';
+      typeArgs = [coinAType, coinBType, blueInfo.coinType, suiInfo.coinType];
+
+      // Get the swap pool for coinB-SUI
+      const coinBSwapPool = await this.context.getPoolIdBySymbolsAndProtocol(
+        coinBName,
+        'SUI',
+        'cetus',
+        true,
+      );
+      rewardSwapPool = coinBSwapPool;
+
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::${poolModule}::update_pool_v2`,
+        typeArguments: typeArgs,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(blueSuiPool),
+          tx.object(rewardSwapPool),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (coinBName === 'SUI') {
+      // SUI is second coin - use sui_second_pool
+      poolModule = 'alphafi_bluefin_sui_second_pool';
+      typeArgs = [coinAType, coinBType, deepInfo.coinType, suiInfo.coinType];
+
+      // Get the swap pool for coinA-SUI
+      const coinASwapPool = await this.context.getPoolIdBySymbolsAndProtocol(
+        coinAName,
+        'SUI',
+        'cetus',
+      );
+
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::${poolModule}::update_pool_v2`,
+        typeArguments: typeArgs,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(deepSuiPool),
+          tx.object(coinASwapPool),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (coinAName === 'stSUI' && !['SUI', 'ETH', 'WSOL'].includes(coinBName)) {
+      // stSUI is first coin (excluding SUI/ETH/WSOL which are handled separately) - use stsui_first_pool
+      poolModule = 'alphafi_bluefin_stsui_first_pool';
+      typeArgs = [coinAType, coinBType, blueInfo.coinType];
+
+      // Get the swap pools for coinB
+      const coinBSwapCetusPool = await this.context.getPoolIdBySymbolsAndProtocol(
+        'SUI',
+        coinBName,
+        'cetus',
+      );
+      const coinBSwapBluefinPool = await this.context.getPoolIdBySymbolsAndProtocol(
+        'SUI',
+        coinBName,
+        'bluefin',
+      );
+
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::${poolModule}::update_pool`,
+        typeArguments: typeArgs,
+        arguments: [
+          tx.object(VERSIONS.STSUI),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(blueSuiPool),
+          tx.object(coinBSwapCetusPool),
+          tx.object(coinBSwapBluefinPool),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.pure.bool(true),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (coinBName === 'stSUI' && (coinAName === 'ALPHA' || coinAName === 'WAL')) {
+      // stSUI is second coin with ALPHA or WAL - use stsui_second_pool
+      poolModule = 'alphafi_bluefin_stsui_second_pool';
+      typeArgs = [coinAType, coinBType, blueInfo.coinType];
+
+      // Get the swap pools for coinA
+      const coinASwapCetusPool = await this.context.getPoolIdBySymbolsAndProtocol(
+        'SUI',
+        coinAName,
+        'cetus',
+      );
+      const coinASwapBluefinPool = await this.context.getPoolIdBySymbolsAndProtocol(
+        'SUI',
+        coinAName,
+        'bluefin',
+        true,
+      );
+
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::${poolModule}::update_pool`,
+        typeArguments: typeArgs,
+        arguments: [
+          tx.object(VERSIONS.STSUI),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(blueSuiPool),
+          tx.object(coinASwapCetusPool),
+          tx.object(coinASwapBluefinPool),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.pure.bool(true),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (
+      ['ALPHA', 'NAVX', 'BLUE'].includes(coinAName) ||
+      (coinAName === 'stSUI' && ['ETH', 'WSOL'].includes(coinBName))
+    ) {
+      // Neither coin is SUI - Type 2 Pool (ALPHA, NAVX, BLUE, or stSUI-ETH/WSOL)
+      poolModule = 'alphafi_bluefin_type_2_pool';
+      typeArgs = [coinAType, coinBType, blueInfo.coinType, suiInfo.coinType];
+
+      // Get swap pools: direct pair + SUI-coinB
+      const directPairPool = await this.context.getPoolIdBySymbolsAndProtocol(
+        coinAName,
+        coinBName,
+        'cetus',
+      );
+      const coinBSwapPool = await this.context.getPoolIdBySymbolsAndProtocol(
+        'SUI',
+        coinBName,
+        'cetus',
+      );
+
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::${poolModule}::update_pool_v2`,
+        typeArguments: typeArgs,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(blueSuiPool),
+          tx.object(directPairPool),
+          tx.object(coinBSwapPool),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      // Neither coin is SUI - Type 1 Pool (all other coins)
+      poolModule = 'alphafi_bluefin_type_1_pool';
+      typeArgs = [coinAType, coinBType, blueInfo.coinType, suiInfo.coinType];
+
+      // Get swap pools: direct pair + SUI-coinB
+      const directPairPool = await this.context.getPoolIdBySymbolsAndProtocol(
+        coinAName,
+        coinBName,
+        'cetus',
+      );
+      const coinBSwapPool = await this.context.getPoolIdBySymbolsAndProtocol(
+        'SUI',
+        coinBName,
+        'cetus',
+      );
+
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::${poolModule}::update_pool_v2`,
+        typeArguments: typeArgs,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(blueSuiPool),
+          tx.object(directPairPool),
+          tx.object(coinBSwapPool),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+  }
+
+  private async updateCetusPool(
+    tx: Transaction,
+    poolName: string,
+    coinAType: string,
+    coinBType: string,
+    coinAName: string,
+    coinBName: string,
+  ): Promise<void> {
+    const cetusSuiPool = await this.context.getPoolIdBySymbolsAndProtocol('CETUS', 'SUI', 'cetus');
+
+    // Determine which Cetus module to use
+    if (this.poolLabel.packageNumber === 2) {
+      // Package 2 uses alphafi_cetus_sui_pool
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_cetus_sui_pool::update_pool`,
+        typeArguments: [coinAType, coinBType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (coinBName === 'SUI') {
+      // SUI is second coin - use alphafi_cetus_sui_pool::update_pool
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_cetus_sui_pool::update_pool`,
+        typeArguments: [coinAType, coinBType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+          tx.object(cetusSuiPool),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      // Check if this is a base_a pool (specific stable pairs)
+      const isBaseAPool = ['WUSDC-WBTC', 'USDC-USDT', 'USDC-WUSDC', 'USDC-ETH'].includes(poolName);
+
+      if (isBaseAPool) {
+        // Use alphafi_cetus_pool_base_a
+        const coinASuiPool = await this.context.getPoolIdBySymbolsAndProtocol(
+          coinAName,
+          'SUI',
+          'cetus',
+        );
+
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_cetus_pool_base_a::update_pool`,
+          typeArguments: [coinAType, coinBType],
+          arguments: [
+            tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+            tx.object(this.poolLabel.poolId),
+            tx.object(this.poolLabel.investorId),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.CETUS),
+            tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+            tx.object(coinASuiPool),
+            tx.object(cetusSuiPool),
+            tx.object(this.poolLabel.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+      } else {
+        // Use generic alphafi_cetus_pool
+        const coinBSuiPool = await this.context.getPoolIdBySymbolsAndProtocol(
+          coinBName,
+          'SUI',
+          'cetus',
+        );
+
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_cetus_pool::update_pool`,
+          typeArguments: [coinAType, coinBType],
+          arguments: [
+            tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+            tx.object(this.poolLabel.poolId),
+            tx.object(this.poolLabel.investorId),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.CETUS),
+            tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+            tx.object(coinBSuiPool),
+            tx.object(cetusSuiPool),
+            tx.object(this.poolLabel.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+      }
+    }
+  }
+
+  private async updateBucketPool(tx: Transaction): Promise<void> {
+    const usdcSuiPool = await this.context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus');
+
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_bucket_pool_v1::update_pool`,
+      arguments: [
+        tx.object(VERSIONS.ALPHA_VERSIONS[3]),
+        tx.object(this.poolLabel.poolId),
+        tx.object(this.poolLabel.investorId),
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(BUCKET_CONFIG.PROTOCOL_ID),
+        tx.object(BUCKET_CONFIG.FOUNTAIN_ID),
+        tx.object(BUCKET_CONFIG.FLASK_ID),
+        tx.object(usdcSuiPool),
+        tx.object(GLOBAL_CONFIGS.CETUS),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
   }
 }
 

@@ -9,6 +9,7 @@ import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
+  ADMIN,
   ALPHALEND_LENDING_PROTOCOL_ID,
   CLOCK_PACKAGE_ID,
   DISTRIBUTOR_OBJECT_ID,
@@ -1119,6 +1120,188 @@ export class LoopingStrategy extends BaseStrategy<
         });
       });
     }
+  }
+
+  async updatePool(tx: Transaction): Promise<Transaction> {
+    const poolName = this.poolLabel.poolName;
+
+    // Handle ALPHALEND-LOOP-SUI-STSUI (uses Alphalend, not NAVI)
+    if (poolName === 'ALPHALEND-LOOP-SUI-STSUI') {
+      const [alphaCoin] = await this.context.getCoinsBySymbols(['ALPHA']);
+      const [blueCoin] = await this.context.getCoinsBySymbols(['BLUE']);
+      const cetusBlueSui = await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'cetus');
+
+      // Collect ALPHA rewards via one-swap
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_one_swap`,
+        typeArguments: [alphaCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(this.poolLabel.investorId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(ADMIN.BLUEFIN_ALPHA_STSUI_POOL),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+
+      // Collect staking rewards with no swap
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_no_swap_v2`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(this.poolLabel.investorId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+
+      // Collect BLUE rewards via two swaps
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_two_swaps_v2`,
+        typeArguments: [blueCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(this.poolLabel.investorId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(cetusBlueSui),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+
+      // Update pool
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::update_pool_v3`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+
+      return tx;
+    }
+
+    // NAVI loop pools - update prices
+    const supplyFeed =
+      NAVI_CONFIG.PRICE_FEED[
+        this.poolLabel.supplyAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED
+      ];
+    if (supplyFeed) {
+      await this.updateSingleTokenPrice(tx, supplyFeed.pythPriceInfo, supplyFeed.feedId);
+    }
+
+    const borrowFeed =
+      NAVI_CONFIG.PRICE_FEED[
+        this.poolLabel.borrowAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED
+      ];
+    if (borrowFeed) {
+      await this.updateSingleTokenPrice(tx, borrowFeed.pythPriceInfo, borrowFeed.feedId);
+    }
+
+    // Collect rewards
+    await this.collectAndSwapRewards(tx);
+
+    // Call pool-specific update_pool
+    if (poolName === 'NAVI-LOOP-SUI-VSUI' && this.poolLabel.packageNumber === 2) {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_sui_vsui_pool::update_pool_v3`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
+          tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.vSUI),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.SUI),
+          tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+          tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('vSUI', 'SUI', 'cetus')),
+          tx.object(NAVI_CONFIG.VOLO.STAKE_POOL),
+          tx.object(NAVI_CONFIG.VOLO.METADATA),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(NAVI_CONFIG.KRIYA.VSUI_SUI_POOL),
+          tx.object(NAVI_CONFIG.KRIYA.VERSION),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (poolName === 'NAVI-LOOP-USDT-USDC' && this.poolLabel.packageNumber === 5) {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_usdt_usdc_pool::update_pool_v3`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
+          tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.USDT),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.USDC),
+          tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+          tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (poolName === 'NAVI-LOOP-HASUI-SUI') {
+      const cetusHasuiSui = await this.context.getPoolIdBySymbolsAndProtocol(
+        'HASUI',
+        'SUI',
+        'cetus',
+      );
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_hasui_sui_pool::update_pool_v2`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
+          tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.HASUI),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.SUI),
+          tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+          tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(cetusHasuiSui),
+          tx.object(NAVI_CONFIG.HAEDEL_STAKING),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (poolName === 'NAVI-LOOP-USDC-USDT') {
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_native_usdc_usdt_pool::update_pool_v3`,
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
+          tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.USDC),
+          tx.object(NAVI_CONFIG.NAVI_POOLS.USDT),
+          tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+          tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      throw new Error(`updatePool not supported for pool: ${poolName}`);
+    }
+
+    return tx;
   }
 }
 

@@ -182,6 +182,15 @@ export interface Strategy<TPool = any, TInvestor = any, TParentPool = any, TRece
   claimRewards(tx: Transaction, alphaReceipt: TransactionResult): Promise<void>;
 
   /**
+   * Update pool - autocompound rewards and update pool state.
+   * Admin operation to compound rewards back into the pool.
+   *
+   * @param tx - The transaction to add the update_pool move call to
+   * @returns The transaction with update_pool call added
+   */
+  updatePool(tx: Transaction): Promise<Transaction>;
+
+  /**
    * Create an AlphaFi receipt.
    *
    * @param tx - The transaction to create the AlphaFi receipt
@@ -211,6 +220,7 @@ export abstract class BaseStrategy<TPool = any, TInvestor = any, TParentPool = a
   abstract deposit(tx: Transaction, options: DepositOptions): Promise<void>;
   abstract withdraw(tx: Transaction, options: WithdrawOptions): Promise<void>;
   abstract claimRewards(tx: Transaction, alphaReceipt: TransactionResult): Promise<void>;
+  abstract updatePool(tx: Transaction): Promise<Transaction>;
 
   createAlphaFiReceipt(tx: Transaction) {
     return tx.moveCall({

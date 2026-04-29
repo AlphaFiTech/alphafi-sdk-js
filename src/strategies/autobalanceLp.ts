@@ -538,6 +538,57 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     return;
   }
 
+  async updatePool(tx: Transaction): Promise<Transaction> {
+    // AutobalanceLp autocompound - collect rewards and update pool
+    this.collectReward(tx);
+
+    // Update pool
+    const coinAType = this.poolLabel.assetA.type;
+    const coinBType = this.poolLabel.assetB.type;
+    const poolName = this.poolLabel.poolName;
+
+    const suiFirstPools = new Set([
+      'BLUEFIN-AUTOBALANCE-SUI-USDC',
+      'BLUEFIN-AUTOBALANCE-SUI-LBTC',
+      'BLUEFIN-AUTOBALANCE-SUI-USDC-175',
+    ]);
+    const suiSecondPools = new Set([
+      'BLUEFIN-AUTOBALANCE-DEEP-SUI',
+      'BLUEFIN-AUTOBALANCE-BLUE-SUI',
+      'BLUEFIN-AUTOBALANCE-DEEP-SUI-175',
+      'BLUEFIN-AUTOBALANCE-WAL-SUI',
+    ]);
+
+    let poolModule: string;
+    let updateFn: string;
+    if (suiFirstPools.has(poolName)) {
+      poolModule = 'alphafi_bluefin_sui_first_pool';
+      updateFn = 'update_pool_v4';
+    } else if (suiSecondPools.has(poolName)) {
+      poolModule = 'alphafi_bluefin_sui_second_pool';
+      updateFn = 'update_pool_v3';
+    } else {
+      poolModule = 'alphafi_bluefin_type_1_pool';
+      updateFn = 'update_pool_v3';
+    }
+
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::${poolModule}::${updateFn}`,
+      typeArguments: [coinAType, coinBType],
+      arguments: [
+        tx.object(VERSIONS.AUTOBALANCE_LP),
+        tx.object(this.poolLabel.poolId),
+        tx.object(this.poolLabel.investorId),
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.object(this.poolLabel.parentPoolId),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+
+    return tx;
+  }
+
   private collectReward(tx: Transaction) {
     if (this.poolLabel.assetA.name === 'SUI') {
       for (const reward of this.parentPoolObject.rewardInfos) {

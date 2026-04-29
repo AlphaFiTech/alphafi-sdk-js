@@ -3,9 +3,14 @@
  * Re-exported from the main package entry — import directly from '@alphafi/alphafi-sdk'.
  */
 
-export { groupedRewards, getAutoCompoundSingleTxb, LendingReward } from './autocompound.js';
 export { getManualRebalanceUsingTicksTxb } from './rebalance.js';
-export { getCurrentTick, getPositionTicks, getTickToPrice, getPriceToTick, getTickSpacing } from './tickPrice.js';
+export {
+  getCurrentTick,
+  getPositionTicks,
+  getTickToPrice,
+  getPriceToTick,
+  getTickSpacing,
+} from './tickPrice.js';
 export { getRebalanceCap } from './rebalanceCap.js';
 export { getCurrentCetusPoolPrice, poolPatrol } from './patrol.js';
 export {

@@ -510,6 +510,39 @@ export class FungibleLpStrategy extends BaseStrategy<
   async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {
     return;
   }
+
+  async updatePool(tx: Transaction): Promise<Transaction> {
+    // FungibleLp autocompound for stSUI-SUI
+    if (this.poolLabel.poolName === 'BLUEFIN-FUNGIBLE-STSUI-SUI') {
+      const blueSuiPool = await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin');
+      const [blueInfo] = await this.context.getCoinsBySymbols(['BLUE']);
+      const bluefinStsuiSuiPool = await this.context.getPoolIdBySymbolsAndProtocol('STSUI', 'SUI', 'bluefin');
+
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_bluefin_stsui_sui_ft_pool::update_pool`,
+        typeArguments: [
+          this.poolLabel.assetA.type,
+          this.poolLabel.assetB.type,
+          this.poolLabel.fungibleCoin.type,
+          blueInfo.coinType,
+        ],
+        arguments: [
+          tx.object(VERSIONS.FUNGIBLE_LP),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(bluefinStsuiSuiPool),
+          tx.object(blueSuiPool),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+
+    return tx;
+  }
 }
 
 /**

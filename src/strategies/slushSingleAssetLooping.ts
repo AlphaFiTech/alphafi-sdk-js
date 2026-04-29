@@ -10,10 +10,13 @@ import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import {
+  ADMIN,
   ALPHALEND_LENDING_PROTOCOL_ID,
   CLOCK_PACKAGE_ID,
   GLOBAL_CONFIGS,
   IMAGE_URLS,
+  STSUI,
+  SUI_SYSTEM_STATE,
   VERSIONS,
 } from '../utils/constants.js';
 
@@ -580,6 +583,134 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
         ],
       });
     }
+  }
+
+  async updatePool(tx: Transaction): Promise<Transaction> {
+    const poolName = this.poolLabel.poolName;
+    const coinType = this.poolLabel.asset.type;
+    const [suiInfo] = await this.context.getCoinsBySymbols(['SUI']);
+    const [stsuiInfo] = await this.context.getCoinsBySymbols(['stSUI']);
+    const [blueInfo] = await this.context.getCoinsBySymbols(['BLUE']);
+    const [usdcInfo] = await this.context.getCoinsBySymbols(['USDC']);
+
+    if (poolName === 'ALPHALEND-SLUSH-STSUI-LOOP') {
+      // STSUI staking loop
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [blueInfo.coinType, suiInfo.coinType],
+        arguments: [
+          tx.object(ADMIN.ALPHA_SLUSH_VERSION),
+          tx.object(this.poolLabel.poolId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(ADMIN.BLUEFIN_BLUE_SUI_POOL_AUTOCOMPOUND),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(true),
+          tx.pure.bool(true),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [stsuiInfo.coinType, suiInfo.coinType],
+        arguments: [
+          tx.object(ADMIN.ALPHA_SLUSH_VERSION),
+          tx.object(this.poolLabel.poolId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(ADMIN.BLUEFIN_STSUI_SUI_ZERO_ZERO_POOL),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(true),
+          tx.pure.bool(true),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::update_pool`,
+        arguments: [
+          tx.object(ADMIN.ALPHA_SLUSH_VERSION),
+          tx.object(this.poolLabel.poolId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (poolName.endsWith('-SINGLE-LOOP')) {
+      // Update Alphalend prices
+      const alphalendClient = new AlphalendClient(
+        this.context.blockchain.network,
+        this.context.blockchain.suiClient,
+      );
+      await alphalendClient.updatePrices(tx, [coinType]);
+
+      if (poolName === 'ALPHALEND-SLUSH-USDSUI-SINGLE-LOOP') {
+        // USDSUI → stSUI → SUI swap chain
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin`,
+          typeArguments: [coinType, stsuiInfo.coinType, suiInfo.coinType],
+          arguments: [
+            tx.object(VERSIONS.SLUSH),
+            tx.object(this.poolLabel.poolId),
+            tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+            tx.object(ADMIN.BLUEFIN_STSUI_SUI_ZERO_ZERO_POOL),
+            tx.object(GLOBAL_CONFIGS.BLUEFIN),
+            tx.pure.bool(true),
+            tx.pure.bool(true),
+            tx.pure.u64(10),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin`,
+          typeArguments: [coinType, suiInfo.coinType, usdcInfo.coinType],
+          arguments: [
+            tx.object(VERSIONS.SLUSH),
+            tx.object(this.poolLabel.poolId),
+            tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+            tx.object(ADMIN.BLUEFIN_SUI_USDC_175_POOL),
+            tx.object(GLOBAL_CONFIGS.BLUEFIN),
+            tx.pure.bool(true),
+            tx.pure.bool(true),
+            tx.pure.u64(1000),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin`,
+          typeArguments: [coinType, coinType, usdcInfo.coinType],
+          arguments: [
+            tx.object(VERSIONS.SLUSH),
+            tx.object(this.poolLabel.poolId),
+            tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+            tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDSUI', 'USDC', 'bluefin')),
+            tx.object(GLOBAL_CONFIGS.BLUEFIN),
+            tx.pure.bool(false),
+            tx.pure.bool(true),
+            tx.pure.u64(10),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+      }
+
+      // Update pool
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::update_pool`,
+        typeArguments: [coinType],
+        arguments: [
+          tx.object(VERSIONS.SLUSH),
+          tx.object(this.poolLabel.poolId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      throw new Error(`updatePool not supported for pool: ${poolName}`);
+    }
+
+    return tx;
   }
 }
 

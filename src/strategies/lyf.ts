@@ -790,6 +790,35 @@ export class LyfStrategy extends BaseStrategy<
     });
   }
 
+  async updatePool(tx: Transaction): Promise<Transaction> {
+    const coinAType = this.poolLabel.assetA.type;
+    const coinBType = this.poolLabel.assetB.type;
+
+    // Update Alphalend prices
+    const alphalendClient = new AlphalendClient('mainnet', this.context.blockchain.suiClient);
+    await alphalendClient.updatePrices(tx, [coinAType, coinBType]);
+
+    // Collect rewards
+    await this.collectAndSwapRewards(tx);
+
+    // Update pool
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_lyf_pool::update_pool`,
+      typeArguments: [coinAType, coinBType],
+      arguments: [
+        tx.object(VERSIONS.LYF_LP),
+        tx.object(this.poolLabel.poolId),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.object(this.poolLabel.parentPoolId),
+        tx.object(SUI_SYSTEM_STATE),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+
+    return tx;
+  }
+
   async getCurrentTickIndex(): Promise<number> {
     return this.parentPoolObject.currentTickIndex;
   }

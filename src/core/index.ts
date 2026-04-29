@@ -12,6 +12,7 @@ import { CetusSwap } from '../models/swap.js';
 import type { AlphaFiReceipt, PoolBalance, PoolData, UserPortfolioData } from '../models/types.js';
 import {
   AlphaFiSDKConfig,
+  AutocompoundOptions,
   CancelWithdrawSlushOptions,
   CetusSwapOptions,
   CetusSwapQuoteOptions,
@@ -430,5 +431,11 @@ export class AlphaFiSDK {
     const zapDeposit = new ZapDepositStrategy(lpStrategy, this.strategyContext, cetusSwap);
     const tx = options.tx ?? new Transaction();
     return await zapDeposit.zapDepositTxb(tx, options);
+  }
+  async autocompound(options: AutocompoundOptions): Promise<Transaction> {
+    const tx = options.tx ?? new Transaction();
+    const strategy = await this.protocol.getSinglePoolStrategy(options.poolId);
+    await strategy.updatePool(tx);
+    return tx;
   }
 }

@@ -9,6 +9,7 @@ import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
+  ADMIN,
   BUCKET_CONFIG,
   CLOCK_PACKAGE_ID,
   DISTRIBUTOR_OBJECT_ID,
@@ -1050,6 +1051,94 @@ export class LendingStrategy extends BaseStrategy<
         ],
       });
     }
+  }
+
+  async updatePool(tx: Transaction): Promise<Transaction> {
+    // Step A: Update Pyth price using existing private method
+    const priceFeed = NAVI_CONFIG.PRICE_FEED[
+      this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.PRICE_FEED
+    ];
+
+    if (priceFeed) {
+      await this.updateSingleTokenPrice(tx, priceFeed.pythPriceInfo, priceFeed.feedId);
+    }
+
+    // Step B: Collect rewards using existing private method
+    await this.collectAndClaimRewards(tx);
+
+    // Step C: Call Move update_pool based on package number
+    const assetIndex = NAVI_CONFIG.ASSET_MAP[
+      this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.ASSET_MAP
+    ];
+
+    if (this.poolLabel.packageNumber === 1) {
+      // Package 1: Basic NAVI pools (SUI, USDC, USDT, WETH, VSUI, HASUI)
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_navi_pool::update_pool_v2`,
+        typeArguments: [this.poolLabel.asset.type],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
+          tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.pure.u8(Number(assetIndex)),
+          tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+          tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (this.poolLabel.packageNumber === 3) {
+      // Package 3: NAVI-AUSD, NAVI-ETH, NAVI-SUIUSDT, NAVI-NS, NAVI-NAVX, NAVI-STSUI, NAVI-DEEP, NAVI-WAL
+      tx.moveCall({
+        target: `${ADMIN.ALPHA_3_LATEST_PACKAGE_ID}::alphafi_navi_pool_v2::update_pool_v2`,
+        typeArguments: [this.poolLabel.asset.type],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[3]),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
+          tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.pure.u8(Number(assetIndex)),
+          tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+          tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (this.poolLabel.packageNumber === 9) {
+      // Package 9: NAVI-SUIBTC (special case)
+      tx.moveCall({
+        target: `${ADMIN.ALPHA_NAVI_V2_LATEST_PACKAGE_ID}::alphafi_navi_pool_v2::update_pool_v3`,
+        typeArguments: [this.poolLabel.asset.type],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_NAVI_V2),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
+          tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.pure.u8(Number(assetIndex)),
+          tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+          tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else {
+      throw new Error(
+        `updatePool not supported for packageNumber: ${this.poolLabel.packageNumber}`,
+      );
+    }
+
+    // Step D: Return transaction
+    return tx;
   }
 
   async claimRewards(tx: Transaction, alphaReceipt: TransactionResult) {
