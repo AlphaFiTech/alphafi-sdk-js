@@ -9,22 +9,36 @@ import { TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
 import { SuiClient } from '@mysten/sui/client';
 import { StrategyContext } from '../models/strategyContext.js';
 import { LpPoolLabel } from '../strategies/strategy.js';
+import { LyfPoolLabel } from '../strategies/lyf.js';
+import { AutobalanceLpPoolLabel } from '../strategies/autobalanceLp.js';
+import { FungibleLpPoolLabel } from '../strategies/fungibleLp.js';
+
+type ClmmLabel = LpPoolLabel | LyfPoolLabel | AutobalanceLpPoolLabel | FungibleLpPoolLabel;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Internal helpers
 // ──────────────────────────────────────────────────────────────────────────────
 
-async function getLpLabelByName(
+/**
+ * Find an active CLMM pool label (Lp or Lyf) by pool name.
+ * Both strategy types expose parentPoolId and investorId which are needed
+ * by getCurrentTick, getPositionTicks, and getTickSpacing.
+ */
+async function getClmmLabelByName(
   poolName: string,
   context: StrategyContext,
-): Promise<LpPoolLabel> {
+): Promise<ClmmLabel> {
   const labels = await context.getPoolLabels();
   for (const [, label] of labels) {
-    if (label.poolName === poolName && label.strategyType === 'Lp') {
-      return label as LpPoolLabel;
+    if (
+      label.poolName === poolName &&
+      (label.strategyType === 'Lp' || label.strategyType === 'Lyf' ||
+       label.strategyType === 'AutobalanceLp' || label.strategyType === 'FungibleLp')
+    ) {
+      return label as ClmmLabel;
     }
   }
-  throw new Error(`LP pool not found in registry: ${poolName}`);
+  throw new Error(`CLMM pool not found in registry: ${poolName}`);
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -39,7 +53,7 @@ export async function getCurrentTick(
   context: StrategyContext,
   suiClient: SuiClient,
 ): Promise<number> {
-  const label = await getLpLabelByName(poolName, context);
+  const label = await getClmmLabelByName(poolName, context);
   const pool = await suiClient.getObject({
     id: label.parentPoolId,
     options: { showContent: true },
@@ -60,7 +74,7 @@ export async function getPositionTicks(
   suiClient: SuiClient,
 ): Promise<[number, number]> {
   const upperBound = 443636;
-  const label = await getLpLabelByName(poolName, context);
+  const label = await getClmmLabelByName(poolName, context);
   const investor = await suiClient.getObject({
     id: label.investorId,
     options: { showContent: true },
@@ -122,7 +136,7 @@ export async function getTickSpacing(
   context: StrategyContext,
   suiClient: SuiClient,
 ): Promise<number> {
-  const label = await getLpLabelByName(poolName, context);
+  const label = await getClmmLabelByName(poolName, context);
   const pool = await suiClient.getObject({
     id: label.parentPoolId,
     options: { showContent: true },

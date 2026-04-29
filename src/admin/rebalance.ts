@@ -108,7 +108,7 @@ async function _rebalanceLp(
   loops: number,
   context: StrategyContext,
   swap_using_bluefin?: boolean,
-  rebalance_using_base_pool?: boolean,
+  _rebalance_using_base_pool?: boolean,
 ): Promise<void> {
   const poolName = label.poolName;
   const coinAType = label.assetA.type;
@@ -147,7 +147,6 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
-        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -191,7 +190,6 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
-        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -234,7 +232,6 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
-        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -295,7 +292,6 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
-        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -357,7 +353,6 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
-        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -403,7 +398,6 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
-        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -464,7 +458,6 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
-        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -510,7 +503,6 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
-        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -555,7 +547,6 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
-        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -601,7 +592,6 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
-        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -662,7 +652,6 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
-        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -704,8 +693,9 @@ async function _rebalanceLp(
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
+    // Uses alphafi_bluefin_v2 package - function is `rebalance` (not rebalance_v3), ONE bool
     tx.moveCall({
-      target: `${label.packageId}::alphafi_bluefin_type_1_investor::rebalance_v3`,
+      target: `${label.packageId}::alphafi_bluefin_type_1_investor::rebalance`,
       typeArguments: [coinAType, coinBType, blueType, suiType, deepType],
       arguments: [
         tx.object(label.investorId),
@@ -725,7 +715,6 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
-        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -769,8 +758,9 @@ async function _rebalanceLp(
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
+    // Uses alphafi_bluefin_v2 package - function is `rebalance` (not rebalance_v3), ONE bool
     tx.moveCall({
-      target: `${label.packageId}::alphafi_bluefin_type_1_investor::rebalance_v3`,
+      target: `${label.packageId}::alphafi_bluefin_type_1_investor::rebalance`,
       typeArguments: [coinAType, coinBType, blueType, suiType, deepType],
       arguments: [
         tx.object(label.investorId),
@@ -790,7 +780,6 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
-        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -853,7 +842,6 @@ async function _rebalanceLp(
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.pure.bool(swap_using_bluefin ?? false),
-        tx.pure.bool(rebalance_using_base_pool ?? false),
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
@@ -906,9 +894,10 @@ async function _rebalanceLyf(
     const [blueInfo, suiInfo, stsuiInfo, alphaInfo] = await context.getCoinsBySymbols([
       'BLUE', 'SUI', 'STSUI', 'ALPHA',
     ]);
+    // isBorrow sequence must match legacy collectAndSwapRewardsLyf: true, false, false
     for (const [rewardType, toType, pool, isBorrow] of [
       [blueInfo.coinType, suiInfo.coinType, ADMIN.BLUEFIN_BLUE_SUI_POOL_AUTOCOMPOUND, true],
-      [blueInfo.coinType, suiInfo.coinType, ADMIN.BLUEFIN_BLUE_SUI_POOL_AUTOCOMPOUND, true],
+      [blueInfo.coinType, suiInfo.coinType, ADMIN.BLUEFIN_BLUE_SUI_POOL_AUTOCOMPOUND, false],
       [alphaInfo.coinType, stsuiInfo.coinType, ADMIN.BLUEFIN_ALPHA_STSUI_POOL, false],
     ] as [string, string, string, boolean][]) {
       tx.moveCall({

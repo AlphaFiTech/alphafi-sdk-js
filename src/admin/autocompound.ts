@@ -10,6 +10,7 @@
  */
 
 import { Transaction } from '@mysten/sui/transactions';
+import { SuiClient } from '@mysten/sui/client';
 import { SuiPriceServiceConnection, SuiPythClient } from '@pythnetwork/pyth-sui-js';
 import { LendingReward, getUserAvailableLendingRewards } from '@naviprotocol/lending';
 import { AlphalendClient } from '@alphafi/alphalend-sdk';
@@ -20,6 +21,7 @@ import { LoopingPoolLabel } from '../strategies/looping.js';
 import { SingleAssetLoopingPoolLabel } from '../strategies/singleAssetLooping.js';
 import { LyfPoolLabel } from '../strategies/lyf.js';
 import { FungibleLpPoolLabel } from '../strategies/fungibleLp.js';
+import { AutobalanceLpPoolLabel } from '../strategies/autobalanceLp.js';
 import { SlushLendingPoolLabel } from '../strategies/slushLending.js';
 import { SlushSingleAssetLoopingPoolLabel } from '../strategies/slushSingleAssetLooping.js';
 import {
@@ -120,16 +122,13 @@ async function updateSingleTokenPrice(
   tx: Transaction,
   pythPriceInfo: string,
   feedId: string,
+  suiClient: SuiClient,
 ): Promise<void> {
   const priceConnection = new SuiPriceServiceConnection(
     'https://hermes.pyth.network',
   );
   const priceUpdateData = await priceConnection.getPriceFeedsUpdateData([feedId]);
-  const pythClient = new SuiPythClient(
-    (null as unknown) as any, // suiClient not needed for building tx
-    PYTH_STATE_ID,
-    WORMHOLE_STATE_ID,
-  );
+  const pythClient = new SuiPythClient(suiClient, PYTH_STATE_ID, WORMHOLE_STATE_ID);
   await pythClient.updatePriceFeeds(tx, priceUpdateData, [feedId]);
   tx.moveCall({
     target: `${NAVI_CONFIG.ORACLE_PRO_PACKAGE_ID}::price_oracle::update_token_price_from_pyth`,
@@ -170,6 +169,10 @@ export async function getAutoCompoundSingleTxb(
 
     case 'Lp':
       await _autocompoundLp(txb, label as LpPoolLabel, context);
+      break;
+
+    case 'AutobalanceLp':
+      await _autocompoundAutobalanceLp(txb, label as AutobalanceLpPoolLabel, context);
       break;
 
     case 'FungibleLp':
@@ -240,12 +243,6 @@ async function _autocompoundLp(
   const suiType = suiCoinInfo.coinType;
 
   if (label.parentProtocol === 'Bluefin') {
-    // AutoBalance pools (no BLUE reward) — use simpler update_pool_v3/v4
-    if (label.poolName.includes('AUTOBALANCE') || label.poolName.includes('AUTOREBALANCE')) {
-      // Autobalance pools use strategy-specific update_pool_v3/v4 with AUTOBALANCE_LP version
-      // Handled by individual pool name checks below
-    }
-
     if (poolName === 'BLUEFIN-SUI-USDC') {
       const cetusSuiUsdc = await context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus');
       tx.moveCall({
@@ -845,51 +842,6 @@ async function _autocompoundLp(
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
-    } else if (poolName.includes('AUTOBALANCE') || poolName.includes('AUTOREBALANCE')) {
-      // AutoBalance pools use simplified update_pool_v3/v4
-      if (poolName.startsWith('BLUEFIN-AUTOBALANCE-SUI-FIRST') || poolName.includes('-SUI-')) {
-        tx.moveCall({
-          target: `${label.packageId}::alphafi_bluefin_sui_first_pool::update_pool_v4`,
-          typeArguments: [coinAType, coinBType],
-          arguments: [
-            tx.object(VERSIONS.AUTOBALANCE_LP),
-            tx.object(label.poolId),
-            tx.object(label.investorId),
-            tx.object(DISTRIBUTOR_OBJECT_ID),
-            tx.object(GLOBAL_CONFIGS.BLUEFIN),
-            tx.object(label.parentPoolId),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-      } else if (poolName.includes('-SUI-SECOND')) {
-        tx.moveCall({
-          target: `${label.packageId}::alphafi_bluefin_sui_second_pool::update_pool_v3`,
-          typeArguments: [coinAType, coinBType],
-          arguments: [
-            tx.object(VERSIONS.AUTOBALANCE_LP),
-            tx.object(label.poolId),
-            tx.object(label.investorId),
-            tx.object(DISTRIBUTOR_OBJECT_ID),
-            tx.object(GLOBAL_CONFIGS.BLUEFIN),
-            tx.object(label.parentPoolId),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-      } else {
-        tx.moveCall({
-          target: `${label.packageId}::alphafi_bluefin_type_1_pool::update_pool_v3`,
-          typeArguments: [coinAType, coinBType],
-          arguments: [
-            tx.object(VERSIONS.AUTOBALANCE_LP),
-            tx.object(label.poolId),
-            tx.object(label.investorId),
-            tx.object(DISTRIBUTOR_OBJECT_ID),
-            tx.object(GLOBAL_CONFIGS.BLUEFIN),
-            tx.object(label.parentPoolId),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-      }
     }
   } else if (label.parentProtocol === 'Bucket') {
     // Bucket strategy autocompound
@@ -922,6 +874,88 @@ async function _autocompoundLp(
       ],
     });
   }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// AutobalanceLp strategy
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Pool name sets for routing autobalance update calls.
+ * These match the legacy AUTOBALANCE_SUI_FIRST/SECOND/TYPE_1 lists from alphafi-sdk/src/common/maps.ts.
+ */
+const AUTOBALANCE_SUI_FIRST_POOLS = new Set([
+  'BLUEFIN-AUTOBALANCE-SUI-USDC',
+  'BLUEFIN-AUTOBALANCE-SUI-LBTC',
+  'BLUEFIN-AUTOBALANCE-SUI-USDC-175',
+]);
+const AUTOBALANCE_SUI_SECOND_POOLS = new Set([
+  'BLUEFIN-AUTOBALANCE-DEEP-SUI',
+  'BLUEFIN-AUTOBALANCE-BLUE-SUI',
+  'BLUEFIN-AUTOBALANCE-DEEP-SUI-175',
+  'BLUEFIN-AUTOBALANCE-WAL-SUI',
+]);
+
+async function _autocompoundAutobalanceLp(
+  tx: Transaction,
+  label: AutobalanceLpPoolLabel,
+  context: StrategyContext,
+): Promise<void> {
+  const coinAType = label.assetA.type;
+  const coinBType = label.assetB.type;
+  const poolName = label.poolName;
+
+  // Determine module based on pool type
+  let poolModule: string;
+  let updateFn: string;
+  if (AUTOBALANCE_SUI_FIRST_POOLS.has(poolName)) {
+    poolModule = 'alphafi_bluefin_sui_first_pool';
+    updateFn = 'update_pool_v4';
+  } else if (AUTOBALANCE_SUI_SECOND_POOLS.has(poolName)) {
+    poolModule = 'alphafi_bluefin_sui_second_pool';
+    updateFn = 'update_pool_v3';
+  } else {
+    poolModule = 'alphafi_bluefin_type_1_pool';
+    updateFn = 'update_pool_v3';
+  }
+
+  // Step 1: collect_reward for each reward token from the parent pool's reward_infos
+  const parentPool = await context.blockchain.suiClient.getObject({
+    id: label.parentPoolId,
+    options: { showContent: true },
+  });
+  const rewardInfos: any[] = (parentPool.data?.content as any)?.fields?.reward_infos ?? [];
+  for (const reward of rewardInfos) {
+    const rewardType = '0x' + reward.fields.reward_coin_type;
+    tx.moveCall({
+      target: `${label.packageId}::${poolModule}::collect_reward`,
+      typeArguments: [coinAType, coinBType, rewardType],
+      arguments: [
+        tx.object(VERSIONS.AUTOBALANCE_LP),
+        tx.object(label.poolId),
+        tx.object(label.investorId),
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.object(label.parentPoolId),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+  }
+
+  // Step 2: update_pool
+  tx.moveCall({
+    target: `${label.packageId}::${poolModule}::${updateFn}`,
+    typeArguments: [coinAType, coinBType],
+    arguments: [
+      tx.object(VERSIONS.AUTOBALANCE_LP),
+      tx.object(label.poolId),
+      tx.object(label.investorId),
+      tx.object(DISTRIBUTOR_OBJECT_ID),
+      tx.object(GLOBAL_CONFIGS.BLUEFIN),
+      tx.object(label.parentPoolId),
+      tx.object(CLOCK_PACKAGE_ID),
+    ],
+  });
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -985,10 +1019,11 @@ async function _autocompoundLyf(
     const bluefinAlphaStsui = ADMIN.BLUEFIN_ALPHA_STSUI_POOL;
 
     // collect_reward_and_swap_bluefin x3
+    // isBorrow sequence must match legacy collectAndSwapRewardsLyf: true, false, false
     for (const [rewardType, toType, pool, isBorrow] of [
       [blueInfo.coinType, suiInfo.coinType, blueSuiAutoPool, true],
-      [blueInfo.coinType, suiInfo.coinType, blueSuiAutoPool, true],
-      [alphaInfo.coinType, stsuiInfo.coinType, bluefinAlphaStsui, true],
+      [blueInfo.coinType, suiInfo.coinType, blueSuiAutoPool, false],
+      [alphaInfo.coinType, stsuiInfo.coinType, bluefinAlphaStsui, false],
     ] as [string, string, string, boolean][]) {
       tx.moveCall({
         target: `${label.packageId}::alphafi_lyf_pool::collect_reward_and_swap_bluefin`,
@@ -1069,7 +1104,7 @@ async function _autocompoundLending(
     | undefined;
 
   if (priceFeed) {
-    await updateSingleTokenPrice(tx, priceFeed.pythPriceInfo, priceFeed.feedId);
+    await updateSingleTokenPrice(tx, priceFeed.pythPriceInfo, priceFeed.feedId, context.blockchain.suiClient);
   }
 
   const claimable = groupedRewardsMap?.get(poolName);
@@ -1080,7 +1115,7 @@ async function _autocompoundLending(
       const bluefinNavxSui = await context.getPoolIdBySymbolsAndProtocol('NAVX', 'SUI', 'bluefin');
       const bluefinDeepSui = await context.getPoolIdBySymbolsAndProtocol('DEEP', 'SUI', 'bluefin');
       const bluefinVsuiSui = await context.getPoolIdBySymbolsAndProtocol('VSUI', 'SUI', 'bluefin');
-      const [navxInfo, deepInfo, vsuiInfo] = await context.getCoinsBySymbols(['NAVX', 'DEEP', 'VSUI']);
+      const [navxInfo, deepInfo, vsuiInfo, suiInfo] = await context.getCoinsBySymbols(['NAVX', 'DEEP', 'VSUI', 'SUI']);
       const bluefinSuiAsset = await context.getPoolIdBySymbolsAndProtocol('SUI', assetName, 'bluefin').catch(() => '');
 
       const rewardCalls: Array<{ rewardType: string; swapPool: string; intermediary: string; rewardPool: string }> = [];
@@ -1098,7 +1133,7 @@ async function _autocompoundLending(
         const suiPool = bluefinSuiAsset || ADMIN.BLUEFIN_SUI_WAL_POOL;
         tx.moveCall({
           target: `${ADMIN.ALPHA_NAVI_V2_LATEST_PACKAGE_ID}::alphafi_navi_pool_v2::collect_reward_with_two_swaps_bluefin`,
-          typeArguments: [assetType, 'sui::SUI', rewardType],
+          typeArguments: [assetType, suiInfo.coinType, rewardType],
           arguments: [
             tx.object(VERSIONS.ALPHA_NAVI_V2),
             tx.object(label.investorId),
@@ -1158,9 +1193,10 @@ async function _autocompoundLending(
     });
   } else if (label.packageNumber === 1) {
     // Package 1: Basic NAVI pools (NAVI-SUI, NAVI-USDC, NAVI-USDT, NAVI-WETH, NAVI-VSUI, NAVI-HASUI, etc.)
+    // update_pool_v2 signature: (version, pool, investor, dis, oracle, storage, navi_pool, asset, incentive_v3, incentive_v2, system_state, clock)
     if (assetIndex !== undefined) {
       tx.moveCall({
-        target: `${label.packageId}::alphafi_navi_pool::update_pool`,
+        target: `${label.packageId}::alphafi_navi_pool::update_pool_v2`,
         typeArguments: [assetType],
         arguments: [
           tx.object(VERSIONS.ALPHA_VERSIONS[1]),
@@ -1171,7 +1207,7 @@ async function _autocompoundLending(
           tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
           tx.object(label.parentPoolId),
           tx.pure.u8(Number(assetIndex)),
-          tx.object(NAVI_CONFIG.INCENTIVE_V1_ID),
+          tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
           tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
           tx.object(SUI_SYSTEM_STATE),
           tx.object(CLOCK_PACKAGE_ID),
@@ -1457,12 +1493,72 @@ async function _autocompoundLooping(
   const poolName = label.poolName;
   const supplyType = label.supplyAsset.type;
   const borrowType = label.borrowAsset.type;
+
+  // ALPHALEND-LOOP-SUI-STSUI uses a completely different flow (Alphalend parent, not NAVI).
+  // Handle it first before the NAVI price-update logic.
+  if (poolName === 'ALPHALEND-LOOP-SUI-STSUI') {
+    const cetusBleSui = await context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'cetus');
+    // 1. Collect ALPHA rewards via one-swap (ALPHA → STSUI via Bluefin)
+    tx.moveCall({
+      target: `${label.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_one_swap`,
+      typeArguments: [(await context.getCoinsBySymbols(['ALPHA']))[0].coinType],
+      arguments: [
+        tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+        tx.object(label.investorId),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(ADMIN.BLUEFIN_ALPHA_STSUI_POOL),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+    // 2. Collect staking rewards with no swap (e.g. stSUI native rewards)
+    tx.moveCall({
+      target: `${label.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_no_swap_v2`,
+      arguments: [
+        tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+        tx.object(label.investorId),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+    // 3. Collect BLUE rewards via two swaps (BLUE → SUI → STSUI via Cetus)
+    tx.moveCall({
+      target: `${label.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_two_swaps_v2`,
+      typeArguments: [(await context.getCoinsBySymbols(['BLUE']))[0].coinType],
+      arguments: [
+        tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+        tx.object(label.investorId),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(STSUI.LST_INFO),
+        tx.object(SUI_SYSTEM_STATE),
+        tx.object(cetusBleSui),
+        tx.object(GLOBAL_CONFIGS.CETUS),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+    // 4. Update pool
+    tx.moveCall({
+      target: `${label.packageId}::alphafi_navi_sui_stsui_pool::update_pool_v3`,
+      arguments: [
+        tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+        tx.object(label.poolId),
+        tx.object(label.investorId),
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(STSUI.LST_INFO),
+        tx.object(SUI_SYSTEM_STATE),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+    return;
+  }
+
   const supplyFeed = (NAVI_CONFIG.PRICE_FEED as any)[label.supplyAsset.name] as
     | { feedId: string; pythPriceInfo: string }
     | undefined;
 
   if (supplyFeed) {
-    await updateSingleTokenPrice(tx, supplyFeed.pythPriceInfo, supplyFeed.feedId);
+    await updateSingleTokenPrice(tx, supplyFeed.pythPriceInfo, supplyFeed.feedId, context.blockchain.suiClient);
   }
 
   const claimable = groupedRewardsMap?.get(poolName);
@@ -1472,7 +1568,7 @@ async function _autocompoundLooping(
       | { feedId: string; pythPriceInfo: string }
       | undefined;
     if (borrowFeed) {
-      await updateSingleTokenPrice(tx, borrowFeed.pythPriceInfo, borrowFeed.feedId);
+      await updateSingleTokenPrice(tx, borrowFeed.pythPriceInfo, borrowFeed.feedId, context.blockchain.suiClient);
     }
 
     const [navxInfo, vsuiInfo] = await context.getCoinsBySymbols(['NAVX', 'VSUI']);
@@ -1546,7 +1642,7 @@ async function _autocompoundLooping(
       | { feedId: string; pythPriceInfo: string }
       | undefined;
     if (borrowFeed) {
-      await updateSingleTokenPrice(tx, borrowFeed.pythPriceInfo, borrowFeed.feedId);
+      await updateSingleTokenPrice(tx, borrowFeed.pythPriceInfo, borrowFeed.feedId, context.blockchain.suiClient);
     }
 
     const [navxInfo, vsuiInfo] = await context.getCoinsBySymbols(['NAVX', 'VSUI']);
@@ -1603,18 +1699,127 @@ async function _autocompoundLooping(
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
-  } else if (poolName === 'NAVI-LOOP-HASUI-SUI' || poolName === 'NAVI-LOOP-USDC-USDT') {
-    // These loops have simpler update paths - use the basic update pattern
+  } else if (poolName === 'NAVI-LOOP-HASUI-SUI') {
+    const borrowFeed = (NAVI_CONFIG.PRICE_FEED as any)[label.borrowAsset.name] as
+      | { feedId: string; pythPriceInfo: string }
+      | undefined;
+    if (borrowFeed) {
+      await updateSingleTokenPrice(tx, borrowFeed.pythPriceInfo, borrowFeed.feedId, context.blockchain.suiClient);
+    }
+
+    const [navxInfo2, vsuiInfo2] = await context.getCoinsBySymbols(['NAVX', 'VSUI']);
+    const cetusNavxSui2 = await context.getPoolIdBySymbolsAndProtocol('NAVX', 'SUI', 'cetus');
+    const cetusVsuiSui2 = await context.getPoolIdBySymbolsAndProtocol('VSUI', 'SUI', 'cetus');
+    const cetusHasuiSui = await context.getPoolIdBySymbolsAndProtocol('HASUI', 'SUI', 'cetus');
+    const suiType2 = '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI';
+
+    const seen2 = new Set<string>();
+    const coinTypeKeys2 = [supplyType, suiType2];
+    for (const coinTypeKey of coinTypeKeys2) {
+      for (const r of claimable?.get(coinTypeKey) ?? []) {
+        if (seen2.has(r.rewardCoinType)) continue;
+        seen2.add(r.rewardCoinType);
+
+        if (r.rewardCoinType === navxInfo2.coinType || r.rewardCoinType === vsuiInfo2.coinType) {
+          const rewardsPool2 = r.rewardCoinType === navxInfo2.coinType
+            ? NAVI_CONFIG.REWARDS_POOL.NAVX
+            : NAVI_CONFIG.REWARDS_POOL.vSUI;
+          const swapPool2 = r.rewardCoinType === navxInfo2.coinType ? cetusNavxSui2 : cetusVsuiSui2;
+          tx.moveCall({
+            target: `${label.packageId}::alphafi_navi_hasui_sui_investor::collect_reward_with_two_swaps`,
+            typeArguments: [r.rewardCoinType],
+            arguments: [
+              tx.object(label.investorId),
+              tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+              tx.object(CLOCK_PACKAGE_ID),
+              tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+              tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+              tx.object(rewardsPool2),
+              tx.object(NAVI_CONFIG.HAEDEL_STAKING),
+              tx.object(SUI_SYSTEM_STATE),
+              tx.object(swapPool2),
+              tx.object(cetusHasuiSui),
+              tx.object(GLOBAL_CONFIGS.CETUS),
+            ],
+          });
+        }
+      }
+    }
+
     tx.moveCall({
-      target: `${label.packageId}::${_loopingModule(poolName)}::update_pool`,
+      target: `${label.packageId}::alphafi_navi_hasui_sui_pool::update_pool_v2`,
       arguments: [
-        tx.object(VERSIONS.ALPHA_VERSIONS[label.packageNumber as 1 | 2 | 3 | 4 | 5]),
+        tx.object(VERSIONS.ALPHA_VERSIONS[2]),
         tx.object(label.poolId),
         tx.object(label.investorId),
         tx.object(DISTRIBUTOR_OBJECT_ID),
         tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
         tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
-        tx.object(NAVI_CONFIG.NAVI_POOLS[label.supplyAsset.name as keyof typeof NAVI_CONFIG.NAVI_POOLS]),
+        tx.object(NAVI_CONFIG.NAVI_POOLS.HASUI),
+        tx.object(NAVI_CONFIG.NAVI_POOLS.SUI),
+        tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+        tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
+        tx.object(GLOBAL_CONFIGS.CETUS),
+        tx.object(cetusHasuiSui),
+        tx.object(NAVI_CONFIG.HAEDEL_STAKING),
+        tx.object(SUI_SYSTEM_STATE),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+  } else if (poolName === 'NAVI-LOOP-USDC-USDT') {
+    const borrowFeed2 = (NAVI_CONFIG.PRICE_FEED as any)[label.borrowAsset.name] as
+      | { feedId: string; pythPriceInfo: string }
+      | undefined;
+    if (borrowFeed2) {
+      await updateSingleTokenPrice(tx, borrowFeed2.pythPriceInfo, borrowFeed2.feedId, context.blockchain.suiClient);
+    }
+
+    const [navxInfo3, vsuiInfo3] = await context.getCoinsBySymbols(['NAVX', 'VSUI']);
+    const cetusNavxSui3 = await context.getPoolIdBySymbolsAndProtocol('NAVX', 'SUI', 'cetus');
+    const cetusVsuiSui3 = await context.getPoolIdBySymbolsAndProtocol('VSUI', 'SUI', 'cetus');
+    const cetusUsdcSui3 = await context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus');
+
+    const seen3 = new Set<string>();
+    for (const coinTypeKey of [supplyType, borrowType]) {
+      for (const r of claimable?.get(coinTypeKey) ?? []) {
+        if (seen3.has(r.rewardCoinType)) continue;
+        seen3.add(r.rewardCoinType);
+
+        if (r.rewardCoinType === navxInfo3.coinType || r.rewardCoinType === vsuiInfo3.coinType) {
+          const rewardsPool3 = r.rewardCoinType === navxInfo3.coinType
+            ? NAVI_CONFIG.REWARDS_POOL.NAVX
+            : NAVI_CONFIG.REWARDS_POOL.vSUI;
+          const swapPool3 = r.rewardCoinType === navxInfo3.coinType ? cetusNavxSui3 : cetusVsuiSui3;
+          tx.moveCall({
+            target: `${label.packageId}::alphafi_navi_native_usdc_usdt_investor::collect_reward_with_two_swaps`,
+            typeArguments: [r.rewardCoinType],
+            arguments: [
+              tx.object(label.investorId),
+              tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+              tx.object(CLOCK_PACKAGE_ID),
+              tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+              tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+              tx.object(rewardsPool3),
+              tx.object(swapPool3),
+              tx.object(cetusUsdcSui3),
+              tx.object(GLOBAL_CONFIGS.CETUS),
+            ],
+          });
+        }
+      }
+    }
+
+    tx.moveCall({
+      target: `${label.packageId}::alphafi_navi_native_usdc_usdt_pool::update_pool_v3`,
+      arguments: [
+        tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+        tx.object(label.poolId),
+        tx.object(label.investorId),
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
+        tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+        tx.object(NAVI_CONFIG.NAVI_POOLS.USDC),
+        tx.object(NAVI_CONFIG.NAVI_POOLS.USDT),
         tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
         tx.object(NAVI_CONFIG.INCENTIVE_V2_ID),
         tx.object(SUI_SYSTEM_STATE),
