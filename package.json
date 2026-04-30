@@ -40,7 +40,7 @@
   "license": "ISC",
   "dependencies": {
     "@alphafi/alphalend-sdk": "^2.0.0",
-    "@alphafi/stsui-sdk": "^0.0.23",
+    "@alphafi/stsui-sdk": "^1.0.0",
     "@apollo/client": "^4.0.11",
     "@cetusprotocol/aggregator-sdk": "^1.4.2",
     "@cetusprotocol/cetus-sui-clmm-sdk": "5.4.0",
