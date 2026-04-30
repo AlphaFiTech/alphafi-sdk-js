@@ -22,6 +22,14 @@ import {
 import { toTwosComplementU32 } from '../utils/math.js';
 
 /**
+ * Fixed-point precision scaling factor used by the on-chain `acc_reward_per_xtoken`
+ * accumulator (1e36). Pending rewards are computed as
+ * `(currentAcc - lastAcc) * userXtokenBalance / ACC_REWARD_PER_XTOKEN_PRECISION`,
+ * then divided by the reward coin's own decimal scale to produce a human amount.
+ */
+const ACC_REWARD_PER_XTOKEN_PRECISION = new Decimal(10).pow(36);
+
+/**
  * AutobalanceLp Strategy for dual-asset liquidity pools with automatic rebalancing
  */
 export class AutobalanceLpStrategy extends BaseStrategy<
@@ -592,6 +600,87 @@ export class AutobalanceLpStrategy extends BaseStrategy<
 
     return tx;
   }
+  async pendingRewardAmount(userAddress: string): Promise<UserAutoBalanceRewardAmounts> {
+    const tx = new Transaction();
+    this.collectReward(tx);
+
+    const moduleName = this.getPoolModule();
+    const updatePoolFn = this.getUpdatePoolFn();
+    const typeArguments = [this.poolLabel.assetA.type, this.poolLabel.assetB.type];
+
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::${moduleName}::${updatePoolFn}`,
+      typeArguments,
+      arguments: [
+        tx.object(VERSIONS.AUTOBALANCE_LP),
+        tx.object(this.poolLabel.poolId),
+        tx.object(this.poolLabel.investorId),
+        tx.object(DISTRIBUTOR_OBJECT_ID),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.object(this.poolLabel.parentPoolId),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::${moduleName}::get_cur_acc_per_xtoken`,
+      typeArguments,
+      arguments: [tx.object(this.poolLabel.poolId)],
+    });
+
+    const res = await this.context.blockchain.simulateTransaction(tx, userAddress);
+
+    const receipt = this.receiptObjects[0];
+    if (!receipt) {
+      return {};
+    }
+
+    const userXtokenBalance = receipt.xTokenBalance;
+    const totalPendingRewardAmounts: UserAutoBalanceRewardAmounts = {};
+    const userPendingReward: { [key in string]: string } = {};
+    const curAcc: { [key in string]: string } = {};
+    const lastAcc: { [key in string]: string } = {};
+
+    for (let i = 0; i < receipt.pendingRewards.length; i++) {
+      const rewardType = this.normalizeRewardType(receipt.pendingRewards[i].key);
+      userPendingReward[rewardType] = receipt.pendingRewards[i].value;
+    }
+
+    // `get_cur_acc_per_xtoken` returns a `VecMap<TypeName, u256>` which GraphQL
+    // encodes as `{ contents: [{ key, value }, ...] }`.
+    const lastOutput = res?.outputs?.[res.outputs.length - 1];
+    const rawJson = lastOutput?.returnValues?.[0]?.value?.json;
+    const currAccForAllRewards: Array<{ key: string; value: string }> = isVecMapJson(rawJson)
+      ? rawJson.contents
+      : [];
+    currAccForAllRewards.forEach((reward) => {
+      curAcc[this.normalizeRewardType(reward.key)] = String(reward.value);
+    });
+
+    receipt.lastAccRewardPerXtoken.forEach((reward) => {
+      lastAcc[this.normalizeRewardType(reward.key)] = reward.value;
+    });
+
+    for (const rewardType of Object.keys(curAcc)) {
+      const cur = new Decimal(curAcc[rewardType]);
+      const last = new Decimal(rewardType in lastAcc ? lastAcc[rewardType] : '0');
+      const pending = new Decimal(
+        rewardType in userPendingReward ? userPendingReward[rewardType] : '0',
+      );
+      const decimals = await this.context.getCoinDecimals(rewardType);
+
+      const totalPending = cur
+        .minus(last)
+        .mul(userXtokenBalance)
+        .div(ACC_REWARD_PER_XTOKEN_PRECISION)
+        .plus(pending)
+        .div(Math.pow(10, decimals))
+        .toString();
+      totalPendingRewardAmounts[rewardType] = totalPending;
+    }
+
+    return totalPendingRewardAmounts;
+  }
 
   private collectReward(tx: Transaction) {
     if (this.poolLabel.assetA.name === 'SUI') {
@@ -897,7 +986,11 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     } else if (poolName === 'BLUEFIN-AUTOBALANCE-SUIUSDT-USDC-ZERO-ZERO') {
       // Uses the dedicated autocompound BLUE-SUI pool (different fee tier) instead of the standard one
       // cetus_pool = CetusPool<USDC, SUIUSDT>, _cetus_sui_pool = CetusPool<USDC, SUI>
-      const cetusUsdcSuiusdt = await context.getPoolIdBySymbolsAndProtocol('USDC', 'SUIUSDT', 'cetus');
+      const cetusUsdcSuiusdt = await context.getPoolIdBySymbolsAndProtocol(
+        'USDC',
+        'SUIUSDT',
+        'cetus',
+      );
       const cetusUsdcSui = await context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus');
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_investor::rebalance_v2`,
@@ -924,7 +1017,11 @@ export class AutobalanceLpStrategy extends BaseStrategy<
       addUpdatePool('alphafi_bluefin_type_1_pool', 'update_pool_v3');
     } else if (poolName === 'BLUEFIN-AUTOBALANCE-XBTC-SUIBTC') {
       // XBTC-SUIBTC: cetus pool is SUIBTC-XBTC; bluefin/cetus SUI pools are not in use
-      const cetusSuibtcXbtc = await context.getPoolIdBySymbolsAndProtocol('SUIBTC', 'XBTC', 'cetus');
+      const cetusSuibtcXbtc = await context.getPoolIdBySymbolsAndProtocol(
+        'SUIBTC',
+        'XBTC',
+        'cetus',
+      );
       const cetusSuibtcSui = await context.getPoolIdBySymbolsAndProtocol('SUIBTC', 'SUI', 'cetus');
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_investor::rebalance_v2`,
@@ -940,7 +1037,7 @@ export class AutobalanceLpStrategy extends BaseStrategy<
           tx.pure.u32(loops),
           tx.object(this.poolLabel.parentPoolId),
           tx.object(cetusSuibtcXbtc),
-          tx.object(blueSuiPool),    // not in use by Move function
+          tx.object(blueSuiPool), // not in use by Move function
           tx.object(cetusSuibtcSui), // not in use by Move function
           tx.object(STSUI.LST_INFO), // not in use by Move function
           tx.object(SUI_SYSTEM_STATE), // not in use by Move function
@@ -956,7 +1053,11 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     ) {
       // type-1 USDC-pair pools — alphafi_bluefin_type_1_investor::rebalance_v2<coinA, USDC, BLUE, SUI>
       // cetus_pool = CetusPool<USDC, coinA>, _cetus_sui_pool = CetusPool<USDC, SUI>
-      const cetusUsdcCoinA = await context.getPoolIdBySymbolsAndProtocol('USDC', coinAName, 'cetus');
+      const cetusUsdcCoinA = await context.getPoolIdBySymbolsAndProtocol(
+        'USDC',
+        coinAName,
+        'cetus',
+      );
       const cetusUsdcSui = await context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus');
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_investor::rebalance_v2`,
@@ -983,6 +1084,38 @@ export class AutobalanceLpStrategy extends BaseStrategy<
       addUpdatePool('alphafi_bluefin_type_1_pool', 'update_pool_v3');
     }
   }
+  private normalizeRewardType(rewardType: string): string {
+    if (rewardType.startsWith('0x')) {
+      return rewardType;
+    }
+    return `0x${rewardType}`;
+  }
+
+  /** Get the Move module name for this pool's autobalance-lp variant. */
+  private getPoolModule(): string {
+    if (this.poolLabel.assetA.name === 'SUI') return 'alphafi_bluefin_sui_first_pool';
+    if (this.poolLabel.assetB.name === 'SUI') return 'alphafi_bluefin_sui_second_pool';
+    return 'alphafi_bluefin_type_1_pool';
+  }
+
+  /** Get the versioned `update_pool` entry function for this pool variant. */
+  private getUpdatePoolFn(): string {
+    return this.poolLabel.assetA.name === 'SUI' ? 'update_pool_v4' : 'update_pool_v3';
+  }
+}
+
+/** GraphQL JSON shape of a Move `VecMap<K, V>` return value. */
+interface MoveVecMapJson {
+  contents: Array<{ key: string; value: string }>;
+}
+
+/** Narrow a `SimulationReturnValue.value.json` blob to a `VecMap` shape. */
+function isVecMapJson(json: unknown): json is MoveVecMapJson {
+  return (
+    typeof json === 'object' &&
+    json !== null &&
+    Array.isArray((json as { contents?: unknown }).contents)
+  );
 }
 
 /**
@@ -1055,6 +1188,10 @@ export interface AutobalanceLpReceiptObject {
   pendingRewards: StringMap[];
   poolId: string;
   xTokenBalance: string;
+}
+
+export interface UserAutoBalanceRewardAmounts {
+  [key: string]: string;
 }
 
 /**

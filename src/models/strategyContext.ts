@@ -482,7 +482,7 @@ export class StrategyContext {
           size: fields.pool_allocator.rewards.size,
         },
         totalWeights: fields.pool_allocator.total_weights.contents.map((weight: any) => ({
-          key: weight.key.name,
+          key: typeof weight.key === 'string' ? weight.key : weight.key?.name,
           value: weight.value,
         })),
       },
@@ -575,22 +575,15 @@ export class StrategyContext {
   private async fetchBucketTvl(): Promise<Decimal> {
     const FOUNTAIN = '0xbdf91f558c2b61662e5839db600198eda66d502e4c10c4fc5c683f9caca13359';
     const FLASK = '0xc6ecc9731e15d182bc0a46ebe1754a779a4bfb165c201102ad51a36838a1a7b8';
-    const fountain = await this.blockchain.suiClient.getObject({
-      id: FOUNTAIN,
-      options: { showContent: true },
-    });
-    const flask = await this.blockchain.suiClient.getObject({
-      id: FLASK,
-      options: { showContent: true },
-    });
-    const fountainFields = (fountain.data as any)?.content?.fields;
-    const flaskFields = (flask.data as any)?.content?.fields;
+    const objects = await this.blockchain.multiGetObjects([FOUNTAIN, FLASK]);
+    const fountainFields = objects.get(FOUNTAIN);
+    const flaskFields = objects.get(FLASK);
     if (!fountainFields || !flaskFields) {
       throw new Error('Failed to get fountain or flask fields');
     }
     const totalSbuckInFountain = new Decimal(fountainFields.staked || '0');
     const reserves = new Decimal(flaskFields.reserves || '0');
-    const sbuckSupply = new Decimal(flaskFields.sbuck_supply?.fields?.value || '0');
+    const sbuckSupply = new Decimal(flaskFields.sbuck_supply?.value || '0');
     if (sbuckSupply.isZero()) {
       return new Decimal(0);
     }
