@@ -155,40 +155,53 @@ addExternalRewardsWalLockedTxb(
 ### `autocompound.ts`
 
 ```ts
-// Pre-fetch grouped NAVI lending rewards for a list of pools.
-// Pass the result to getAutoCompoundSingleTxb to avoid redundant RPC calls.
-groupedRewards(
-  poolNames: string[],
-  context: StrategyContext,
-): Promise<Map<string, Map<string, LendingReward[]>>>
-
 // Build an autocompound transaction for a single pool.
-// Returns undefined for pools with no autocompound action (e.g. ALPHA vault).
+// Returns undefined if pool not found.
 getAutoCompoundSingleTxb(
   poolName: string,
   context: StrategyContext,
   tx?: Transaction,
-  groupedRewardsMap?: Map<string, Map<string, LendingReward[]>>,
 ): Promise<Transaction | undefined>
 ```
 
-**Strategy dispatch table:**
+**How it works:**
 
-| Strategy type | Handler |
+1. Looks up the pool by name from the strategy context
+2. Instantiates the appropriate strategy class
+3. Calls `strategy.updatePool(tx)` which handles:
+   - Price oracle updates (if needed)
+   - Reward collection and swapping
+   - Pool-specific autocompound Move calls
+
+**Strategy implementations:**
+
+| Strategy type | Implementation |
 |---|---|
-| `AlphaVault` | skipped (returns `undefined`) |
-| `Lp` | `_autocompoundLp` — Bluefin & Bucket pools |
-| `FungibleLp` | `_autocompoundFungibleLp` |
-| `Lyf` | `_autocompoundLyf` |
-| `Lending` | `_autocompoundLending` (NAVI single-asset) |
-| `Looping` | `_autocompoundLooping` (NAVI looping) |
-| `SingleAssetLooping` | `_autocompoundSingleAssetLooping` (AlphaLend single-loop) |
-| `SlushLending` | `_autocompoundSlushLending` |
-| `SlushSingleAssetLooping` | `_autocompoundSlushSingleAssetLooping` |
+| `AlphaVault` | No-op (returns empty transaction) |
+| `Lp` | Bluefin, Cetus, Bucket LP pools |
+| `AutobalanceLp` | Bluefin autobalance pools |
+| `FungibleLp` | Bluefin fungible LP pools |
+| `Lyf` | Leverage yield farming pools |
+| `Lending` | NAVI single-asset lending pools |
+| `Looping` | NAVI looping pools |
+| `SingleAssetLooping` | AlphaLend single-asset loops |
+| `SlushLending` | AlphaLend Slush lending pools |
+| `SlushSingleAssetLooping` | AlphaLend Slush looping pools |
+| `FungibleLending` | No-op (returns empty transaction) |
 
-> **Known gap:** Cetus LP pools (WUSDC-WBTC, USDC-USDT, USDC-WUSDC, HASUI-SUI,
-> USDC-ETH) are not yet handled in `_autocompoundLp`. These existed in the legacy
-> code and should be added.
+**Example usage:**
+
+```ts
+import { getAutoCompoundSingleTxb } from '@alphafi/alphafi-sdk/admin';
+import { Transaction } from '@mysten/sui/transactions';
+import { useSuiClient } from '@mysten/dapp-kit';
+
+const suiClient = useSuiClient();
+const context = useMemo(() => new StrategyContext('mainnet', suiClient as any), [suiClient]);
+
+const tx = await getAutoCompoundSingleTxb(poolName, context);
+if (tx) signAndExecuteTransaction({ transaction: tx });
+```
 
 ---
 
@@ -219,7 +232,7 @@ the TVL-derived value or accept the default.
 
 ```ts
 import { StrategyContext } from '@alphafi/alphafi-sdk';
-import { getAutoCompoundSingleTxb, groupedRewards } from '@alphafi/alphafi-sdk/admin';
+import { getAutoCompoundSingleTxb } from '@alphafi/alphafi-sdk/admin';
 import { Transaction } from '@mysten/sui/transactions';
 import { useSuiClient } from '@mysten/dapp-kit';
 
@@ -227,8 +240,7 @@ const suiClient = useSuiClient();
 const context = useMemo(() => new StrategyContext('mainnet', suiClient as any), [suiClient]);
 
 // Autocompound
-const gr = await groupedRewards([poolName], context);
-const tx = await getAutoCompoundSingleTxb(poolName, context, undefined, gr);
+const tx = await getAutoCompoundSingleTxb(poolName, context);
 if (tx) signAndExecuteTransaction({ transaction: tx });
 
 // Alpha Vault withdraw
