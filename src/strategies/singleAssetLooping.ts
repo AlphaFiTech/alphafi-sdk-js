@@ -527,7 +527,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
       throw new Error('No receipt found');
     }
     const alphalendClient = this.context.alphalendClient;
-    alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
+    await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
 
     let xTokens = this.coinAmountToXToken(options.amount);
     if (options.withdrawMax) {
