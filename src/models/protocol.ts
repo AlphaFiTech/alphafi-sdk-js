@@ -46,6 +46,7 @@ export class Protocol {
   /** Get initialized strategies, optionally filtered by type. */
   async getStrategies(strategiesType?: StrategyType[]): Promise<Map<string, Strategy>> {
     const poolLabels = await this.strategyContext.getPoolLabels();
+    console.log('poolLabels getStrategies', JSON.stringify(poolLabels, null, 2));
 
     // Filter by strategy types if specified
     const filteredLabels = strategiesType

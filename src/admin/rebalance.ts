@@ -4,6 +4,7 @@ import { AutobalanceLpPoolLabel, AutobalanceLpStrategy } from '../strategies/aut
 import { FungibleLpPoolLabel, FungibleLpStrategy } from '../strategies/fungibleLp.js';
 import { LpPoolLabel, LpStrategy } from '../strategies/lp.js';
 import { LyfPoolLabel, LyfStrategy } from '../strategies/lyf.js';
+import { getRebalanceCap } from './rebalanceCap.js';
 
 /**
  * Build a manual rebalance transaction for the given pool.
@@ -13,7 +14,7 @@ import { LyfPoolLabel, LyfStrategy } from '../strategies/lyf.js';
  */
 export async function getManualRebalanceUsingTicksTxb(
   poolName: string,
-  rebalanceCap: string,
+  address: string,
   lowerTick: string,
   upperTick: string,
   loops: number,
@@ -21,12 +22,21 @@ export async function getManualRebalanceUsingTicksTxb(
   swap_using_bluefin?: boolean,
   rebalance_using_base_pool?: boolean,
 ): Promise<Transaction | undefined> {
+  const rebalanceCap = await getRebalanceCap(address, context.blockchain.suiClient);
+  if (!rebalanceCap) {
+    throw new Error('No rebalance cap found for address');
+  }
+
   if (lowerTick === upperTick) {
     throw new Error(`lowerTick and upperTick must differ (got ${lowerTick})`);
   }
 
   const labels = await context.getPoolLabels();
-  const label = labels.get(poolName);
+
+  // If a pool name was passed instead of a pool ID, resolve it to the actual pool ID.
+  const resolvedPoolId = await context.getPoolIdByPoolName(poolName);
+
+  const label = labels.get(resolvedPoolId || '');
   if (!label) return undefined;
 
   const tx = new Transaction();
@@ -65,7 +75,14 @@ export async function getManualRebalanceUsingTicksTxb(
     case 'FungibleLp': {
       const fungibleLpLabel = label as FungibleLpPoolLabel;
       const strategy = new FungibleLpStrategy(fungibleLpLabel, {}, {}, {}, context);
-      await strategy.rebalanceFungibleLp(tx, fungibleLpLabel, rebalanceCap, lowerTick, upperTick, context);
+      await strategy.rebalanceFungibleLp(
+        tx,
+        fungibleLpLabel,
+        rebalanceCap,
+        lowerTick,
+        upperTick,
+        context,
+      );
       break;
     }
     case 'Lyf': {

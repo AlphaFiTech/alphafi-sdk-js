@@ -2337,6 +2337,160 @@ export class LpStrategy extends BaseStrategy<
     const blueSuiPool = await context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin');
     const deepSuiPool = await context.getPoolIdBySymbolsAndProtocol('DEEP', 'SUI', 'bluefin');
 
+    // ─── Cetus LP pools ───────────────────────────────────────────────────────
+    if (label.parentProtocol === 'Cetus') {
+      const coinAName = label.assetA.name;
+      const coinBName = label.assetB.name;
+      const cetusSuiPool = await context.getPoolIdBySymbolsAndProtocol('CETUS', 'SUI', 'cetus');
+
+      if (label.packageNumber === 2) {
+        // Old CETUS-SUI pool (package 2) – no separate reward-swap pool needed
+        tx.moveCall({
+          target: `${label.packageId}::alphafi_cetus_sui_investor::rebalance`,
+          typeArguments: [coinAType, coinBType],
+          arguments: [
+            tx.object(label.investorId),
+            tx.object(rebalanceCap),
+            tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.CETUS),
+            tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+            tx.pure.u32(lo),
+            tx.pure.u32(hi),
+            tx.pure.u32(loops),
+            tx.object(label.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+        tx.moveCall({
+          target: `${label.packageId}::alphafi_cetus_sui_pool::update_pool`,
+          typeArguments: [coinAType, coinBType],
+          arguments: [
+            tx.object(VERSIONS.ALPHA_VERSIONS[2]),
+            tx.object(label.poolId),
+            tx.object(label.investorId),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.CETUS),
+            tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+            tx.object(label.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+      } else if (coinBName === 'SUI') {
+        // Cetus pools where SUI is second coin
+        tx.moveCall({
+          target: `${label.packageId}::alphafi_cetus_sui_investor::rebalance`,
+          typeArguments: [coinAType, coinBType],
+          arguments: [
+            tx.object(label.investorId),
+            tx.object(rebalanceCap),
+            tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.CETUS),
+            tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+            tx.object(cetusSuiPool),
+            tx.pure.u32(lo),
+            tx.pure.u32(hi),
+            tx.pure.u32(loops),
+            tx.object(label.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+        tx.moveCall({
+          target: `${label.packageId}::alphafi_cetus_sui_pool::update_pool`,
+          typeArguments: [coinAType, coinBType],
+          arguments: [
+            tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+            tx.object(label.poolId),
+            tx.object(label.investorId),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.CETUS),
+            tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+            tx.object(cetusSuiPool),
+            tx.object(label.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+      } else if (['WUSDC-WBTC', 'USDC-USDT', 'USDC-WUSDC', 'USDC-ETH'].includes(poolName)) {
+        // Stable base-A pools
+        const coinASuiPool = await context.getPoolIdBySymbolsAndProtocol(coinAName, 'SUI', 'cetus');
+        tx.moveCall({
+          target: `${label.packageId}::alphafi_cetus_investor_base_a::rebalance`,
+          typeArguments: [coinAType, coinBType],
+          arguments: [
+            tx.object(label.investorId),
+            tx.object(rebalanceCap),
+            tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.CETUS),
+            tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+            tx.object(coinASuiPool),
+            tx.object(cetusSuiPool),
+            tx.pure.u32(lo),
+            tx.pure.u32(hi),
+            tx.pure.u32(loops),
+            tx.object(label.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+        tx.moveCall({
+          target: `${label.packageId}::alphafi_cetus_pool_base_a::update_pool`,
+          typeArguments: [coinAType, coinBType],
+          arguments: [
+            tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+            tx.object(label.poolId),
+            tx.object(label.investorId),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.CETUS),
+            tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+            tx.object(coinASuiPool),
+            tx.object(cetusSuiPool),
+            tx.object(label.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+      } else {
+        // Generic Cetus pool (coinB is not SUI)
+        const coinBSuiPool = await context.getPoolIdBySymbolsAndProtocol(coinBName, 'SUI', 'cetus');
+        tx.moveCall({
+          target: `${label.packageId}::alphafi_cetus_investor::rebalance`,
+          typeArguments: [coinAType, coinBType],
+          arguments: [
+            tx.object(label.investorId),
+            tx.object(rebalanceCap),
+            tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.CETUS),
+            tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+            tx.object(coinBSuiPool),
+            tx.object(cetusSuiPool),
+            tx.pure.u32(lo),
+            tx.pure.u32(hi),
+            tx.pure.u32(loops),
+            tx.object(label.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+        tx.moveCall({
+          target: `${label.packageId}::alphafi_cetus_pool::update_pool`,
+          typeArguments: [coinAType, coinBType],
+          arguments: [
+            tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+            tx.object(label.poolId),
+            tx.object(label.investorId),
+            tx.object(DISTRIBUTOR_OBJECT_ID),
+            tx.object(GLOBAL_CONFIGS.CETUS),
+            tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
+            tx.object(coinBSuiPool),
+            tx.object(cetusSuiPool),
+            tx.object(label.parentPoolId),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        });
+      }
+      return;
+    }
+
     if (poolName === 'BLUEFIN-SUI-USDC') {
       const bluefinSuiUsdc = label.parentPoolId;
       const cetusSuiUsdc = await context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus');
@@ -2780,6 +2934,90 @@ export class LpStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
+    } else if (poolName === 'BLUEFIN-WBTC-SUI') {
+      const cetusWbtcSui = await context.getPoolIdBySymbolsAndProtocol('WBTC', 'SUI', 'cetus');
+      tx.moveCall({
+        target: `${label.packageId}::alphafi_bluefin_sui_second_investor::rebalance_v3`,
+        typeArguments: [coinAType, coinBType, deepType, suiType],
+        arguments: [
+          tx.object(label.investorId),
+          tx.object(rebalanceCap),
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.pure.u32(lo),
+          tx.pure.u32(hi),
+          tx.pure.u32(loops),
+          tx.object(label.parentPoolId),
+          tx.object(cetusWbtcSui),
+          tx.object(deepSuiPool),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.pure.bool(swap_using_bluefin ?? false),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${label.packageId}::alphafi_bluefin_sui_second_pool::update_pool_v2`,
+        typeArguments: [coinAType, coinBType, deepType, suiType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(label.poolId),
+          tx.object(label.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(label.parentPoolId),
+          tx.object(deepSuiPool),
+          tx.object(cetusWbtcSui),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (poolName === 'BLUEFIN-DEEP-SUI') {
+      const cetusDeepSui = await context.getPoolIdBySymbolsAndProtocol('DEEP', 'SUI', 'cetus');
+      tx.moveCall({
+        target: `${label.packageId}::alphafi_bluefin_sui_second_investor::rebalance_v3`,
+        typeArguments: [coinAType, coinBType, deepType, suiType],
+        arguments: [
+          tx.object(label.investorId),
+          tx.object(rebalanceCap),
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.pure.u32(lo),
+          tx.pure.u32(hi),
+          tx.pure.u32(loops),
+          tx.object(label.parentPoolId),
+          tx.object(cetusDeepSui),
+          tx.object(deepSuiPool),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.pure.bool(swap_using_bluefin ?? false),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${label.packageId}::alphafi_bluefin_sui_second_pool::update_pool_v2`,
+        typeArguments: [coinAType, coinBType, deepType, suiType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(label.poolId),
+          tx.object(label.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(label.parentPoolId),
+          tx.object(deepSuiPool),
+          tx.object(cetusDeepSui),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
     } else if (poolName === 'BLUEFIN-BLUE-USDC') {
       const cetusBlueUsdc = await context.getPoolIdBySymbolsAndProtocol('BLUE', 'USDC', 'cetus');
       const cetusSuiUsdc = await context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus');
@@ -3088,6 +3326,67 @@ export class LpStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
+    } else if (poolName === 'BLUEFIN-SUIUSDT-USDC') {
+      const cetusUsdcSuiusdt = await context.getPoolIdBySymbolsAndProtocol('USDC', 'SUIUSDT', 'cetus');
+      const cetusSuiUsdc = await context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus');
+      const bluefinSuiusdtUsdc = label.parentPoolId;
+      tx.moveCall({
+        target: `${label.packageId}::alphafi_bluefin_type_1_investor::collect_and_swap_rewards_to_token_b_bluefin`,
+        typeArguments: [coinAType, coinBType, blueType, suiType],
+        arguments: [
+          tx.object(label.investorId),
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(bluefinSuiusdtUsdc),
+          tx.object(blueSuiPool),
+          tx.object(ADMIN.BLUEFIN_SUI_USDC_175_POOL),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${label.packageId}::alphafi_bluefin_type_1_investor::rebalance_v3`,
+        typeArguments: [coinAType, coinBType, blueType, suiType],
+        arguments: [
+          tx.object(label.investorId),
+          tx.object(rebalanceCap),
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.pure.u32(lo),
+          tx.pure.u32(hi),
+          tx.pure.u32(loops),
+          tx.object(bluefinSuiusdtUsdc),
+          tx.object(cetusUsdcSuiusdt),
+          tx.object(blueSuiPool),
+          tx.object(cetusSuiUsdc),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.pure.bool(swap_using_bluefin ?? false),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${label.packageId}::alphafi_bluefin_type_1_pool::update_pool_v2`,
+        typeArguments: [coinAType, coinBType, blueType, suiType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(label.poolId),
+          tx.object(label.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
+          tx.object(bluefinSuiusdtUsdc),
+          tx.object(blueSuiPool),
+          tx.object(cetusUsdcSuiusdt),
+          tx.object(cetusSuiUsdc),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
     } else if (poolName === 'BLUEFIN-STSUI-USDC') {
       // stSUI is first coin, USDC uses special 1.75% SUI-USDC Bluefin pool as swap route
       const cetusSuiUsdc = await context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus');
@@ -3144,7 +3443,11 @@ export class LpStrategy extends BaseStrategy<
       // stSUI is first coin; coinB-SUI cetus pool and SUI-coinB bluefin pool used as swap routes
       const coinBName = label.assetB.name;
       const cetusCoinBSui = await context.getPoolIdBySymbolsAndProtocol(coinBName, 'SUI', 'cetus');
-      const bluefinSuiCoinB = await context.getPoolIdBySymbolsAndProtocol('SUI', coinBName, 'bluefin');
+      const bluefinSuiCoinB = await context.getPoolIdBySymbolsAndProtocol(
+        'SUI',
+        coinBName,
+        'bluefin',
+      );
       tx.moveCall({
         target: `${label.packageId}::alphafi_bluefin_stsui_first_investor::rebalance`,
         typeArguments: [coinAType, coinBType, blueType],
@@ -3193,7 +3496,12 @@ export class LpStrategy extends BaseStrategy<
       // stSUI is second coin; coinA-SUI cetus pool and SUI-coinA bluefin pool used as swap routes
       const coinAName = label.assetA.name;
       const cetusCoinASui = await context.getPoolIdBySymbolsAndProtocol(coinAName, 'SUI', 'cetus');
-      const bluefinSuiCoinA = await context.getPoolIdBySymbolsAndProtocol('SUI', coinAName, 'bluefin', true);
+      const bluefinSuiCoinA = await context.getPoolIdBySymbolsAndProtocol(
+        'SUI',
+        coinAName,
+        'bluefin',
+        true,
+      );
       tx.moveCall({
         target: `${label.packageId}::alphafi_bluefin_stsui_second_investor::rebalance`,
         typeArguments: [coinAType, coinBType, blueType],
@@ -3235,6 +3543,41 @@ export class LpStrategy extends BaseStrategy<
           tx.object(STSUI.LST_INFO),
           tx.object(SUI_SYSTEM_STATE),
           tx.pure.bool(swap_using_bluefin ?? false),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    } else if (poolName === 'BLUEFIN-STSUI-SUI') {
+      tx.moveCall({
+        target: `${label.packageId}::alphafi_bluefin_stsui_sui_investor::rebalance`,
+        typeArguments: [coinAType, coinBType, blueType],
+        arguments: [
+          tx.object(label.investorId),
+          tx.object(rebalanceCap),
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.u32(lo),
+          tx.pure.u32(hi),
+          tx.object(label.parentPoolId),
+          tx.object(blueSuiPool),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      tx.moveCall({
+        target: `${label.packageId}::alphafi_bluefin_stsui_sui_pool::update_pool`,
+        typeArguments: [coinAType, coinBType, blueType],
+        arguments: [
+          tx.object(VERSIONS.ALPHA_VERSIONS[4]),
+          tx.object(label.poolId),
+          tx.object(label.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(label.parentPoolId),
+          tx.object(blueSuiPool),
+          tx.object(STSUI.LST_INFO),
+          tx.object(SUI_SYSTEM_STATE),
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });

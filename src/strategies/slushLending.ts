@@ -400,7 +400,7 @@ export class SlushLendingStrategy extends BaseStrategy<
   }
 
   async deposit(tx: Transaction, options: DepositOptions) {
-    const alphalendClient = new AlphalendClient('mainnet', this.context.blockchain.suiClient);
+    const alphalendClient = new AlphalendClient('mainnet');
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
 
     // Get coin object
@@ -452,7 +452,7 @@ export class SlushLendingStrategy extends BaseStrategy<
       throw new Error('No receipt found for withdraw');
     }
 
-    const alphalendClient = new AlphalendClient('mainnet', this.context.blockchain.suiClient);
+    const alphalendClient = new AlphalendClient('mainnet');
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
 
     let xTokenAmount = this.coinAmountToXToken(options.amount);
@@ -488,10 +488,7 @@ export class SlushLendingStrategy extends BaseStrategy<
     const coinType = this.poolLabel.asset.type;
 
     // Update Alphalend prices
-    const alphalendClient = new AlphalendClient(
-      this.context.blockchain.network,
-      this.context.blockchain.suiClient,
-    );
+    const alphalendClient = new AlphalendClient('mainnet');
     await alphalendClient.updatePrices(tx, [coinType]);
 
     // Collect rewards

@@ -7,7 +7,7 @@
  */
 export function toTwosComplementU32(tick: number): number {
   if (tick < 0) {
-    return (tick >>> 0) & 0xffffffff;
+    return tick >>> 0;
   }
   return tick;
 }

@@ -4,10 +4,11 @@ import { fromB64, normalizeStructTag } from '@mysten/sui/utils';
 import { SuiClient } from '@mysten/sui/client';
 import { Protocol } from '../src/models/protocol.js';
 import { Portfolio } from '../src/models/portfolio.js';
-import { AlphaFiSDK } from '../src/index.js';
+import { AlphaFiSDK, getManualRebalanceUsingTicksTxb, StrategyContext } from '../src/index.js';
 import dotenv from 'dotenv';
 import { Transaction } from '@mysten/sui/transactions';
 import * as fs from 'fs';
+import { log } from 'console';
 
 dotenv.config();
 
@@ -44,8 +45,8 @@ export function getExecStuff() {
   const suiClient = getSuiClient(process.env.NETWORK);
 
   return {
-    address,
-    // address: '0xfff7c25e859187dd8c164f5d52227f54ed33bc4595af73b81b2be3858be6b604',
+    // address,
+    address: '0xe25b5d16ca31ddfdc31a7219c90f88bdfc56b606c13df6619aef22515580e293',
     keypair,
     suiClient,
   };
@@ -64,7 +65,7 @@ export async function dryRunTransactionBlock(txb: Transaction, add?: string) {
       })
       .then((res) => {
         // console.log(JSON.stringify(res, null, 2));
-        console.log(res.effects.status, res.balanceChanges);
+        console.log(res.effects.status, res.balanceChanges, res.events);
       })
       .catch((error) => {
         console.error(error);
@@ -176,7 +177,7 @@ async function poolsData() {
     network: 'mainnet',
   });
   const data = await sdk.getSinglePoolData(
-    '0xccc08b2e42a88002b4bd505e7e0b5bed17079d4cafc2ccbe82da0172d5291867',
+    '0x594f13b8f287003fd48e4264e7056e274b84709ada31e3657f00eeedc1547e37',
   );
   console.log('data', data);
 }
@@ -259,8 +260,57 @@ async function claimAirdrop() {
   dryRunTransactionBlock(tx, address);
   // executeTransactionBlock(tx);
 }
+async function rebalance() {
+  const { address, keypair, suiClient } = getExecStuff();
+  const context = new StrategyContext('mainnet', suiClient);
+
+  const tx = await getManualRebalanceUsingTicksTxb(
+    // '0xf5e643282e76af102aada38c67aae7eaec1ba2fe3301871f9fcca482893f96f2',
+    'BLUEFIN-STSUI-SUI',
+    address,
+    '300',
+    '400',
+    15,
+    context,
+    true,
+    false,
+  );
+  if (tx) {
+    tx.setGasBudget(2e8);
+    dryRunTransactionBlock(tx, address);
+  }
+
+  // executeTransactionBlock(tx);
+}
+// async function getUserPortfolio() {
+//   const { address, keypair, suiClient } = getExecStuff();
+//   const sdk = new AlphaFiSDK({
+//     suiClient: suiClient,
+//     network: 'mainnet',
+//   });
+//   const res = await sdk.getUserPortfolio(address, ['SlushLending']);
+//   console.log('user portfolio', JSON.stringify(res, null, 2));
+// }
+// getUserPortfolio();
+// async function apiTest() {
+//   const response = await fetch('https://api.alphafi.xyz/public/config');
+//   const data = await response.json();
+//   console.log('response test', JSON.stringify(data, null, 2));
+// }
+// apiTest();
+// async function autocompound() {
+//   const { address, keypair, suiClient } = getExecStuff();
+//   const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
+//   const tx = await sdk.autocompound({
+//     poolId: '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
+//   });
+//   tx.setGasBudget(2e8);
+//   dryRunTransactionBlock(tx, address);
+// }
+// autocompound();
+rebalance();
 // claimAirdrop();
-withdraw();
+// withdraw();
 // poolsData();
 // portfolioData();
 // claimSlushWithdraw();

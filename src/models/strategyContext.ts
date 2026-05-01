@@ -21,6 +21,7 @@ import {
 } from '../utils/constants.js';
 import { getCanonicalPairKey, POOL_REGISTRY, ProtocolPoolIds } from '../utils/poolMap.js';
 import { Cache, SingletonCache } from '../utils/cache.js';
+import { log } from 'console';
 
 const DEFAULT_API_BASE_URL = 'https://api.alphafi.xyz';
 
@@ -86,6 +87,19 @@ export class StrategyContext {
       });
       return labels;
     });
+  }
+
+  /**
+   * Get a pool ID from a pool name.
+   * Searches the full labels map (cached) for the first entry whose poolName matches.
+   * Returns undefined when no pool with that name exists.
+   */
+  async getPoolIdByPoolName(poolName: string): Promise<string | undefined> {
+    const labels = await this.getPoolLabels();
+    for (const [poolId, label] of labels) {
+      if (label.poolName === poolName) return poolId;
+    }
+    return undefined;
   }
 
   /**
@@ -187,7 +201,6 @@ export class StrategyContext {
         poolLabels.set(label.poolId, label);
       }
     }
-
     return poolLabels;
   }
 
@@ -515,7 +528,7 @@ export class StrategyContext {
 
   private async fetchAlphaLendTvl(): Promise<Map<string, Decimal>> {
     const tvlMap = new Map<string, Decimal>();
-    const alphalendClient = new AlphalendClient('mainnet', this.blockchain.suiClient);
+    const alphalendClient = new AlphalendClient('mainnet');
     const markets = await alphalendClient.getAllMarkets({
       useCache: true,
       cacheTTL: CACHE_TTL.ALPHALEND_MARKETS,

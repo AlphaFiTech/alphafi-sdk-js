@@ -327,10 +327,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
       suibtcCoin,
       xaumCoin,
     ].map((entry) => entry.coinType);
-    const alphalendClient = new AlphalendClient(
-      this.context.blockchain.network,
-      this.context.blockchain.suiClient,
-    );
+    const alphalendClient = new AlphalendClient('mainnet');
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
     const positionId = this.investorObject.positionCap.positionId;
     let portfolio = await alphalendClient.getUserPortfolioFromPosition(positionId);
@@ -490,10 +487,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
   }
 
   async deposit(tx: Transaction, options: DepositOptions) {
-    const alphalendClient = new AlphalendClient(
-      this.context.blockchain.network,
-      this.context.blockchain.suiClient,
-    );
+    const alphalendClient = new AlphalendClient('mainnet');
 
     // get Coin Object
     const depositCoin = await this.context.blockchain.getCoinObject(
@@ -533,10 +527,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
     if (this.receiptObjects.length === 0) {
       throw new Error('No receipt found');
     }
-    const alphalendClient = new AlphalendClient(
-      this.context.blockchain.network,
-      this.context.blockchain.suiClient,
-    );
+    const alphalendClient = new AlphalendClient('mainnet');
     alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
 
     let xTokens = this.coinAmountToXToken(options.amount);

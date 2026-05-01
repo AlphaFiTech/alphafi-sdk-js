@@ -874,7 +874,7 @@ export class LoopingStrategy extends BaseStrategy<
         'ALPHA',
         'BLUE',
       ]);
-      const alphalendClient = new AlphalendClient('mainnet', this.context.blockchain.suiClient);
+      const alphalendClient = new AlphalendClient('mainnet');
       await alphalendClient.updatePrices(tx, [stsuiCoin.coinType, suiCoin.coinType]);
 
       tx.moveCall({
