@@ -157,6 +157,9 @@ const sdk = new AlphaFiSDK({
 });
 ```
 
+Under the hood, strategies now use a shared context-level AlphaLend client and resolve AlphaLend
+constants from the active SDK network instead of hardcoded mainnet assumptions.
+
 #### Core Methods
 
 ##### getPoolsData(strategiesType?: StrategyType[]): Promise\<Map\<string, PoolData>>

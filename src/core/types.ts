@@ -12,7 +12,7 @@ import { Network } from '@alphafi/alphalend-sdk';
 export interface AlphaFiSDKConfig {
   /** Target Sui network environment */
   network: Network;
-  /** Sui blockchain client for network operations */
+  /** Optional Sui GraphQL endpoint override for network operations */
   graphqlUrl?: string;
   /** Base URL for the AlphaFi API (defaults to 'https://api.alphafi.xyz') */
   apiBaseUrl?: string;

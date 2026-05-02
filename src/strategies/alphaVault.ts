@@ -17,7 +17,7 @@ import {
   POOLS,
   VERSIONS,
 } from '../utils/constants.js';
-import { AlphalendClient, getConstants, getUserPositionCapId } from '@alphafi/alphalend-sdk';
+import { getConstants, getUserPositionCapId } from '@alphafi/alphalend-sdk';
 
 /**
  * AlphaVault Strategy
@@ -917,10 +917,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
   }
 
   async claimAirdrop(tx: Transaction, address: string, transferToWallet: boolean) {
-    const alphalendClient = new AlphalendClient(
-      this.context.blockchain.network,
-      this.context.blockchain.graphqlUrl,
-    );
+    const alphalendClient = this.context.alphalendClient;
     let airdropCoin;
     const [suiCoin, alphaCoin] = await this.context.getCoinsBySymbols(['SUI', 'ALPHA']);
     const airdropCoinMarketId = '1';
@@ -1013,7 +1010,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
 
     if (!transferToWallet) {
       await alphalendClient.updatePrices(tx, ['0x2::sui::SUI']);
-      const alphalendConstants = getConstants('mainnet');
+      const alphalendConstants = getConstants(this.context.blockchain.network);
       const userPositionCapId = await getUserPositionCapId(
         this.context.alphalendClient.blockchain,
         address,
