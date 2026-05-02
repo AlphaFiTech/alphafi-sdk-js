@@ -8,36 +8,36 @@ import { graphql } from '@mysten/sui/graphql/schemas/latest';
 import { Transaction } from '@mysten/sui/transactions';
 import { toBase64 } from '@mysten/sui/utils';
 import type { SimulationGasSummary, SimulationResult } from './types.js';
+import { Network } from '@alphafi/alphalend-sdk';
 
 export type BlockchainOptions = {
-  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
-  suiClient?: SuiClient;
-  gqlClient?: SuiGraphQLClient<any>;
+  network: Network;
+  txBuildClient?: SuiClient;
+  graphqlUrl?: string;
 };
 
 export class Blockchain {
-  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
-  gqlClient: SuiGraphQLClient<any>;
-  suiClient: SuiClient;
+  network: Network;
+  graphqlUrl: string;
+  gqlClient: SuiGraphQLClient;
+  txBuildClient: SuiClient;
 
   constructor(options: BlockchainOptions) {
     this.network = options.network;
-    this.suiClient =
-      options.suiClient ||
-      new SuiClient({
-        url:
-          options.network === 'testnet'
-            ? 'https://fullnode.testnet.sui.io/'
-            : 'https://fullnode.mainnet.sui.io/',
-      });
-    this.gqlClient =
-      options.gqlClient ||
-      new SuiGraphQLClient({
-        url:
-          options.network === 'testnet'
-            ? 'https://graphql.testnet.sui.io/graphql'
-            : 'https://graphql.mainnet.sui.io/graphql',
-      });
+    this.graphqlUrl =
+      options.graphqlUrl ??
+      (options.network === 'testnet'
+        ? 'https://graphql.testnet.sui.io/graphql'
+        : 'https://graphql.mainnet.sui.io/graphql');
+    this.txBuildClient = new SuiClient({
+      url:
+        options.network === 'testnet'
+          ? 'https://fullnode.testnet.sui.io/'
+          : 'https://fullnode.mainnet.sui.io/',
+    });
+    this.gqlClient = new SuiGraphQLClient({
+      url: this.graphqlUrl,
+    });
   }
 
   async getCoinObject(tx: Transaction, coinType: string, address: string, amount?: bigint) {
@@ -126,7 +126,7 @@ export class Blockchain {
     sender: string,
   ): Promise<SimulationResult | undefined> {
     tx.setSenderIfNotSet(sender);
-    const txBytes = await tx.build({ client: this.suiClient });
+    const txBytes = await tx.build({ client: this.txBuildClient });
     const txBase64 = toBase64(txBytes);
 
     const query = graphql(`

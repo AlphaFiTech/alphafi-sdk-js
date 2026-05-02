@@ -21,7 +21,6 @@ import {
   VERSIONS,
   WORMHOLE_STATE_ID,
 } from '../utils/constants.js';
-import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
 import { SuiPriceServiceConnection, SuiPythClient } from '@pythnetwork/pyth-sui-js';
 
@@ -573,7 +572,7 @@ export class LoopingStrategy extends BaseStrategy<
 
   private async updateSingleTokenPrice(tx: Transaction, pythPriceInfo: string, feedId: string) {
     const pythClient = new SuiPythClient(
-      this.context.blockchain.suiClient,
+      this.context.blockchain.txBuildClient,
       PYTH_STATE_ID,
       WORMHOLE_STATE_ID,
     );
@@ -873,7 +872,7 @@ export class LoopingStrategy extends BaseStrategy<
         'ALPHA',
         'BLUE',
       ]);
-      const alphalendClient = new AlphalendClient('mainnet', this.context.blockchain.suiClient);
+      const alphalendClient = this.context.alphalendClient;
       await alphalendClient.updatePrices(tx, [stsuiCoin.coinType, suiCoin.coinType]);
 
       tx.moveCall({
