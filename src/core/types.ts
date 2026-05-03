@@ -2,19 +2,18 @@
  * Core types and configuration interfaces for the AlphaFi SDK.
  * These types define the structure for all SDK operations.
  */
-
-import { SuiClient } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
 import { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
+import { Network } from '@alphafi/alphalend-sdk';
 
 /**
  * Configuration required to initialize the AlphaFi SDK.
  */
 export interface AlphaFiSDKConfig {
-  /** Sui blockchain client for network operations */
-  suiClient: SuiClient;
   /** Target Sui network environment */
-  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+  network: Network;
+  /** Optional Sui GraphQL endpoint override for network operations */
+  graphqlUrl?: string;
   /** Base URL for the AlphaFi API (defaults to 'https://api.alphafi.xyz') */
   apiBaseUrl?: string;
 }
@@ -187,8 +186,6 @@ export interface CreateTransferRequestOptions {
   receiptId: string;
   /** Wallet address of the intended recipient */
   receiver: string;
-  /** Sender's wallet address */
-  address: string;
   /** Optional existing transaction to append to (for PTB composition) */
   tx?: Transaction;
 }

@@ -68,7 +68,11 @@ export class AlphaFiSDK {
 
   constructor(config: AlphaFiSDKConfig) {
     this.config = config;
-    this.strategyContext = new StrategyContext(config.network, config.suiClient, config.apiBaseUrl);
+    this.strategyContext = new StrategyContext(
+      config.network,
+      config.graphqlUrl,
+      config.apiBaseUrl,
+    );
     this.protocol = new Protocol(this.strategyContext);
     this.portfolio = new Portfolio(this.protocol, this.strategyContext);
   }
