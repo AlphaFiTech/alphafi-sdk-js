@@ -9,17 +9,9 @@ import { Blockchain } from './blockchain.js';
 import { CoinInfoProvider } from './coinInfoProvider.js';
 import { PoolLabel, StrategyType } from '../strategies/strategy.js';
 import { Decimal } from 'decimal.js';
-import { AlphalendClient } from '@alphafi/alphalend-sdk';
-import {
-  AlphaFiReceipt,
-  AprData,
-  CoinInfo,
-  DistributorObject,
-  SlushPositionCap,
-  TransferRequest,
-} from './types.js';
+import { AlphalendClient, Network } from '@alphafi/alphalend-sdk';
+import { AlphaFiReceipt, AprData, CoinInfo, DistributorObject, SlushPositionCap } from './types.js';
 import { normalizeStructTag } from '@mysten/sui/utils';
-import { SuiClient, SuiObjectData } from '@mysten/sui/client/index.js';
 import {
   ALPHAFI_RECEIPT_TYPE,
   CACHE_TTL,
@@ -35,6 +27,7 @@ export class StrategyContext {
   readonly apiBaseUrl: string;
   blockchain: Blockchain;
   coinInfoProvider: CoinInfoProvider;
+  alphalendClient: AlphalendClient;
 
   // Singleton caches for global data
   private allPoolLabelsCache: SingletonCache<Map<string, PoolLabel>>; // For bulk fetches
@@ -51,14 +44,11 @@ export class StrategyContext {
   private slushPositionsCache: Cache<string, Map<string, any[]>>;
   private alphaFiPositionsCache: Cache<string, Map<string, any[]>>;
 
-  constructor(
-    network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
-    suiClient: SuiClient,
-    apiBaseUrl?: string,
-  ) {
+  constructor(network: Network, graphqlUrl?: string, apiBaseUrl?: string) {
     this.apiBaseUrl = apiBaseUrl ?? DEFAULT_API_BASE_URL;
-    this.blockchain = new Blockchain({ network, suiClient });
+    this.blockchain = new Blockchain({ network, graphqlUrl });
     this.coinInfoProvider = new CoinInfoProvider();
+    this.alphalendClient = new AlphalendClient(network, graphqlUrl);
 
     // Initialize singleton caches with appropriate TTLs
     this.allPoolLabelsCache = new SingletonCache(CACHE_TTL.POOL_LABELS);
@@ -522,8 +512,7 @@ export class StrategyContext {
 
   private async fetchAlphaLendTvl(): Promise<Map<string, Decimal>> {
     const tvlMap = new Map<string, Decimal>();
-    const alphalendClient = new AlphalendClient('mainnet', this.blockchain.suiClient);
-    const markets = await alphalendClient.getAllMarkets({
+    const markets = await this.alphalendClient.getAllMarkets({
       useCache: true,
       cacheTTL: CACHE_TTL.ALPHALEND_MARKETS,
     });

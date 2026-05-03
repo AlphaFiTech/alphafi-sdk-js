@@ -19,7 +19,6 @@ import {
   SUI_SYSTEM_STATE,
   VERSIONS,
 } from '../utils/constants.js';
-import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import { getConf as getStsuiConf } from '@alphafi/stsui-sdk';
 
 /**
@@ -662,7 +661,7 @@ export class LyfStrategy extends BaseStrategy<
 
     await this.collectAndSwapRewards(tx);
 
-    const alphalendClient = new AlphalendClient('mainnet', this.context.blockchain.suiClient);
+    const alphalendClient = this.context.alphalendClient;
     await alphalendClient.updatePrices(tx, [
       this.poolLabel.assetA.type,
       this.poolLabel.assetB.type,
