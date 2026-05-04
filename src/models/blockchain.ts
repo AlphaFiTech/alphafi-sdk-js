@@ -1,46 +1,241 @@
-import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
+/**
+ * Blockchain interface wrapper for Sui network operations using GraphQL and JSON-RPC clients.
+ */
+
+import { SuiClient } from '@mysten/sui/client';
 import { SuiGraphQLClient } from '@mysten/sui/graphql';
 import { graphql } from '@mysten/sui/graphql/schemas/latest';
 import { Transaction } from '@mysten/sui/transactions';
+import { toBase64 } from '@mysten/sui/utils';
+import type { SimulationGasSummary, SimulationResult } from './types.js';
+import { Network } from '@alphafi/alphalend-sdk';
+
+export type BlockchainOptions = {
+  network: Network;
+  txBuildClient?: SuiClient;
+  graphqlUrl?: string;
+};
 
 export class Blockchain {
-  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
-  gqlClient: SuiGraphQLClient<any>;
-  suiClient: SuiClient;
+  network: Network;
+  graphqlUrl: string;
+  gqlClient: SuiGraphQLClient;
+  txBuildClient: SuiClient;
 
-  constructor(network: 'mainnet' | 'testnet' | 'devnet' | 'localnet') {
-    this.network = network;
-    this.suiClient = new SuiClient({
-      url: getFullnodeUrl(network),
+  constructor(options: BlockchainOptions) {
+    this.network = options.network;
+    this.graphqlUrl =
+      options.graphqlUrl ??
+      (options.network === 'testnet'
+        ? 'https://graphql.testnet.sui.io/graphql'
+        : 'https://graphql.mainnet.sui.io/graphql');
+    this.txBuildClient = new SuiClient({
+      url:
+        options.network === 'testnet'
+          ? 'https://fullnode.testnet.sui.io/'
+          : 'https://fullnode.mainnet.sui.io/',
     });
     this.gqlClient = new SuiGraphQLClient({
-      url:
-        network === 'testnet'
-          ? 'https://graphql.testnet.sui.io/graphql'
-          : 'https://graphql.mainnet.sui.io/graphql',
+      url: this.graphqlUrl,
     });
   }
 
-  /**
-   * Get estimated gas budget for a transaction
-   */
+  async getCoinObject(tx: Transaction, coinType: string, address: string, amount?: bigint) {
+    if (this.isCoinTypeSui(coinType)) {
+      if (amount) {
+        return tx.splitCoins(tx.gas, [amount]);
+      } else {
+        return tx.gas;
+      }
+    }
+
+    const query = graphql(`
+      query getCoins($address: SuiAddress!, $coinType: String!, $cursor: String) {
+        address(address: $address) {
+          objects(after: $cursor, filter: { type: $coinType }) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              address
+            }
+          }
+        }
+      }
+    `);
+
+    const wrappedCoinType = `0x2::coin::Coin<${coinType}>`;
+    let currentCursor: string | null | undefined = null;
+    const coinObjectIds: string[] = [];
+    do {
+      const response: any = await this.gqlClient.query({
+        query,
+        variables: { address, coinType: wrappedCoinType, cursor: currentCursor },
+      });
+      const objects: any = response.data?.address?.objects;
+      if (objects?.nodes) {
+        for (const node of objects.nodes) {
+          if (node?.address) {
+            coinObjectIds.push(node.address);
+          }
+        }
+      }
+      if (objects?.pageInfo?.hasNextPage && objects.pageInfo.endCursor) {
+        currentCursor = objects.pageInfo.endCursor;
+      } else break;
+    } while (true);
+
+    if (coinObjectIds.length === 0) {
+      throw new Error(`No coins found for ${coinType} for owner ${address}`);
+    }
+
+    const [coin] = tx.splitCoins(tx.object(coinObjectIds[0]), [0]);
+    tx.mergeCoins(coin, coinObjectIds);
+
+    if (amount) {
+      const returnCoin = tx.splitCoins(coin, [amount]);
+      tx.transferObjects([coin], address);
+      return returnCoin;
+    } else {
+      return coin;
+    }
+  }
+
+  getOptionReceipt(tx: Transaction, receiptType: string, receiptId?: string) {
+    let receiptOption;
+    if (receiptId) {
+      receiptOption = tx.moveCall({
+        target: `0x1::option::some`,
+        typeArguments: [receiptType],
+        arguments: [tx.object(receiptId)],
+      });
+    } else {
+      receiptOption = tx.moveCall({
+        target: `0x1::option::none`,
+        typeArguments: [receiptType],
+        arguments: [],
+      });
+    }
+    return receiptOption;
+  }
+
+  /** Simulate a transaction via GraphQL and return a typed simulation result. */
+  async simulateTransaction(
+    tx: Transaction,
+    sender: string,
+  ): Promise<SimulationResult | undefined> {
+    tx.setSenderIfNotSet(sender);
+    const txBytes = await tx.build({ client: this.txBuildClient });
+    const txBase64 = toBase64(txBytes);
+
+    const query = graphql(`
+      query simulate($tx: JSON!) {
+        simulateTransaction(transaction: $tx, checksEnabled: true, doGasSelection: false) {
+          effects {
+            status
+            balanceChangesJson
+            gasEffects {
+              gasSummary {
+                computationCost
+                storageCost
+                storageRebate
+                nonRefundableStorageFee
+              }
+            }
+          }
+          outputs {
+            returnValues {
+              argument {
+                __typename
+              }
+              value {
+                type {
+                  repr
+                }
+                json
+                display {
+                  output
+                }
+              }
+            }
+          }
+        }
+      }
+    `);
+
+    const result = await this.gqlClient.query({
+      query,
+      variables: { tx: { bcs: { value: txBase64 } } },
+    });
+
+    return result.data?.simulateTransaction as SimulationResult | undefined;
+  }
+
+  /** Estimate gas budget for transaction execution. */
   async getEstimatedGasBudget(tx: Transaction, sender: string): Promise<number | undefined> {
     try {
-      const simResult = await this.suiClient.devInspectTransactionBlock({
-        transactionBlock: tx,
-        sender,
-      });
-      return (
-        Number(simResult.effects.gasUsed.computationCost) +
-        Number(simResult.effects.gasUsed.nonRefundableStorageFee) +
-        1e8
-      );
+      const simResult = await this.simulateTransaction(tx, sender);
+      const gasSummary: SimulationGasSummary | null | undefined =
+        simResult?.effects?.gasEffects?.gasSummary;
+      if (!gasSummary) {
+        throw new Error('Simulation returned no gas summary');
+      }
+      return Number(gasSummary.computationCost) + Number(gasSummary.nonRefundableStorageFee) + 1e8;
     } catch (err) {
       console.error(`Error estimating transaction gasBudget`, err);
       return undefined;
     }
   }
 
+  /** Get all coin balances owned by an address using GraphQL, paginated. */
+  async getAllBalances(address: string): Promise<{ coinType: string; totalBalance: string }[]> {
+    const query = graphql(`
+      query getBalances($address: SuiAddress!, $cursor: String) {
+        address(address: $address) {
+          balances(after: $cursor) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              coinType {
+                repr
+              }
+              coinBalance
+            }
+          }
+        }
+      }
+    `);
+
+    const balances: { coinType: string; totalBalance: string }[] = [];
+    let currentCursor: string | null | undefined = null;
+    do {
+      const response: any = await this.gqlClient.query({
+        query,
+        variables: { address, cursor: currentCursor },
+      });
+      const balancesConn: any = response.data?.address?.balances;
+      if (balancesConn?.nodes) {
+        for (const node of balancesConn.nodes) {
+          if (node?.coinType?.repr && node?.coinBalance) {
+            balances.push({
+              coinType: node.coinType.repr,
+              totalBalance: node.coinBalance,
+            });
+          }
+        }
+      }
+      if (balancesConn?.pageInfo?.hasNextPage && balancesConn.pageInfo.endCursor) {
+        currentCursor = balancesConn.pageInfo.endCursor;
+      } else break;
+    } while (true);
+
+    return balances;
+  }
+
+  /** Get object contents by ID using GraphQL. */
   async getObject(objectId: string) {
     const query = graphql(`
       query getObject($objectId: SuiAddress!) {
@@ -62,10 +257,16 @@ export class Blockchain {
     return result.data?.object?.asMoveObject?.contents?.json;
   }
 
-  async multiGetObjects(objectIds: string[]) {
+  /** Get multiple objects in batches using GraphQL. */
+  async multiGetObjects(objectIds: string[]): Promise<Map<string, any>> {
+    if (objectIds.length === 0) {
+      return new Map();
+    }
+
     const query = graphql(`
       query multiGetObjects($objectIds: [ObjectKey!]!) {
         multiGetObjects(keys: $objectIds) {
+          address
           asMoveObject {
             contents {
               json
@@ -75,14 +276,33 @@ export class Blockchain {
       }
     `);
 
-    const result = await this.gqlClient.query({
-      query,
-      variables: { objectIds: objectIds.map((id) => ({ address: id })) },
+    const batches: string[][] = [];
+    for (let i = 0; i < objectIds.length; i += 50) {
+      batches.push(objectIds.slice(i, i + 50));
+    }
+
+    const resMap: Map<string, any> = new Map();
+    const results = await Promise.all(
+      batches.map((batch) =>
+        this.gqlClient.query({
+          query,
+          variables: { objectIds: batch.map((id) => ({ address: id })) },
+        }),
+      ),
+    );
+
+    results.forEach((result) => {
+      result.data?.multiGetObjects?.forEach((obj) => {
+        if (obj) {
+          resMap.set(obj.address, obj.asMoveObject?.contents?.json);
+        }
+      });
     });
 
-    return result.data?.multiGetObjects?.map((obj) => obj?.asMoveObject?.contents?.json);
+    return resMap;
   }
 
+  /** Get receipt objects owned by address for specific type. */
   async getReceipt(address: string, type: string) {
     const query = graphql(`
       query getReceipt($address: SuiAddress!, $type: String!) {
@@ -106,7 +326,12 @@ export class Blockchain {
     return result.data?.objects?.nodes.map((obj) => obj?.asMoveObject?.contents?.json);
   }
 
+  /** Get receipt objects for multiple types in batches. */
   async multiGetReceipts(address: string, types: string[]) {
+    if (types.length === 0) {
+      return new Map();
+    }
+
     const batches: string[][] = [];
     for (let i = 0; i < types.length; i += 10) {
       batches.push(types.slice(i, i + 10));
@@ -139,6 +364,7 @@ export class Blockchain {
     return receiptsMap;
   }
 
+  /** Generate dynamic GraphQL query for multiple receipt types. */
   private getMultiReceiptsQuery(types: string[]) {
     let char = 65;
     let query = `query multiGetReceipts($address: SuiAddress!) {`;
@@ -164,5 +390,12 @@ export class Blockchain {
 
     query += `}`;
     return graphql(query);
+  }
+
+  private isCoinTypeSui(coinType: string) {
+    return (
+      coinType === '0x2::sui::SUI' ||
+      coinType === '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'
+    );
   }
 }

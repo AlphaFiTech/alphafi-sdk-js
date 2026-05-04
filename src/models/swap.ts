@@ -4,10 +4,8 @@ import {
   // getAllProviders,
   getProvidersExcluding,
 } from '@cetusprotocol/aggregator-sdk';
-import { Transaction } from '@mysten/sui/transactions';
-
-// Re-export RouterDataV3 type for external use
-export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
+import { Transaction, TransactionObjectArgument } from '@mysten/sui/transactions';
+import BN from 'bn.js';
 
 export class CetusSwap {
   network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
@@ -24,6 +22,7 @@ export class CetusSwap {
     from: string,
     target: string,
     amount: string,
+    byAmountIn: boolean,
   ): Promise<RouterDataV3 | undefined> {
     try {
       // const providers = getAllProviders();
@@ -40,7 +39,7 @@ export class CetusSwap {
         from,
         target,
         amount,
-        byAmountIn: true, // `true` means fix input amount, `false` means fix output amount
+        byAmountIn, // `true` means fix input amount, `false` means fix output amount
         providers: providersExcept,
         splitCount: 15,
       });
@@ -52,18 +51,49 @@ export class CetusSwap {
     }
   }
 
-  async cetusSwapTokensTxb(router: RouterDataV3, slippage: number): Promise<Transaction> {
+  async cetusSimpleSwapTokensTxb(
+    router: RouterDataV3,
+    slippage: number,
+    existingTx?: Transaction,
+  ): Promise<Transaction> {
     try {
       if (!router) {
         throw new Error('No routers found');
       }
-      const txb = new Transaction();
+      const txb = existingTx || new Transaction();
       await this.client.fastRouterSwap({
         router,
         txb,
         slippage: slippage || 0.01, // 1% slippage
       });
       return txb;
+    } catch (error) {
+      console.error('Error swapping tokens in cetus swap', error);
+      throw error;
+    }
+  }
+
+  async cetusSwapTokensTxb(
+    router: RouterDataV3,
+    slippage: number,
+    inputCoin: TransactionObjectArgument | string,
+    txb: Transaction,
+  ): Promise<{ tx: Transaction; coinOut: TransactionObjectArgument }> {
+    try {
+      if (!router) {
+        throw new Error('No routers found');
+      }
+
+      // Use routerSwapWithMaxAmountIn when explicit coin control is needed
+      const coinOut = await this.client.routerSwapWithMaxAmountIn({
+        router,
+        txb,
+        inputCoin: inputCoin as TransactionObjectArgument,
+        slippage: slippage || 0.01,
+        maxAmountIn: new BN(router.amountIn.toString()),
+      });
+
+      return { tx: txb, coinOut };
     } catch (error) {
       console.error('Error swapping tokens in cetus swap', error);
       throw error;

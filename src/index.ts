@@ -6,3 +6,4 @@
 
 // Export core modules
 export * from './core/index.js';
+export * from './core/types.js';
