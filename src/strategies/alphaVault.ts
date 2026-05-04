@@ -783,7 +783,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
       return '0';
     }
     const position = await this.context.blockchain.getObject(entry.key);
-    return (position as any).data?.content.fields.xtokens.toString();
+    return (position as any).xtokens.toString();
   }
 
   async withdraw(tx: Transaction, options: WithdrawOptions) {
@@ -792,7 +792,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
     const legacyReceipt =
       this.legacyReceiptObjects.length > 0 ? this.legacyReceiptObjects[0] : undefined;
     if (alphafiReceipts.length === 0 && !legacyReceipt) {
-      throw new Error(`No AlphaFi receipts or receit found for address ${address}`);
+      throw new Error(`No AlphaFi receipts or receipt found for address ${address}`);
     }
 
     // Calculate xtokens based on amount or withdrawMax
