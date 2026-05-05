@@ -783,7 +783,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
       return '0';
     }
     const position = await this.context.blockchain.getObject(entry.key);
-    return (position as any).data?.content.fields.xtokens.toString();
+    return (position as any).xtokens.toString();
   }
 
   async withdraw(tx: Transaction, options: WithdrawOptions) {
