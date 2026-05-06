@@ -398,11 +398,11 @@ export class Blockchain {
     keyTypeFragment: string,
   ): Promise<SuiObjectData | null> {
     try {
-      const fields = await this.suiClient.getDynamicFields({ parentId });
+      const fields = await this.txBuildClient.getDynamicFields({ parentId });
       const match = fields.data.find((f) => f.name.type.includes(keyTypeFragment));
       if (!match) return null;
 
-      const obj = await this.suiClient.getObject({
+      const obj = await this.txBuildClient.getObject({
         id: match.objectId,
         options: { showContent: true },
       });

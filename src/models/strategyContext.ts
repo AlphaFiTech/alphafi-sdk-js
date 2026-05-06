@@ -9,11 +9,20 @@ import { Blockchain } from './blockchain.js';
 import { CoinInfoProvider } from './coinInfoProvider.js';
 import { PoolLabel, StrategyType } from '../strategies/strategy.js';
 import { Decimal } from 'decimal.js';
+import { SuiObjectData } from '@mysten/sui/client/index.js';
 import { AlphalendClient, Network } from '@alphafi/alphalend-sdk';
-import { AlphaFiReceipt, AprData, CoinInfo, DistributorObject, SlushPositionCap } from './types.js';
+import {
+  AlphaFiReceipt,
+  AprData,
+  CoinInfo,
+  DistributorObject,
+  SlushPositionCap,
+  TransferRequest,
+} from './types.js';
 import { normalizeStructTag } from '@mysten/sui/utils';
 import {
   ALPHAFI_RECEIPT_TYPE,
+  ALPHAFI_TRANSFER_REQUEST_KEY_TYPE,
   CACHE_TTL,
   DISTRIBUTOR_OBJECT_ID,
   SLUSH_POSITION_CAP_TYPE,
@@ -867,7 +876,7 @@ export class StrategyContext {
     const transferRequests = await Promise.all(
       receipts.map((r) =>
         r.id
-          ? this.blockchain.getDynamicFieldByKeyType(r.id, 'TransferRequestKey')
+          ? this.blockchain.getDynamicFieldByKeyType(r.id, ALPHAFI_TRANSFER_REQUEST_KEY_TYPE)
           : Promise.resolve(null),
       ),
     );

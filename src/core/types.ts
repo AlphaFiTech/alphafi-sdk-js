@@ -186,8 +186,6 @@ export interface CreateTransferRequestOptions {
   receiptId: string;
   /** Wallet address of the intended recipient */
   receiver: string;
-  /** Sender's wallet address */
-  address: string;
   /** Optional existing transaction to append to (for PTB composition) */
   tx?: Transaction;
 }
