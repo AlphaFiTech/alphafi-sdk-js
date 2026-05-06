@@ -259,10 +259,21 @@ async function claimAirdrop() {
   dryRunTransactionBlock(tx, address);
   // executeTransactionBlock(tx);
 }
+async function createTransferRequestAlphaFiReceipt() {
+  const { address, keypair, suiClient } = getExecStuff();
+  const sdk = new AlphaFiSDK({ network: 'mainnet' });
+  const receiptId = '0x79a5074ce093b48117613663e0f48b44859c65160271b84586ab4fefcf6fd232';
+  const tx = sdk.createTransferRequest({
+    receiptId,
+    receiver: '0xdc2e499e0b56d97399fd160b9374820010b6f153a01396c1c80ca3401acfe273',
+  });
+  dryRunTransactionBlock(tx);
+}
 // claimAirdrop();
-withdraw();
+// withdraw();
 // poolsData();
 // portfolioData();
 // claimSlushWithdraw();
 // deposit();
 // cancelSlushWithdraw();
+createTransferRequestAlphaFiReceipt();
