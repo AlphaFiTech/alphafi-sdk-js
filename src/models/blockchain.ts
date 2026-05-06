@@ -2,7 +2,7 @@
  * Blockchain interface wrapper for Sui network operations using GraphQL and JSON-RPC clients.
  */
 
-import { SuiClient } from '@mysten/sui/client';
+import { SuiClient, SuiObjectData } from '@mysten/sui/client';
 import { SuiGraphQLClient } from '@mysten/sui/graphql';
 import { graphql } from '@mysten/sui/graphql/schemas/latest';
 import { Transaction } from '@mysten/sui/transactions';
@@ -390,6 +390,27 @@ export class Blockchain {
 
     query += `}`;
     return graphql(query);
+  }
+
+  /** Returns the object data of the first dynamic field whose key type contains `keyTypeFragment`, or null. */
+  async getDynamicFieldByKeyType(
+    parentId: string,
+    keyTypeFragment: string,
+  ): Promise<SuiObjectData | null> {
+    try {
+      const fields = await this.txBuildClient.getDynamicFields({ parentId });
+      const match = fields.data.find((f) => f.name.type.includes(keyTypeFragment));
+      if (!match) return null;
+
+      const obj = await this.txBuildClient.getObject({
+        id: match.objectId,
+        options: { showContent: true },
+      });
+      return obj?.data ?? null;
+    } catch (err) {
+      console.error('[AlphaFiSDK] getDynamicFieldByKeyType error:', err);
+      return null;
+    }
   }
 
   private isCoinTypeSui(coinType: string) {

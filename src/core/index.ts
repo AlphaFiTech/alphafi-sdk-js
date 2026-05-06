@@ -12,6 +12,7 @@ import { CetusSwap } from '../models/swap.js';
 import type { AlphaFiReceipt, PoolBalance, PoolData, UserPortfolioData } from '../models/types.js';
 import {
   AlphaFiSDKConfig,
+  CancelTransferRequestOptions,
   CancelWithdrawSlushOptions,
   CetusSwapOptions,
   CetusSwapQuoteOptions,
@@ -19,12 +20,19 @@ import {
   ClaimOptions,
   ClaimWithdrawAlphaOptions,
   ClaimWithdrawSlushOptions,
+  CreateTransferRequestOptions,
   DepositOptions,
   EstimateLpAmountsOptions,
+  FulfillTransferRequestOptions,
   WithdrawOptions,
   ZapDepositOptions,
   ZapDepositQuoteOptions,
 } from './types.js';
+import {
+  buildCancelTransferRequestTx,
+  buildCreateTransferRequestTx,
+  buildFulfillTransferRequestTx,
+} from '../services/transferReceipt.js';
 import { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 import { Strategy, StrategyType } from '../strategies/strategy.js';
 import { LEGACY_ALPHA_POOL_RECEIPT, PACKAGE_IDS, VERSIONS } from '../utils/constants.js';
@@ -374,10 +382,23 @@ export class AlphaFiSDK {
    * Get all AlphaFi receipts for a user address.
    *
    * @param userAddress - User's wallet address
-   * @returns Parsed AlphaFi receipt objects
+   * @returns Parsed AlphaFi receipt objects (transferRequest is always null here)
    */
   async getAlphaFiReceipts(userAddress: string): Promise<AlphaFiReceipt[]> {
     return this.strategyContext.getAlphaFiReceipts(userAddress);
+  }
+
+  /**
+   * Get all AlphaFi receipts for a user, enriched with their pending
+   * TransferRequest dynamic field (if any).
+   * Use this only when transfer state is needed
+   * Existing operations (deposit, withdraw, claim, etc.) should use `getAlphaFiReceipts`.
+   *
+   * @param userAddress - User's wallet address
+   * @returns AlphaFi receipts with `transferRequest` populated where applicable
+   */
+  async getAlphaFiReceiptsWithTransferRequests(userAddress: string): Promise<AlphaFiReceipt[]> {
+    return this.strategyContext.getAlphaFiReceiptsWithTransferRequests(userAddress);
   }
 
   /**
@@ -388,6 +409,44 @@ export class AlphaFiSDK {
    */
   async getPositionsFromAlphaFiReceipts(userAddress: string): Promise<Map<string, any[]>> {
     return this.strategyContext.getPositionsFromAlphaFiReceipts(userAddress);
+  }
+
+  // ── Receipt Transfer ──────────────────────────────────────────────────────────
+
+  /**
+   * Creates an on-chain TransferRequest and starts the 24-hour cooldown period.
+   * The sender keeps the receipt during the cooldown and must call
+   * `fulfillTransferRequest` after the cooldown to complete the transfer.
+   *
+   * @param options - CreateTransferRequestOptions
+   * @returns Transaction ready for signing
+   */
+  createTransferRequest(options: CreateTransferRequestOptions): Transaction {
+    return buildCreateTransferRequestTx(options);
+  }
+
+  /**
+   * Removes the on-chain TransferRequest from the receipt.
+   * Can be called by the current receipt owner at any time — both during
+   * the cooldown period and after the cooldown has expired (confirm stage).
+   *
+   * @param options - CancelTransferRequestOptions
+   * @returns Transaction ready for signing
+   */
+  cancelTransferRequest(options: CancelTransferRequestOptions): Transaction {
+    return buildCancelTransferRequestTx(options);
+  }
+
+  /**
+   * Transfers ownership of the AlphaFiReceipt to the receiver address stored
+   * in the on-chain TransferRequest. Can only be called after the 24-hour
+   * cooldown has passed.
+   *
+   * @param options - FulfillTransferRequestOptions
+   * @returns Transaction ready for signing
+   */
+  fulfillTransferRequest(options: FulfillTransferRequestOptions): Transaction {
+    return buildFulfillTransferRequestTx(options);
   }
 
   /**

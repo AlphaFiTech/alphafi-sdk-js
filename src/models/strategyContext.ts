@@ -9,11 +9,20 @@ import { Blockchain } from './blockchain.js';
 import { CoinInfoProvider } from './coinInfoProvider.js';
 import { PoolLabel, StrategyType } from '../strategies/strategy.js';
 import { Decimal } from 'decimal.js';
+import { SuiObjectData } from '@mysten/sui/client/index.js';
 import { AlphalendClient, Network } from '@alphafi/alphalend-sdk';
-import { AlphaFiReceipt, AprData, CoinInfo, DistributorObject, SlushPositionCap } from './types.js';
+import {
+  AlphaFiReceipt,
+  AprData,
+  CoinInfo,
+  DistributorObject,
+  SlushPositionCap,
+  TransferRequest,
+} from './types.js';
 import { normalizeStructTag } from '@mysten/sui/utils';
 import {
   ALPHAFI_RECEIPT_TYPE,
+  ALPHAFI_TRANSFER_REQUEST_KEY_TYPE,
   CACHE_TTL,
   DISTRIBUTOR_OBJECT_ID,
   SLUSH_POSITION_CAP_TYPE,
@@ -855,6 +864,65 @@ export class StrategyContext {
     });
   }
 
+  /**
+   * Like `getAlphaFiReceipts`, but enriches each receipt with its pending `TransferRequest`
+   * (fetched via dynamic field lookup). Use this only when transfer state is needed;
+   * existing deposit/withdraw flows should continue using `getAlphaFiReceipts`.
+   */
+  async getAlphaFiReceiptsWithTransferRequests(userAddress: string): Promise<AlphaFiReceipt[]> {
+    const receipts = await this.getAlphaFiReceipts(userAddress);
+    if (receipts.length === 0) return [];
+
+    const transferRequests = await Promise.all(
+      receipts.map((r) =>
+        r.id
+          ? this.blockchain.getDynamicFieldByKeyType(r.id, ALPHAFI_TRANSFER_REQUEST_KEY_TYPE)
+          : Promise.resolve(null),
+      ),
+    );
+
+    return receipts.map((r, i) => ({
+      ...r,
+      transferRequest: this.parseTransferRequestField(transferRequests[i]),
+    }));
+  }
+
+  /**
+   * Parses the raw Field<TransferRequestKey, TransferRequest> wrapper returned by
+   * `getDynamicFields` into a typed `TransferRequest`. The actual data lives at
+   * `content.fields.value.fields`, one level deeper than the field wrapper itself.
+   */
+  private parseTransferRequestField(raw: SuiObjectData | null): TransferRequest | null {
+    if (!raw || raw.content?.dataType !== 'moveObject') return null;
+
+    // Drill through the Field<Key,Value> wrapper to reach TransferRequest fields.
+    const fieldWrapperFields = raw.content.fields as Record<string, unknown>;
+    const transferRequestFields = (fieldWrapperFields.value as Record<string, unknown> | undefined)
+      ?.fields as Record<string, unknown> | undefined;
+    const transferRequest = transferRequestFields ?? fieldWrapperFields;
+
+    const objectIdField = transferRequest.id;
+    const id =
+      typeof objectIdField === 'string'
+        ? objectIdField
+        : typeof (objectIdField as Record<string, unknown> | undefined)?.id === 'string'
+          ? ((objectIdField as Record<string, unknown>).id as string)
+          : (raw.objectId ?? '');
+    const receiver = typeof transferRequest.receiver === 'string' ? transferRequest.receiver : '';
+    const receiptId =
+      typeof transferRequest.receipt_id === 'string' ? transferRequest.receipt_id : '';
+    const autoAcceptTimestampRaw = transferRequest.auto_accept_timestamp;
+
+    if (!receiver || autoAcceptTimestampRaw === undefined) return null;
+
+    return {
+      id,
+      receiptId,
+      autoAcceptTimestamp: Number(autoAcceptTimestampRaw),
+      receiver,
+    };
+  }
+
   private parseAlphaFiReceipts(responses: any[]): AlphaFiReceipt[] {
     const results: AlphaFiReceipt[] = [];
 
@@ -905,6 +973,7 @@ export class StrategyContext {
         positionPoolMap,
         clientAddress: typeof fields?.client_address === 'string' ? fields.client_address : '',
         imageUrl,
+        transferRequest: null,
       });
     }
 
