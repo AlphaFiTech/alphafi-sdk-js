@@ -110,6 +110,21 @@ export type SlushPositionCap = {
   image_url: string;
 };
 
+/**
+ * On-chain TransferRequest object created when a receipt owner initiates a transfer.
+ * Stored as a dynamic object field on the AlphaFiReceipt.
+ */
+export type TransferRequest = {
+  /** On-chain object ID of the TransferRequest */
+  id: string;
+  /** ID of the AlphaFiReceipt */
+  receiptId: string;
+  /** Timestamp (ms) after which the transfer can be confirmed */
+  autoAcceptTimestamp: number;
+  /** Wallet address of the intended receiver */
+  receiver: string;
+};
+
 export type AlphaFiReceipt = {
   id: string;
   positionPoolMap: Array<{
@@ -121,6 +136,8 @@ export type AlphaFiReceipt = {
   }>;
   clientAddress: string;
   imageUrl: string;
+  /** Present when a transfer has been initiated. Null when no transfer is pending. */
+  transferRequest: TransferRequest | null;
 };
 
 /**
