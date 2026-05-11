@@ -8,7 +8,6 @@ import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
-import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import {
   ALPHALEND_LENDING_PROTOCOL_ID,
   CLOCK_PACKAGE_ID,
@@ -315,7 +314,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
       'wBTC',
       'XAUm',
     ]);
-    let coinTypes = [
+    const coinTypes = [
       alphaCoin,
       stsuiCoin,
       suiCoin,
@@ -327,11 +326,11 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
       suibtcCoin,
       xaumCoin,
     ].map((entry) => entry.coinType);
-    const alphalendClient = new AlphalendClient('mainnet');
+    const alphalendClient = this.context.alphalendClient;
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
     const positionId = this.investorObject.positionCap.positionId;
-    let portfolio = await alphalendClient.getUserPortfolioFromPosition(positionId);
-    let rewards = portfolio?.rewardsToClaim;
+    const portfolio = await alphalendClient.getUserPortfolioFromPosition(positionId);
+    const rewards = portfolio?.rewardsToClaim;
     if (!rewards) {
       console.log('no rewards for pool id: ', this.poolLabel.poolId);
       return;
@@ -487,7 +486,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
   }
 
   async deposit(tx: Transaction, options: DepositOptions) {
-    const alphalendClient = new AlphalendClient('mainnet');
+    const alphalendClient = this.context.alphalendClient;
 
     // get Coin Object
     const depositCoin = await this.context.blockchain.getCoinObject(
@@ -527,8 +526,8 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
     if (this.receiptObjects.length === 0) {
       throw new Error('No receipt found');
     }
-    const alphalendClient = new AlphalendClient('mainnet');
-    alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
+    const alphalendClient = this.context.alphalendClient;
+    await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
 
     let xTokens = this.coinAmountToXToken(options.amount);
     if (options.withdrawMax) {

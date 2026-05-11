@@ -8,7 +8,6 @@ import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
-import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import {
   ALPHALEND_LENDING_PROTOCOL_ID,
   CLOCK_PACKAGE_ID,
@@ -400,7 +399,7 @@ export class SlushLendingStrategy extends BaseStrategy<
   }
 
   async deposit(tx: Transaction, options: DepositOptions) {
-    const alphalendClient = new AlphalendClient('mainnet');
+    const alphalendClient = this.context.alphalendClient;
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
 
     // Get coin object
@@ -452,7 +451,7 @@ export class SlushLendingStrategy extends BaseStrategy<
       throw new Error('No receipt found for withdraw');
     }
 
-    const alphalendClient = new AlphalendClient('mainnet');
+    const alphalendClient = this.context.alphalendClient;
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
 
     let xTokenAmount = this.coinAmountToXToken(options.amount);
@@ -488,7 +487,7 @@ export class SlushLendingStrategy extends BaseStrategy<
     const coinType = this.poolLabel.asset.type;
 
     // Update Alphalend prices
-    const alphalendClient = new AlphalendClient('mainnet');
+    const alphalendClient = this.context.alphalendClient;
     await alphalendClient.updatePrices(tx, [coinType]);
 
     // Collect rewards

@@ -2,19 +2,18 @@
  * Core types and configuration interfaces for the AlphaFi SDK.
  * These types define the structure for all SDK operations.
  */
-
-import { SuiClient } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
 import { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
+import { Network } from '@alphafi/alphalend-sdk';
 
 /**
  * Configuration required to initialize the AlphaFi SDK.
  */
 export interface AlphaFiSDKConfig {
-  /** Sui blockchain client for network operations */
-  suiClient: SuiClient;
   /** Target Sui network environment */
-  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+  network: Network;
+  /** Optional Sui GraphQL endpoint override for network operations */
+  graphqlUrl?: string;
   /** Base URL for the AlphaFi API (defaults to 'https://api.alphafi.xyz') */
   apiBaseUrl?: string;
 }
@@ -178,8 +177,41 @@ export interface CetusSwapOptions {
   tx?: Transaction;
 }
 
+/**
+ * Options for initiating a receipt transfer (creates an on-chain TransferRequest).
+ * Starts the 24-hour cooldown period.
+ */
+export interface CreateTransferRequestOptions {
+  /** Object ID of the AlphaFiReceipt to transfer */
+  receiptId: string;
+  /** Wallet address of the intended recipient */
+  receiver: string;
+  /** Optional existing transaction to append to (for PTB composition) */
+  tx?: Transaction;
+}
+
+// Options for cancelling a pending receipt transfer. Can be called at any stage (cooldown or confirm).
+export interface CancelTransferRequestOptions {
+  /** Object ID of the AlphaFiReceipt whose transfer request should be cancelled */
+  receiptId: string;
+  /** Owner's wallet address */
+  address: string;
+  /** Optional existing transaction to append to (for PTB composition) */
+  tx?: Transaction;
+}
+
+// Options for fulfilling (confirming) a receipt transfer. Can only be called after the 24-hour cooldown has passed. Consumes the receipt and transfers it to the receiver.
+export interface FulfillTransferRequestOptions {
+  /** Object ID of the AlphaFiReceipt to fulfill the transfer for */
+  receiptId: string;
+  /** Current owner's wallet address */
+  address: string;
+  /** Optional existing transaction to append to (for PTB composition) */
+  tx?: Transaction;
+}
+
 // Re-export domain types for external consumers
-export type { AlphaFiReceipt } from '../models/types.js';
+export type { AlphaFiReceipt, TransferRequest } from '../models/types.js';
 
 export interface AutocompoundOptions {
   /** Unique identifier of the target pool */

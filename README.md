@@ -13,6 +13,7 @@ LP farming, leveraged yield farming, and more.
 - **Token Swaps**: Integrated Cetus aggregator for optimal token routing
 - **Type Safety**: Full TypeScript support with comprehensive type definitions
 - **Options-Based API**: Consistent, easy-to-use interface across all methods
+- **GraphQL-First Data Access**: SDK now initializes with network + optional GraphQL URL
 
 ## Installation
 
@@ -24,13 +25,14 @@ npm install @alphafi/alphafi-sdk
 
 ```typescript
 import { AlphaFiSDK } from '@alphafi/alphafi-sdk';
-import { SuiClient } from '@mysten/sui/client';
 
 // Initialize the SDK
-const suiClient = new SuiClient({ url: 'https://fullnode.mainnet.sui.io:443' });
 const sdk = new AlphaFiSDK({
-  suiClient,
   network: 'mainnet',
+  // Optional override (defaults by network):
+  // testnet -> https://graphql.testnet.sui.io/graphql
+  // mainnet -> https://graphql.mainnet.sui.io/graphql
+  graphqlUrl: process.env.SUI_GRAPHQL_URL,
 });
 
 const userAddress = 'your_sui_address_here';
@@ -54,8 +56,9 @@ const depositTx = await sdk.deposit({
   amount: 1000000000n, // 1 SUI in base units
   isAmountA: true, // For LP pools: which token this amount represents
 });
-// Sign & execute with your wallet / client
-// await suiClient.signAndExecuteTransactionBlock({ transactionBlock: depositTx, signer });
+// Sign & execute with your wallet / signer integration
+// (example shown for shape only)
+// await signerClient.signAndExecuteTransaction({ transaction: depositTx, signer });
 
 // Build an unsigned withdraw transaction
 const withdrawTx = await sdk.withdraw({
@@ -126,11 +129,36 @@ new AlphaFiSDK(config: AlphaFiSDKConfig)
 #### Configuration Interface
 
 ```typescript
+import type { Network } from '@alphafi/alphalend-sdk';
+
 interface AlphaFiSDKConfig {
-  suiClient: SuiClient; // Sui blockchain client
-  network: 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+  network: Network; // Target network
+  graphqlUrl?: string; // Optional GraphQL endpoint override
+  apiBaseUrl?: string; // Optional AlphaFi API base URL override
 }
 ```
+
+#### Migration from Previous Initialization
+
+If you were previously passing `suiClient` to `AlphaFiSDK`, migrate to `network` + optional
+`graphqlUrl`:
+
+```typescript
+// Old
+const sdk = new AlphaFiSDK({
+  suiClient,
+  network: 'mainnet',
+});
+
+// New
+const sdk = new AlphaFiSDK({
+  network: 'mainnet',
+  graphqlUrl: process.env.SUI_GRAPHQL_URL, // optional
+});
+```
+
+Under the hood, strategies now use a shared context-level AlphaLend client and resolve AlphaLend
+constants from the active SDK network instead of hardcoded mainnet assumptions.
 
 #### Core Methods
 
@@ -389,15 +417,11 @@ for (const [poolId, poolData] of allPools) {
 
 ```typescript
 import { AlphaFiSDK } from '@alphafi/alphafi-sdk';
-import { SuiClient } from '@mysten/sui/client';
-
-const suiClient = new SuiClient({
-  url: process.env.SUI_RPC_URL || 'https://fullnode.mainnet.sui.io:443',
-});
 
 const sdk = new AlphaFiSDK({
-  suiClient,
   network: (process.env.NETWORK as any) || 'mainnet',
+  graphqlUrl: process.env.SUI_GRAPHQL_URL, // optional
+  apiBaseUrl: process.env.ALPHAFI_API_URL, // optional
 });
 
 const userAddress = process.env.USER_ADDRESS;

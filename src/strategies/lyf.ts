@@ -21,7 +21,6 @@ import {
   VERSIONS,
 } from '../utils/constants.js';
 import { toTwosComplementU32 } from '../utils/math.js';
-import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import { getConf as getStsuiConf } from '@alphafi/stsui-sdk';
 
 /**
@@ -664,7 +663,7 @@ export class LyfStrategy extends BaseStrategy<
 
     await this.collectAndSwapRewards(tx);
 
-    const alphalendClient = new AlphalendClient('mainnet');
+    const alphalendClient = this.context.alphalendClient;
     await alphalendClient.updatePrices(tx, [
       this.poolLabel.assetA.type,
       this.poolLabel.assetB.type,
@@ -797,7 +796,7 @@ export class LyfStrategy extends BaseStrategy<
     const coinBType = this.poolLabel.assetB.type;
 
     // Update Alphalend prices
-    const alphalendClient = new AlphalendClient('mainnet');
+    const alphalendClient = this.context.alphalendClient;
     await alphalendClient.updatePrices(tx, [coinAType, coinBType]);
 
     // Collect rewards
@@ -838,7 +837,7 @@ export class LyfStrategy extends BaseStrategy<
     const lo = toTwosComplementU32(Number(lowerTick));
     const hi = toTwosComplementU32(Number(upperTick));
 
-    const alphalendClient = new AlphalendClient('mainnet');
+    const alphalendClient = context.alphalendClient;
     await alphalendClient.updatePrices(tx, [coinAType, coinBType]);
 
     // Call collect rewards for LYF

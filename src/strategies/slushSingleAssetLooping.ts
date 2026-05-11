@@ -8,7 +8,6 @@ import { PoolBalance, PoolData, SingleTvl, UserWithdrawalStatus } from '../model
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
-import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import {
   ADMIN,
   ALPHALEND_LENDING_PROTOCOL_ID,
@@ -295,7 +294,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
   }
 
   async deposit(tx: Transaction, options: DepositOptions) {
-    const alphalendClient = new AlphalendClient('mainnet');
+    const alphalendClient = this.context.alphalendClient;
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
 
     await this.collectAndSwapRewards(tx);
@@ -347,7 +346,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       throw new Error('No receipt found for withdraw');
     }
 
-    const alphalendClient = new AlphalendClient('mainnet');
+    const alphalendClient = this.context.alphalendClient;
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
 
     await this.collectAndSwapRewards(tx);
@@ -375,7 +374,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
   }
 
   async claimWithdraw(tx: Transaction, withdrawRequestId: string, address: string) {
-    const alphalendClient = new AlphalendClient('mainnet');
+    const alphalendClient = this.context.alphalendClient;
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
     await this.collectAndSwapRewards(tx);
     const positionCaps = await this.context.getSlushPositionCaps(address);
@@ -400,7 +399,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
     tx.transferObjects([coin], address);
   }
   async cancelWithdraw(tx: Transaction, withdrawRequestId: string, address: string) {
-    const alphalendClient = new AlphalendClient('mainnet');
+    const alphalendClient = this.context.alphalendClient;
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
     await this.collectAndSwapRewards(tx);
     const positionCaps = await this.context.getSlushPositionCaps(address);
@@ -469,13 +468,13 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       xaumCoin,
     ].map((entry) => entry.coinType);
 
-    const alphalendClient = new AlphalendClient('mainnet');
+    const alphalendClient = this.context.alphalendClient;
 
     // Get position ID from the pool object (investor is embedded)
     const positionId = this.poolObject.investor.positionCap.positionId;
 
-    let portfolio = await alphalendClient.getUserPortfolioFromPosition(positionId);
-    let rewards = portfolio?.rewardsToClaim;
+    const portfolio = await alphalendClient.getUserPortfolioFromPosition(positionId);
+    const rewards = portfolio?.rewardsToClaim;
 
     if (!rewards) {
       console.log('no rewards for pool id: ', this.poolLabel.poolId);
@@ -635,7 +634,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       });
     } else if (poolName.endsWith('-SINGLE-LOOP')) {
       // Update Alphalend prices
-      const alphalendClient = new AlphalendClient('mainnet');
+      const alphalendClient = this.context.alphalendClient;
       await alphalendClient.updatePrices(tx, [coinType]);
 
       if (poolName === 'ALPHALEND-SLUSH-USDSUI-SINGLE-LOOP') {

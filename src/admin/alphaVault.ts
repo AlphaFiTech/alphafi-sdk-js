@@ -56,7 +56,7 @@ export async function getWithdrawRequestsAndUnsuppliedAmount(
   context: StrategyContext,
 ): Promise<WithdrawRequestsAndUnsuppliedAmount> {
   const label = await getAlphaLabel(context);
-  const pool = await context.blockchain.suiClient.getObject({
+  const pool = await context.blockchain.txBuildClient.getObject({
     id: label.poolId,
     options: { showContent: true },
   });

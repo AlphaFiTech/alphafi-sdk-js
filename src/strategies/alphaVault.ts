@@ -17,7 +17,7 @@ import {
   POOLS,
   VERSIONS,
 } from '../utils/constants.js';
-import { AlphalendClient, getConstants, getUserPositionCapId } from '@alphafi/alphalend-sdk';
+import { getConstants, getUserPositionCapId } from '@alphafi/alphalend-sdk';
 
 /**
  * AlphaVault Strategy
@@ -783,7 +783,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
       return '0';
     }
     const position = await this.context.blockchain.getObject(entry.key);
-    return (position as any).data?.content.fields.xtokens.toString();
+    return (position as any).xtokens.toString();
   }
 
   async withdraw(tx: Transaction, options: WithdrawOptions) {
@@ -917,7 +917,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
   }
 
   async claimAirdrop(tx: Transaction, address: string, transferToWallet: boolean) {
-    const alphalendClient = new AlphalendClient('mainnet');
+    const alphalendClient = this.context.alphalendClient;
     let airdropCoin;
     const [suiCoin, alphaCoin] = await this.context.getCoinsBySymbols(['SUI', 'ALPHA']);
     const airdropCoinMarketId = '1';
@@ -1010,8 +1010,11 @@ export class AlphaVaultStrategy extends BaseStrategy<
 
     if (!transferToWallet) {
       await alphalendClient.updatePrices(tx, ['0x2::sui::SUI']);
-      const alphalendConstants = getConstants('mainnet');
-      const userPositionCapId = await getUserPositionCapId(alphalendClient.blockchain, address);
+      const alphalendConstants = getConstants(this.context.blockchain.network);
+      const userPositionCapId = await getUserPositionCapId(
+        this.context.alphalendClient.blockchain,
+        address,
+      );
       if (!userPositionCapId) {
         const positionCap = alphalendClient.createPosition(tx);
         tx.moveCall({

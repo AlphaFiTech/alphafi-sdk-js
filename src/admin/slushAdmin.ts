@@ -3,9 +3,8 @@
  */
 
 import { Transaction } from '@mysten/sui/transactions';
-import { SuiMoveObject } from '@mysten/sui/client';
+import { SuiMoveObject, type SuiObjectResponse } from '@mysten/sui/client';
 import { Decimal } from 'decimal.js';
-import { AlphalendClient } from '@alphafi/alphalend-sdk';
 import { StrategyContext } from '../models/strategyContext.js';
 import {
   ADMIN,
@@ -51,7 +50,7 @@ function numberTypeToHuman(raw: string, tokenDecimals: number): number {
 export async function getWalLockedRewardInfo(
   context: StrategyContext,
 ): Promise<WalLockedRewardInfo | null> {
-  const pool = await context.blockchain.suiClient.getObject({
+  const pool = await context.blockchain.txBuildClient.getObject({
     id: ADMIN.ALPHA_SLUSH_WAL_LOOP_POOL_ID,
     options: { showContent: true },
   });
@@ -103,7 +102,7 @@ export async function addExternalRewardsWalLockedTxb(
   endTimeMs: number,
   context: StrategyContext,
 ): Promise<void> {
-  const suiClient = context.blockchain.suiClient;
+  const suiClient = context.blockchain.txBuildClient;
 
   // Find AdminCap owned by this wallet
   const ownedCaps = await suiClient.getOwnedObjects({
@@ -117,7 +116,7 @@ export async function addExternalRewardsWalLockedTxb(
     options: { showType: true },
   });
 
-  const adminCapObject = ownedCaps.data.find((obj) =>
+  const adminCapObject = ownedCaps.data.find((obj: SuiObjectResponse) =>
     obj.data?.type?.includes('::alphalend_slush_pool::AdminCap'),
   );
   const adminCapId = adminCapObject?.data?.objectId;
@@ -127,8 +126,7 @@ export async function addExternalRewardsWalLockedTxb(
     );
   }
 
-  // Update Navi/Alphalend oracle prices for WAL
-  const alphalendClient = new AlphalendClient('mainnet', suiClient);
+  const alphalendClient = context.alphalendClient;
   await alphalendClient.updatePrices(tx, [WAL_COIN_TYPE]);
 
   // Merge all WAL coins and split the reward amount

@@ -261,8 +261,8 @@ async function claimAirdrop() {
   // executeTransactionBlock(tx);
 }
 async function rebalance() {
-  const { address, keypair, suiClient } = getExecStuff();
-  const context = new StrategyContext('mainnet', suiClient);
+  const { address } = getExecStuff();
+  const context = new StrategyContext('mainnet');
 
   const tx = await getManualRebalanceUsingTicksTxb(
     // '0xf5e643282e76af102aada38c67aae7eaec1ba2fe3301871f9fcca482893f96f2',
@@ -282,33 +282,17 @@ async function rebalance() {
 
   // executeTransactionBlock(tx);
 }
-// async function getUserPortfolio() {
-//   const { address, keypair, suiClient } = getExecStuff();
-//   const sdk = new AlphaFiSDK({
-//     suiClient: suiClient,
-//     network: 'mainnet',
-//   });
-//   const res = await sdk.getUserPortfolio(address, ['SlushLending']);
-//   console.log('user portfolio', JSON.stringify(res, null, 2));
-// }
-// getUserPortfolio();
-// async function apiTest() {
-//   const response = await fetch('https://api.alphafi.xyz/public/config');
-//   const data = await response.json();
-//   console.log('response test', JSON.stringify(data, null, 2));
-// }
-// apiTest();
-// async function autocompound() {
-//   const { address, keypair, suiClient } = getExecStuff();
-//   const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
-//   const tx = await sdk.autocompound({
-//     poolId: '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
-//   });
-//   tx.setGasBudget(2e8);
-//   dryRunTransactionBlock(tx, address);
-// }
-// autocompound();
-rebalance();
+
+async function createTransferRequestAlphaFiReceipt() {
+  const { address } = getExecStuff();
+  const sdk = new AlphaFiSDK({ network: 'mainnet' });
+  const receiptId = '0x79a5074ce093b48117613663e0f48b44859c65160271b84586ab4fefcf6fd232';
+  const tx = sdk.createTransferRequest({
+    receiptId,
+    receiver: '0xdc2e499e0b56d97399fd160b9374820010b6f153a01396c1c80ca3401acfe273',
+  });
+  dryRunTransactionBlock(tx, address);
+}
 // claimAirdrop();
 // withdraw();
 // poolsData();
@@ -316,3 +300,5 @@ rebalance();
 // claimSlushWithdraw();
 // deposit();
 // cancelSlushWithdraw();
+// rebalance();
+createTransferRequestAlphaFiReceipt();

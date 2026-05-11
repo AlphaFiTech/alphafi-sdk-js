@@ -9,19 +9,26 @@ import { Blockchain } from './blockchain.js';
 import { CoinInfoProvider } from './coinInfoProvider.js';
 import { PoolLabel, StrategyType } from '../strategies/strategy.js';
 import { Decimal } from 'decimal.js';
-import { AlphalendClient } from '@alphafi/alphalend-sdk';
-import { AlphaFiReceipt, AprData, CoinInfo, DistributorObject, SlushPositionCap } from './types.js';
+import { SuiObjectData } from '@mysten/sui/client/index.js';
+import { AlphalendClient, Network } from '@alphafi/alphalend-sdk';
+import {
+  AlphaFiReceipt,
+  AprData,
+  CoinInfo,
+  DistributorObject,
+  SlushPositionCap,
+  TransferRequest,
+} from './types.js';
 import { normalizeStructTag } from '@mysten/sui/utils';
-import { SuiClient } from '@mysten/sui/client/index.js';
 import {
   ALPHAFI_RECEIPT_TYPE,
+  ALPHAFI_TRANSFER_REQUEST_KEY_TYPE,
   CACHE_TTL,
   DISTRIBUTOR_OBJECT_ID,
   SLUSH_POSITION_CAP_TYPE,
 } from '../utils/constants.js';
 import { getCanonicalPairKey, POOL_REGISTRY, ProtocolPoolIds } from '../utils/poolMap.js';
 import { Cache, SingletonCache } from '../utils/cache.js';
-import { log } from 'console';
 
 const DEFAULT_API_BASE_URL = 'https://api.alphafi.xyz';
 
@@ -29,6 +36,7 @@ export class StrategyContext {
   readonly apiBaseUrl: string;
   blockchain: Blockchain;
   coinInfoProvider: CoinInfoProvider;
+  alphalendClient: AlphalendClient;
 
   // Singleton caches for global data
   private allPoolLabelsCache: SingletonCache<Map<string, PoolLabel>>; // For bulk fetches
@@ -45,14 +53,11 @@ export class StrategyContext {
   private slushPositionsCache: Cache<string, Map<string, any[]>>;
   private alphaFiPositionsCache: Cache<string, Map<string, any[]>>;
 
-  constructor(
-    network: 'mainnet' | 'testnet' | 'devnet' | 'localnet',
-    suiClient: SuiClient,
-    apiBaseUrl?: string,
-  ) {
+  constructor(network: Network, graphqlUrl?: string, apiBaseUrl?: string) {
     this.apiBaseUrl = apiBaseUrl ?? DEFAULT_API_BASE_URL;
-    this.blockchain = new Blockchain({ network, suiClient });
+    this.blockchain = new Blockchain({ network, graphqlUrl });
     this.coinInfoProvider = new CoinInfoProvider();
+    this.alphalendClient = new AlphalendClient(network, graphqlUrl);
 
     // Initialize singleton caches with appropriate TTLs
     this.allPoolLabelsCache = new SingletonCache(CACHE_TTL.POOL_LABELS);
@@ -528,8 +533,7 @@ export class StrategyContext {
 
   private async fetchAlphaLendTvl(): Promise<Map<string, Decimal>> {
     const tvlMap = new Map<string, Decimal>();
-    const alphalendClient = new AlphalendClient('mainnet');
-    const markets = await alphalendClient.getAllMarkets({
+    const markets = await this.alphalendClient.getAllMarkets({
       useCache: true,
       cacheTTL: CACHE_TTL.ALPHALEND_MARKETS,
     });
@@ -873,6 +877,65 @@ export class StrategyContext {
     });
   }
 
+  /**
+   * Like `getAlphaFiReceipts`, but enriches each receipt with its pending `TransferRequest`
+   * (fetched via dynamic field lookup). Use this only when transfer state is needed;
+   * existing deposit/withdraw flows should continue using `getAlphaFiReceipts`.
+   */
+  async getAlphaFiReceiptsWithTransferRequests(userAddress: string): Promise<AlphaFiReceipt[]> {
+    const receipts = await this.getAlphaFiReceipts(userAddress);
+    if (receipts.length === 0) return [];
+
+    const transferRequests = await Promise.all(
+      receipts.map((r) =>
+        r.id
+          ? this.blockchain.getDynamicFieldByKeyType(r.id, ALPHAFI_TRANSFER_REQUEST_KEY_TYPE)
+          : Promise.resolve(null),
+      ),
+    );
+
+    return receipts.map((r, i) => ({
+      ...r,
+      transferRequest: this.parseTransferRequestField(transferRequests[i]),
+    }));
+  }
+
+  /**
+   * Parses the raw Field<TransferRequestKey, TransferRequest> wrapper returned by
+   * `getDynamicFields` into a typed `TransferRequest`. The actual data lives at
+   * `content.fields.value.fields`, one level deeper than the field wrapper itself.
+   */
+  private parseTransferRequestField(raw: SuiObjectData | null): TransferRequest | null {
+    if (!raw || raw.content?.dataType !== 'moveObject') return null;
+
+    // Drill through the Field<Key,Value> wrapper to reach TransferRequest fields.
+    const fieldWrapperFields = raw.content.fields as Record<string, unknown>;
+    const transferRequestFields = (fieldWrapperFields.value as Record<string, unknown> | undefined)
+      ?.fields as Record<string, unknown> | undefined;
+    const transferRequest = transferRequestFields ?? fieldWrapperFields;
+
+    const objectIdField = transferRequest.id;
+    const id =
+      typeof objectIdField === 'string'
+        ? objectIdField
+        : typeof (objectIdField as Record<string, unknown> | undefined)?.id === 'string'
+          ? ((objectIdField as Record<string, unknown>).id as string)
+          : (raw.objectId ?? '');
+    const receiver = typeof transferRequest.receiver === 'string' ? transferRequest.receiver : '';
+    const receiptId =
+      typeof transferRequest.receipt_id === 'string' ? transferRequest.receipt_id : '';
+    const autoAcceptTimestampRaw = transferRequest.auto_accept_timestamp;
+
+    if (!receiver || autoAcceptTimestampRaw === undefined) return null;
+
+    return {
+      id,
+      receiptId,
+      autoAcceptTimestamp: Number(autoAcceptTimestampRaw),
+      receiver,
+    };
+  }
+
   private parseAlphaFiReceipts(responses: any[]): AlphaFiReceipt[] {
     const results: AlphaFiReceipt[] = [];
 
@@ -923,6 +986,7 @@ export class StrategyContext {
         positionPoolMap,
         clientAddress: typeof fields?.client_address === 'string' ? fields.client_address : '',
         imageUrl,
+        transferRequest: null,
       });
     }
 
