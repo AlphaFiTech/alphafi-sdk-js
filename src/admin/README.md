@@ -18,7 +18,7 @@ The migration goal was:
 
 - Zero legacy SDK imports in `alphafi-admin`.
 - All admin helpers live under one well-typed subpath.
-- All I/O (SuiClient, pool metadata) is dependency-injected, not global.
+- All I/O goes through `StrategyContext` (GraphQL + JSON-RPC on `context.blockchain`), not globals.
 
 ---
 
@@ -41,8 +41,9 @@ The migration goal was:
 
 Every function follows the same three rules:
 
-1. **Dependency injection** — `StrategyContext` and/or `SuiClient` are explicit
-   parameters. There are no global `getSuiClient()` or `poolInfo` lookups.
+1. **Dependency injection** — `StrategyContext` is the primary dependency. On-chain reads use
+   `context.blockchain` (GraphQL for bulk objects, `txBuildClient` for JSON-RPC when needed).
+   There are no global `getSuiClient()` or `poolInfo` lookups.
 2. **Caller-owned transactions** — functions that build PTBs accept an existing
    `Transaction` and mutate it. They do not create or return a transaction.
    The UI creates the `tx`, passes it to the SDK function, then calls
@@ -58,11 +59,11 @@ Every function follows the same three rules:
 ### `tickPrice.ts`
 
 ```ts
-// Get the current CLMM tick for a pool's parent pool.
-getCurrentTick(poolName: string, context: StrategyContext, suiClient: SuiClient): Promise<number>
+// Get the current CLMM tick for a pool's parent pool (GraphQL).
+getCurrentTick(poolName: string, context: StrategyContext): Promise<number>
 
-// Get the position's [lower, upper] tick indexes from the investor object.
-getPositionTicks(poolName: string, context: StrategyContext, suiClient: SuiClient): Promise<[number, number]>
+// Get the position's [lower, upper] tick indexes from the investor object (GraphQL).
+getPositionTicks(poolName: string, context: StrategyContext): Promise<[number, number]>
 
 // Convert a tick index to a human-readable price string.
 // Call context.getCoinDecimals(coinType) to obtain the decimals beforehand.
@@ -71,8 +72,8 @@ getTickToPrice(tick: number, coinADecimals: number, coinBDecimals: number): stri
 // Convert a price string to the nearest valid tick, snapped to tickSpacing.
 getPriceToTick(price: string, tickSpacing: number, coinADecimals: number, coinBDecimals: number, isUpper?: boolean): number
 
-// Get the CLMM tick spacing for a pool (Cetus or Bluefin).
-getTickSpacing(poolName: string, context: StrategyContext, suiClient: SuiClient): Promise<number>
+// Get the CLMM tick spacing for a pool (Cetus or Bluefin; GraphQL).
+getTickSpacing(poolName: string, context: StrategyContext): Promise<number>
 ```
 
 **Migration difference:** The old signatures were `(poolName, tick)` /
@@ -85,11 +86,11 @@ callers control when/how they are loaded (typically via `context.getCoinDecimals
 ### `patrol.ts`
 
 ```ts
-// Return a Map<poolName, currentPrice> for all active LP pools.
-getCurrentCetusPoolPrice(context: StrategyContext, suiClient: SuiClient): Promise<Map<string, string>>
+// Return a Map<poolName, currentPrice> for all active LP pools (GraphQL).
+getCurrentPoolPrice(context: StrategyContext): Promise<Map<string, string>>
 
-// Return pool names whose current CLMM price is outside the position range.
-poolPatrol(context: StrategyContext, suiClient: SuiClient): Promise<string[]>
+// Return pool names whose current CLMM price is outside the position range (GraphQL).
+poolPatrol(context: StrategyContext): Promise<string[]>
 ```
 
 **Migration difference:** Old `poolPatrol` read a pre-warmed in-memory cache via
@@ -102,8 +103,8 @@ poolPatrol(context: StrategyContext, suiClient: SuiClient): Promise<string[]>
 
 ```ts
 // Find and return the RebalanceCap objectId owned by `address`.
-// Throws if no cap is found.
-getRebalanceCap(address: string, suiClient: SuiClient): Promise<string>
+// Uses JSON-RPC via context.blockchain.txBuildClient. Throws if no cap is found.
+getRebalanceCap(address: string, context: StrategyContext): Promise<string>
 ```
 
 ---
@@ -193,11 +194,11 @@ getAutoCompoundSingleTxb(
 
 ```ts
 import { getAutoCompoundSingleTxb } from '@alphafi/alphafi-sdk/admin';
+import { StrategyContext } from '@alphafi/alphafi-sdk';
 import { Transaction } from '@mysten/sui/transactions';
-import { useSuiClient } from '@mysten/dapp-kit';
+import { useMemo } from 'react';
 
-const suiClient = useSuiClient();
-const context = useMemo(() => new StrategyContext('mainnet', suiClient as any), [suiClient]);
+const context = useMemo(() => new StrategyContext('mainnet'), []);
 
 const tx = await getAutoCompoundSingleTxb(poolName, context);
 if (tx) signAndExecuteTransaction({ transaction: tx });
@@ -234,10 +235,9 @@ the TVL-derived value or accept the default.
 import { StrategyContext } from '@alphafi/alphafi-sdk';
 import { getAutoCompoundSingleTxb } from '@alphafi/alphafi-sdk/admin';
 import { Transaction } from '@mysten/sui/transactions';
-import { useSuiClient } from '@mysten/dapp-kit';
+import { useMemo } from 'react';
 
-const suiClient = useSuiClient();
-const context = useMemo(() => new StrategyContext('mainnet', suiClient as any), [suiClient]);
+const context = useMemo(() => new StrategyContext('mainnet'), []);
 
 // Autocompound
 const tx = await getAutoCompoundSingleTxb(poolName, context);

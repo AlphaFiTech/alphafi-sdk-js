@@ -6,7 +6,6 @@
 import BN from 'bn.js';
 import { Decimal } from 'decimal.js';
 import { TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
-import { SuiClient } from '@mysten/sui/client';
 import { StrategyContext } from '../models/strategyContext.js';
 import { LpPoolLabel } from '../strategies/strategy.js';
 import { LyfPoolLabel } from '../strategies/lyf.js';
@@ -14,6 +13,17 @@ import { AutobalanceLpPoolLabel } from '../strategies/autobalanceLp.js';
 import { FungibleLpPoolLabel } from '../strategies/fungibleLp.js';
 
 type ClmmLabel = LpPoolLabel | LyfPoolLabel | AutobalanceLpPoolLabel | FungibleLpPoolLabel;
+
+/** GraphQL `contents.json` for CLMM parent pool (sqrt price). */
+type ClmmParentPoolGraphqlJson = {
+  current_sqrt_price: string;
+};
+
+/** GraphQL `contents.json` for LP-style investor position ticks. */
+type LpInvestorTicksGraphqlJson = {
+  lower_tick: number | string;
+  upper_tick: number | string;
+};
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Internal helpers
@@ -32,8 +42,10 @@ async function getClmmLabelByName(
   for (const [, label] of labels) {
     if (
       label.poolName === poolName &&
-      (label.strategyType === 'Lp' || label.strategyType === 'Lyf' ||
-       label.strategyType === 'AutobalanceLp' || label.strategyType === 'FungibleLp')
+      (label.strategyType === 'Lp' ||
+        label.strategyType === 'Lyf' ||
+        label.strategyType === 'AutobalanceLp' ||
+        label.strategyType === 'FungibleLp')
     ) {
       return label as ClmmLabel;
     }
@@ -46,43 +58,41 @@ async function getClmmLabelByName(
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * Get the current CLMM tick index for a pool's parent pool.
+ * Get the current CLMM tick index for a pool's parent pool (via GraphQL).
  */
-export async function getCurrentTick(
-  poolName: string,
-  context: StrategyContext,
-  suiClient: SuiClient,
-): Promise<number> {
+export async function getCurrentTick(poolName: string, context: StrategyContext): Promise<number> {
   const label = await getClmmLabelByName(poolName, context);
-  const pool = await suiClient.getObject({
-    id: label.parentPoolId,
-    options: { showContent: true },
-  });
-  const fields = (pool.data?.content as any)?.fields;
-  if (!fields) throw new Error(`Cannot read parent pool fields for ${poolName}`);
-  const currentSqrtPrice = fields.current_sqrt_price as string;
+  const json = (await context.blockchain.getObject(label.parentPoolId)) as
+    | ClmmParentPoolGraphqlJson
+    | undefined;
+  const currentSqrtPrice = json?.current_sqrt_price;
+  if (!currentSqrtPrice) {
+    throw new Error(`Cannot read current_sqrt_price for parent pool ${poolName}`);
+  }
   return TickMath.sqrtPriceX64ToTickIndex(new BN(currentSqrtPrice));
 }
 
 /**
- * Get the current lower and upper tick indexes from the investor object.
+ * Get the current lower and upper tick indexes from the investor object (via GraphQL).
  * Ticks stored on-chain as unsigned 32-bit two's complement for negative values.
  */
 export async function getPositionTicks(
   poolName: string,
   context: StrategyContext,
-  suiClient: SuiClient,
 ): Promise<[number, number]> {
   const upperBound = 443636;
   const label = await getClmmLabelByName(poolName, context);
-  const investor = await suiClient.getObject({
-    id: label.investorId,
-    options: { showContent: true },
-  });
-  const fields = (investor.data?.content as any)?.fields;
-  if (!fields) throw new Error(`Cannot read investor fields for ${poolName}`);
-  let lowerTick = Number(fields.lower_tick);
-  let upperTick = Number(fields.upper_tick);
+  const json = (await context.blockchain.getObject(label.investorId)) as
+    | LpInvestorTicksGraphqlJson
+    | undefined;
+  if (json?.lower_tick === undefined || json?.upper_tick === undefined) {
+    throw new Error(`Cannot read investor ticks for ${poolName}`);
+  }
+  let lowerTick = Number(json.lower_tick);
+  let upperTick = Number(json.upper_tick);
+  if (Number.isNaN(lowerTick) || Number.isNaN(upperTick)) {
+    throw new Error(`Invalid tick values for ${poolName}`);
+  }
   if (lowerTick > upperBound) lowerTick = -~(lowerTick - 1);
   if (upperTick > upperBound) upperTick = -~(upperTick - 1);
   return [lowerTick, upperTick];
@@ -127,26 +137,36 @@ export function getPriceToTick(
 }
 
 /**
- * Get the tick spacing for a pool's parent CLMM.
+ * Get the tick spacing for a pool's parent CLMM (via GraphQL).
  * Cetus pools: `tick_spacing` directly on pool fields.
- * Bluefin pools: nested under `ticks_manager.fields.tick_spacing`.
+ * Bluefin pools: nested under `ticks_manager.fields.tick_spacing` when present.
  */
 export async function getTickSpacing(
   poolName: string,
   context: StrategyContext,
-  suiClient: SuiClient,
 ): Promise<number> {
   const label = await getClmmLabelByName(poolName, context);
-  const pool = await suiClient.getObject({
-    id: label.parentPoolId,
-    options: { showContent: true },
-  });
-  const fields = (pool.data?.content as any)?.fields;
-  if (!fields) throw new Error(`Cannot read parent pool fields for ${poolName}`);
+  const json = await context.blockchain.getObject(label.parentPoolId);
+  if (json == null || typeof json !== 'object') {
+    throw new Error(`Cannot read parent pool JSON for ${label.poolName}`);
+  }
+  const j = json as Record<string, unknown>;
 
   if (label.parentProtocol === 'Cetus') {
-    return Number(fields.tick_spacing);
+    const v = j.tick_spacing;
+    if (v === undefined || v === null) {
+      throw new Error(`Missing tick_spacing for Cetus parent pool ${label.poolName}`);
+    }
+    return Number(v);
   }
-  // Bluefin
-  return Number(fields.ticks_manager?.fields?.tick_spacing ?? fields.tick_spacing ?? 1);
+
+  const tm = j.ticks_manager as Record<string, unknown> | undefined;
+  const nested =
+    (tm?.fields as Record<string, unknown> | undefined)?.tick_spacing ?? tm?.tick_spacing;
+  const flat = j.tick_spacing;
+  const n = Number(nested ?? flat ?? 1);
+  if (!Number.isFinite(n)) {
+    throw new Error(`Cannot read tick_spacing for Bluefin parent pool ${label.poolName}`);
+  }
+  return n;
 }

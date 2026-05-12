@@ -22,7 +22,7 @@ export async function getManualRebalanceUsingTicksTxb(
   swap_using_bluefin?: boolean,
   rebalance_using_base_pool?: boolean,
 ): Promise<Transaction | undefined> {
-  const rebalanceCap = await getRebalanceCap(address, context.blockchain.txBuildClient);
+  const rebalanceCap = await getRebalanceCap(address, context);
   if (!rebalanceCap) {
     throw new Error('No rebalance cap found for address');
   }

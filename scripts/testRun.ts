@@ -366,14 +366,14 @@ async function claimAirdrop() {
   // executeTransactionBlock(tx);
 }
 async function rebalance() {
-  const { address, suiClient } = getExecStuff();
+  const { address } = getExecStuff();
   const context = new StrategyContext('mainnet');
   const poolName = 'USDC-SUIUSDT';
   // Parent Bluefin pool ticks: wide band around current price, snapped to tick spacing.
   const rangeHalfWidthInSpacings = 5;
   const [currentTick, tickSpacing] = await Promise.all([
-    getCurrentTick(poolName, context, suiClient),
-    getTickSpacing(poolName, context, suiClient),
+    getCurrentTick(poolName, context),
+    getTickSpacing(poolName, context),
   ]);
   const lowerTick =
     Math.floor((currentTick - rangeHalfWidthInSpacings * tickSpacing) / tickSpacing) * tickSpacing;

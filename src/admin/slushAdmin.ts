@@ -102,10 +102,10 @@ export async function addExternalRewardsWalLockedTxb(
   endTimeMs: number,
   context: StrategyContext,
 ): Promise<void> {
-  const suiClient = context.blockchain.txBuildClient;
+  const rpc = context.blockchain.txBuildClient;
 
   // Find AdminCap owned by this wallet
-  const ownedCaps = await suiClient.getOwnedObjects({
+  const ownedCaps = await rpc.getOwnedObjects({
     owner: address,
     filter: {
       MoveModule: {
