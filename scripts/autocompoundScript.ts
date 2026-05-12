@@ -28,6 +28,9 @@
 // bottom of this file and comment out the others.
 // ============================================================================
 
+import { AlphaFiSDK } from '../src/index.js';
+import fs from 'fs';
+import { getExecStuff } from './testRun.js';
 interface PoolConfig {
   strategy_type: string;
   data: {
@@ -125,8 +128,7 @@ async function testAllPoolsAutocompound() {
 
   try {
     // Initialize SDK
-    const { suiClient } = getExecStuff();
-    const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
+    const sdk = new AlphaFiSDK({ network: 'mainnet' });
 
     // Fetch pool configurations
     console.log('\n📡 Fetching pool configurations from API...');
@@ -253,7 +255,7 @@ async function testSpecificPools(poolIds: string[]) {
 
   try {
     const { suiClient } = getExecStuff();
-    const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
+    const sdk = new AlphaFiSDK({ network: 'mainnet' });
 
     // Fetch pool configurations to get names
     console.log('\n📡 Fetching pool configurations...');

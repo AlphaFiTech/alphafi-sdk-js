@@ -1,14 +1,22 @@
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { Blockchain } from '../src/models/blockchain';
-import { fromB64, normalizeStructTag } from '@mysten/sui/utils';
+import { fromB64 } from '@mysten/sui/utils';
 import { SuiClient } from '@mysten/sui/client';
-import { Protocol } from '../src/models/protocol.js';
-import { Portfolio } from '../src/models/portfolio.js';
-import { AlphaFiSDK, getManualRebalanceUsingTicksTxb, StrategyContext } from '../src/index.js';
+import {
+  AlphaFiSDK,
+  addAirdropCoinTxb,
+  collectUnsuppliedBalance,
+  collectUnsuppliedBalanceTxb,
+  getCurrentTick,
+  getManualRebalanceUsingTicksTxb,
+  getTickSpacing,
+  getWithdrawRequestsAndUnsuppliedAmount,
+  processWithdrawRequestsManualTxb,
+  StrategyContext,
+} from '../src/index.js';
+import type { AlphaVaultPoolLabel } from '../src/strategies/alphaVault.js';
 import dotenv from 'dotenv';
 import { Transaction } from '@mysten/sui/transactions';
 import * as fs from 'fs';
-import { log } from 'console';
 
 dotenv.config();
 
@@ -59,19 +67,13 @@ export async function dryRunTransactionBlock(txb: Transaction, add?: string) {
   // txb.setGasBudget(1e9);
   try {
     const serializedTxb = await txb.build({ client: suiClient });
-    suiClient
-      .dryRunTransactionBlock({
-        transactionBlock: serializedTxb,
-      })
-      .then((res) => {
-        // console.log(JSON.stringify(res, null, 2));
-        console.log(res.effects.status, res.balanceChanges, res.events);
-      })
-      .catch((error) => {
-        console.error(error);
-      });
+    const res = await suiClient.dryRunTransactionBlock({
+      transactionBlock: serializedTxb,
+    });
+    console.log(res.effects.status, res.balanceChanges, res.events);
+    return res;
   } catch (e) {
-    console.log(e);
+    console.error(e);
   }
 }
 export async function executeTransactionBlock(txb: Transaction) {
@@ -106,9 +108,116 @@ export async function executeTransactionBlock(txb: Transaction) {
 // }
 // test();
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Alpha Vault admin (`src/admin/alphaVault.ts`) — read + dry-run helpers
+// ──────────────────────────────────────────────────────────────────────────────
+
+// function strategyNetworkForTests(): 'mainnet' | 'testnet' {
+//   return process.env.NETWORK === 'testnet' ? 'testnet' : 'mainnet';
+// }
+
+async function findAlphaVaultLabel(context: StrategyContext): Promise<AlphaVaultPoolLabel> {
+  const labels = await context.getPoolLabels();
+  for (const [, label] of labels) {
+    if (label.strategyType === 'AlphaVault') {
+      return label as AlphaVaultPoolLabel;
+    }
+  }
+  throw new Error('AlphaVault pool label not found in registry');
+}
+
+/** Read-only: `getWithdrawRequestsAndUnsuppliedAmount`. */
+export async function testAlphaVaultGetWithdrawRequestsAndUnsuppliedAmount() {
+  const context = new StrategyContext('mainnet');
+  const data = await getWithdrawRequestsAndUnsuppliedAmount(context);
+  console.log('[alphaVault] getWithdrawRequestsAndUnsuppliedAmount', JSON.stringify(data, null, 2));
+  return data;
+}
+
+/** Dry-run: `collectUnsuppliedBalance`. */
+export async function dryRunAlphaVaultCollectUnsuppliedBalance() {
+  const { address } = getExecStuff();
+  const context = new StrategyContext('mainnet');
+  const tx = new Transaction();
+  await collectUnsuppliedBalance(tx, context);
+  tx.setGasBudget(200_000_000);
+  console.log('[alphaVault] dryRun collectUnsuppliedBalance');
+  await dryRunTransactionBlock(tx, address);
+}
+
+/** Dry-run: `collectUnsuppliedBalanceTxb` (label resolved from registry). */
+export async function dryRunAlphaVaultCollectUnsuppliedBalanceTxb() {
+  const { address } = getExecStuff();
+  const context = new StrategyContext('mainnet');
+  const label = await findAlphaVaultLabel(context);
+  const tx = new Transaction();
+  collectUnsuppliedBalanceTxb(tx, label);
+  tx.setGasBudget(200_000_000);
+  console.log('[alphaVault] dryRun collectUnsuppliedBalanceTxb');
+  await dryRunTransactionBlock(tx, address);
+}
+
+/**
+ * Dry-run: `processWithdrawRequestsManualTxb`.
+ * Set `ALPHA_VAULT_PROCESS_WITHDRAW_AMOUNT` (base units of the pool underlying); defaults to `1`.
+ */
+export async function dryRunAlphaVaultProcessWithdrawRequestsManual() {
+  const { address } = getExecStuff();
+  const context = new StrategyContext('mainnet');
+  const amount = process.env.ALPHA_VAULT_PROCESS_WITHDRAW_AMOUNT ?? '1';
+  const tx = new Transaction();
+  await processWithdrawRequestsManualTxb(tx, amount, address, context);
+  tx.setGasBudget(500_000_000);
+  console.log('[alphaVault] dryRun processWithdrawRequestsManualTxb', { amount, address });
+  await dryRunTransactionBlock(tx, address);
+}
+
+/**
+ * Dry-run: `addAirdropCoinTxb`.
+ * Set `ALPHA_VAULT_AIRDROP_MIST` (SUI in MIST); defaults to `1`.
+ */
+export async function dryRunAlphaVaultAddAirdropCoin() {
+  const { address } = getExecStuff();
+  const context = new StrategyContext('mainnet');
+  const amount = process.env.ALPHA_VAULT_AIRDROP_MIST ?? '1';
+  const tx = new Transaction();
+  await addAirdropCoinTxb(tx, amount, address, context);
+  tx.setGasBudget(500_000_000);
+  console.log('[alphaVault] dryRun addAirdropCoinTxb', { amount, address });
+  await dryRunTransactionBlock(tx, address);
+}
+
+/**
+ * Runs `getWithdrawRequestsAndUnsuppliedAmount` and dry-runs every transaction builder
+ * from `alphaVault.ts`. Individual steps log errors and continue.
+ */
+export async function dryRunAllAlphaVaultAdminFunctions() {
+  console.log('\n======== Alpha Vault admin dry-run suite ========\n');
+  try {
+    await testAlphaVaultGetWithdrawRequestsAndUnsuppliedAmount();
+  } catch (e) {
+    console.error('[alphaVault] read failed', e);
+  }
+  const steps = [
+    ['collectUnsuppliedBalance', dryRunAlphaVaultCollectUnsuppliedBalance],
+    ['collectUnsuppliedBalanceTxb', dryRunAlphaVaultCollectUnsuppliedBalanceTxb],
+    ['processWithdrawRequestsManualTxb', dryRunAlphaVaultProcessWithdrawRequestsManual],
+    ['addAirdropCoinTxb', dryRunAlphaVaultAddAirdropCoin],
+  ] as const;
+  for (const [name, fn] of steps) {
+    try {
+      console.log(`\n--- ${name} ---`);
+      await fn();
+    } catch (e) {
+      console.error(`[alphaVault] ${name} failed`, e);
+    }
+  }
+  console.log('\n======== Alpha Vault suite done ========\n');
+}
+
 async function main() {
-  const { address, keypair, suiClient } = getExecStuff();
-  const alphafiClient = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
+  const { address } = getExecStuff();
+  const alphafiClient = new AlphaFiSDK({ network: 'mainnet' });
   const startTime = Date.now();
   const res = await alphafiClient.getPoolsData(
     //   // ['SlushLending']
@@ -173,7 +282,6 @@ async function main() {
 async function poolsData() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({
-    suiClient: suiClient,
     network: 'mainnet',
   });
   const data = await sdk.getSinglePoolData(
@@ -184,7 +292,6 @@ async function poolsData() {
 async function portfolioData() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({
-    suiClient: suiClient,
     network: 'mainnet',
   });
   const data = await sdk.getUserSinglePoolBalance(
@@ -196,7 +303,6 @@ async function portfolioData() {
 async function deposit() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({
-    suiClient: suiClient,
     network: 'mainnet',
   });
   const tx = await sdk.deposit({
@@ -214,7 +320,6 @@ async function withdraw() {
   const { address } = getExecStuff();
   // const address = '0xfd839097e089804fa39e3a99a47b889dfe1fa8b5506ee5238e9b06794490f841';
   const sdk = new AlphaFiSDK({
-    suiClient: suiClient,
     network: 'mainnet',
   });
   const tx = await sdk.withdraw({
@@ -230,7 +335,7 @@ async function withdraw() {
 }
 async function claimSlushWithdraw() {
   const { address, keypair, suiClient } = getExecStuff();
-  const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
+  const sdk = new AlphaFiSDK({ network: 'mainnet' });
   const tx = await sdk.claimWithdrawSlush({
     poolId: '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
     withdrawRequestId: '0xd7c583c1a6b2849ed2a8164747cb4dda02b3bd56ef1f76cc0cfbd3301a9a1c7f',
@@ -242,7 +347,7 @@ async function claimSlushWithdraw() {
 }
 async function cancelSlushWithdraw() {
   const { address, keypair, suiClient } = getExecStuff();
-  const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
+  const sdk = new AlphaFiSDK({ network: 'mainnet' });
   const tx = await sdk.cancelWithdrawSlush({
     poolId: '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
     withdrawRequestId: '0xd7c583c1a6b2849ed2a8164747cb4dda02b3bd56ef1f76cc0cfbd3301a9a1c7f',
@@ -253,23 +358,40 @@ async function cancelSlushWithdraw() {
   executeTransactionBlock(tx);
 }
 async function claimAirdrop() {
-  const { address, keypair, suiClient } = getExecStuff();
-  const sdk = new AlphaFiSDK({ suiClient: suiClient, network: 'mainnet' });
+  const { address } = getExecStuff();
+  const sdk = new AlphaFiSDK({ network: 'mainnet' });
   const tx = await sdk.claimAirdrop({ address: address, transferToWallet: false });
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx, address);
   // executeTransactionBlock(tx);
 }
 async function rebalance() {
-  const { address } = getExecStuff();
+  const { address, suiClient } = getExecStuff();
   const context = new StrategyContext('mainnet');
-
+  const poolName = 'USDC-SUIUSDT';
+  // Parent Bluefin pool ticks: wide band around current price, snapped to tick spacing.
+  const rangeHalfWidthInSpacings = 5;
+  const [currentTick, tickSpacing] = await Promise.all([
+    getCurrentTick(poolName, context, suiClient),
+    getTickSpacing(poolName, context, suiClient),
+  ]);
+  const lowerTick =
+    Math.floor((currentTick - rangeHalfWidthInSpacings * tickSpacing) / tickSpacing) * tickSpacing;
+  const upperTick =
+    Math.ceil((currentTick + rangeHalfWidthInSpacings * tickSpacing) / tickSpacing) * tickSpacing;
+  if (lowerTick === upperTick) {
+    throw new Error(
+      `Computed rebalance range is empty (lower=${lowerTick}, upper=${upperTick}, spacing=${tickSpacing})`,
+    );
+  }
+  console.log(
+    `Parent pool currentTick=${currentTick}, tickSpacing=${tickSpacing} → range [${lowerTick}, ${upperTick}]`,
+  );
   const tx = await getManualRebalanceUsingTicksTxb(
-    // '0xf5e643282e76af102aada38c67aae7eaec1ba2fe3301871f9fcca482893f96f2',
-    'BLUEFIN-STSUI-SUI',
+    poolName,
     address,
-    '300',
-    '400',
+    String(lowerTick),
+    String(upperTick),
     15,
     context,
     true,
@@ -301,4 +423,5 @@ async function createTransferRequestAlphaFiReceipt() {
 // deposit();
 // cancelSlushWithdraw();
 // rebalance();
-createTransferRequestAlphaFiReceipt();
+// dryRunAllAlphaVaultAdminFunctions();
+// createTransferRequestAlphaFiReceipt();

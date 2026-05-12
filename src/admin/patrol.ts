@@ -5,7 +5,6 @@
 import BN from 'bn.js';
 import { Decimal } from 'decimal.js';
 import { TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
-import { SuiClient } from '@mysten/sui/client';
 import { StrategyContext } from '../models/strategyContext.js';
 import { LpPoolLabel } from '../strategies/lp.js';
 import { LyfPoolLabel } from '../strategies/lyf.js';
@@ -13,6 +12,23 @@ import { AutobalanceLpPoolLabel } from '../strategies/autobalanceLp.js';
 import { FungibleLpPoolLabel } from '../strategies/fungibleLp.js';
 
 type ClmmPoolLabel = LpPoolLabel | LyfPoolLabel | AutobalanceLpPoolLabel | FungibleLpPoolLabel;
+
+/**
+ * `asMoveObject.contents.json` for Cetus / Bluefin CLMM parent pool Move objects
+ * (same field names as on-chain; see e.g. `LpStrategy.parseParentPoolObject`).
+ */
+type ClmmParentPoolGraphqlJson = {
+  current_sqrt_price: string;
+};
+
+/**
+ * `asMoveObject.contents.json` for AlphaFi LP-style investor objects exposing
+ * `lower_tick` / `upper_tick` (see `LpStrategy.parseInvestorObject`).
+ */
+type LpInvestorTicksGraphqlJson = {
+  lower_tick: number | string;
+  upper_tick: number | string;
+};
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Internal helpers
@@ -23,7 +39,10 @@ async function getActiveClmmLabels(context: StrategyContext): Promise<ClmmPoolLa
   const result: ClmmPoolLabel[] = [];
   for (const [, label] of labels) {
     if (
-      (label.strategyType === 'Lp' || label.strategyType === 'Lyf' || label.strategyType === 'AutobalanceLp' || label.strategyType === 'FungibleLp') &&
+      (label.strategyType === 'Lp' ||
+        label.strategyType === 'Lyf' ||
+        label.strategyType === 'AutobalanceLp' ||
+        label.strategyType === 'FungibleLp') &&
       label.isActive &&
       label.poolName !== 'ALPHA'
     ) {
@@ -35,16 +54,14 @@ async function getActiveClmmLabels(context: StrategyContext): Promise<ClmmPoolLa
   return result;
 }
 
-function parseSqrtPrice(obj: any): string | null {
-  return (obj?.data?.content as any)?.fields?.current_sqrt_price ?? null;
-}
-
-function parseTicks(obj: any): { lowerTick: number; upperTick: number } | null {
-  const fields = (obj?.data?.content as any)?.fields;
-  if (!fields) return null;
+function tickRangeFromInvestorJson(
+  json: LpInvestorTicksGraphqlJson | undefined,
+): { lowerTick: number; upperTick: number } | null {
+  if (json === undefined) return null;
   const upperBound = 443636;
-  let lowerTick = Number(fields.lower_tick);
-  let upperTick = Number(fields.upper_tick);
+  let lowerTick = Number(json.lower_tick);
+  let upperTick = Number(json.upper_tick);
+  if (Number.isNaN(lowerTick) || Number.isNaN(upperTick)) return null;
   if (lowerTick > upperBound) lowerTick = -~(lowerTick - 1);
   if (upperTick > upperBound) upperTick = -~(upperTick - 1);
   return { lowerTick, upperTick };
@@ -56,37 +73,35 @@ function parseTicks(obj: any): { lowerTick: number; upperTick: number } | null {
 
 /**
  * Returns a map of pool name → current price (as string) for all active LP pools
- * that are managed by a CLMM protocol (Cetus or Bluefin).
+ * that are managed by a CLMM protocol (Cetus or Bluefin). Uses GraphQL via
+ * `context.blockchain.multiGetObjects` for parent pool state.
  */
-async function batchGetObjects(ids: string[], suiClient: SuiClient): Promise<Map<string, any>> {
-  const uniqueIds = [...new Set(ids)];
-  const objs = await suiClient.multiGetObjects({ ids: uniqueIds, options: { showContent: true } });
-  const map = new Map<string, any>();
-  uniqueIds.forEach((id, i) => map.set(id, objs[i]));
-  return map;
-}
-
-export async function getCurrentCetusPoolPrice(
-  context: StrategyContext,
-  suiClient: SuiClient,
-): Promise<Map<string, string>> {
+export async function getCurrentPoolPrice(context: StrategyContext): Promise<Map<string, string>> {
   const labels = await getActiveClmmLabels(context);
   const result = new Map<string, string>();
   if (labels.length === 0) return result;
 
-  const parentPoolMap = await batchGetObjects(labels.map(l => l.parentPoolId), suiClient);
+  const parentPoolIds = [...new Set(labels.map((l) => l.parentPoolId))];
+  const parentPoolMap = await context.blockchain.multiGetObjects(parentPoolIds);
 
   await Promise.all(
     labels.map(async (label) => {
       try {
-        const sqrtPriceStr = parseSqrtPrice(parentPoolMap.get(label.parentPoolId));
+        const poolJson = parentPoolMap.get(label.parentPoolId) as
+          | ClmmParentPoolGraphqlJson
+          | undefined;
+        const sqrtPriceStr = poolJson?.current_sqrt_price;
         if (!sqrtPriceStr) return;
         const coinADecimals = await context.getCoinDecimals(label.assetA.type);
         const coinBDecimals = await context.getCoinDecimals(label.assetB.type);
-        const price = TickMath.sqrtPriceX64ToPrice(new BN(sqrtPriceStr), coinADecimals, coinBDecimals);
+        const price = TickMath.sqrtPriceX64ToPrice(
+          new BN(sqrtPriceStr),
+          coinADecimals,
+          coinBDecimals,
+        );
         result.set(label.poolName, price.toString());
       } catch (err) {
-        console.warn(`getCurrentCetusPoolPrice: skipping ${label.poolName} —`, err);
+        console.warn(`getCurrentPoolPrice: skipping ${label.poolName} —`, err);
       }
     }),
   );
@@ -97,34 +112,42 @@ export async function getCurrentCetusPoolPrice(
 /**
  * Returns the pool names of all active LP pools whose current CLMM price is
  * outside the investor's position range [lowerPrice, upperPrice].
+ * Uses GraphQL via `context.blockchain.multiGetObjects` for parent pools and investors.
  */
-export async function poolPatrol(
-  context: StrategyContext,
-  suiClient: SuiClient,
-): Promise<string[]> {
+export async function poolPatrol(context: StrategyContext): Promise<string[]> {
   const labels = await getActiveClmmLabels(context);
   const broken: string[] = [];
   if (labels.length === 0) return broken;
 
-  // Two deduplicated batch RPC calls — avoids 429 rate limiting and duplicate ID errors
+  const parentPoolIds = [...new Set(labels.map((l) => l.parentPoolId))];
+  const investorIds = [...new Set(labels.map((l) => l.investorId))];
+
   const [parentPoolMap, investorMap] = await Promise.all([
-    batchGetObjects(labels.map(l => l.parentPoolId), suiClient),
-    batchGetObjects(labels.map(l => l.investorId), suiClient),
+    context.blockchain.multiGetObjects(parentPoolIds),
+    context.blockchain.multiGetObjects(investorIds),
   ]);
 
   await Promise.all(
     labels.map(async (label) => {
       try {
-        const sqrtPriceStr = parseSqrtPrice(parentPoolMap.get(label.parentPoolId));
+        const poolJson = parentPoolMap.get(label.parentPoolId) as
+          | ClmmParentPoolGraphqlJson
+          | undefined;
+        const sqrtPriceStr = poolJson?.current_sqrt_price;
         if (!sqrtPriceStr) return;
 
-        const ticks = parseTicks(investorMap.get(label.investorId));
+        const invJson = investorMap.get(label.investorId) as LpInvestorTicksGraphqlJson | undefined;
+        const ticks = tickRangeFromInvestorJson(invJson);
         if (!ticks) return;
 
         const coinADecimals = await context.getCoinDecimals(label.assetA.type);
         const coinBDecimals = await context.getCoinDecimals(label.assetB.type);
 
-        const currentPrice = TickMath.sqrtPriceX64ToPrice(new BN(sqrtPriceStr), coinADecimals, coinBDecimals);
+        const currentPrice = TickMath.sqrtPriceX64ToPrice(
+          new BN(sqrtPriceStr),
+          coinADecimals,
+          coinBDecimals,
+        );
         const lowerPrice = TickMath.tickIndexToPrice(ticks.lowerTick, coinADecimals, coinBDecimals);
         const upperPrice = TickMath.tickIndexToPrice(ticks.upperTick, coinADecimals, coinBDecimals);
 

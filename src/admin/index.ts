@@ -12,7 +12,7 @@ export {
   getTickSpacing,
 } from './tickPrice.js';
 export { getRebalanceCap } from './rebalanceCap.js';
-export { getCurrentCetusPoolPrice, poolPatrol } from './patrol.js';
+export { getCurrentPoolPrice, poolPatrol } from './patrol.js';
 export {
   getWithdrawRequestsAndUnsuppliedAmount,
   processWithdrawRequestsManualTxb,
