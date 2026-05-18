@@ -86,7 +86,7 @@ callers control when/how they are loaded (typically via `context.getCoinDecimals
 ### `patrol.ts`
 
 ```ts
-// Return a Map<poolName, currentPrice> for all active LP pools (GraphQL).
+// Return a Map<poolName, currentPrice> for all LP pools with CLMM state, including inactive (GraphQL).
 getCurrentPoolPrice(context: StrategyContext): Promise<Map<string, string>>
 
 // Return pool names whose current CLMM price is outside the position range (GraphQL).

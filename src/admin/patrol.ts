@@ -34,22 +34,28 @@ type LpInvestorTicksGraphqlJson = {
 // Internal helpers
 // ──────────────────────────────────────────────────────────────────────────────
 
-async function getActiveClmmLabels(context: StrategyContext): Promise<ClmmPoolLabel[]> {
+async function getClmmLabels(
+  context: StrategyContext,
+  activeOnly: boolean,
+): Promise<ClmmPoolLabel[]> {
   const labels = await context.getPoolLabels();
   const result: ClmmPoolLabel[] = [];
   for (const [, label] of labels) {
     if (
-      (label.strategyType === 'Lp' ||
+      !(
+        label.strategyType === 'Lp' ||
         label.strategyType === 'Lyf' ||
         label.strategyType === 'AutobalanceLp' ||
-        label.strategyType === 'FungibleLp') &&
-      label.isActive &&
-      label.poolName !== 'ALPHA'
+        label.strategyType === 'FungibleLp'
+      )
     ) {
-      const l = label as ClmmPoolLabel;
-      if (!l.parentPoolId || !l.investorId) continue;
-      result.push(l);
+      continue;
     }
+    if (label.poolName === 'ALPHA') continue;
+    if (activeOnly && !label.isActive) continue;
+    const l = label as ClmmPoolLabel;
+    if (!l.parentPoolId || !l.investorId) continue;
+    result.push(l);
   }
   return result;
 }
@@ -72,12 +78,13 @@ function tickRangeFromInvestorJson(
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * Returns a map of pool name → current price (as string) for all active LP pools
- * that are managed by a CLMM protocol (Cetus or Bluefin). Uses GraphQL via
- * `context.blockchain.multiGetObjects` for parent pool state.
+ * Returns a map of pool name → current price (as string) for all LP pools with
+ * CLMM parent pool state (Cetus or Bluefin), including **inactive** pools, so
+ * admin UIs that list retired strategies still get a spot price. Uses GraphQL
+ * via `context.blockchain.multiGetObjects` for parent pool state.
  */
 export async function getCurrentPoolPrice(context: StrategyContext): Promise<Map<string, string>> {
-  const labels = await getActiveClmmLabels(context);
+  const labels = await getClmmLabels(context, false);
   const result = new Map<string, string>();
   if (labels.length === 0) return result;
 
@@ -115,7 +122,7 @@ export async function getCurrentPoolPrice(context: StrategyContext): Promise<Map
  * Uses GraphQL via `context.blockchain.multiGetObjects` for parent pools and investors.
  */
 export async function poolPatrol(context: StrategyContext): Promise<string[]> {
-  const labels = await getActiveClmmLabels(context);
+  const labels = await getClmmLabels(context, true);
   const broken: string[] = [];
   if (labels.length === 0) return broken;
 
