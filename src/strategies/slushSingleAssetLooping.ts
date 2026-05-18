@@ -9,6 +9,7 @@ import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
+  ALPHAFI_ORACLE,
   ALPHALEND_LENDING_PROTOCOL_ID,
   CLOCK_PACKAGE_ID,
   GLOBAL_CONFIGS,
@@ -483,11 +484,12 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       if (x.coinType == alphaCoin.coinType) {
         // ALPHA -> stSUI -> SUI
         tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin`,
+          target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin_v2`,
           typeArguments: [this.poolLabel.asset.type, alphaCoin.coinType, stsuiCoin.coinType],
           arguments: [
             tx.object(VERSIONS.SLUSH),
             tx.object(this.poolLabel.poolId),
+            tx.object(ALPHAFI_ORACLE),
             tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
             tx.object(
               await this.context.getPoolIdBySymbolsAndProtocol('ALPHA', 'stSUI', 'bluefin'),
@@ -500,11 +502,12 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
           ],
         });
         tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin`,
+          target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin_v2`,
           typeArguments: [this.poolLabel.asset.type, stsuiCoin.coinType, suiCoin.coinType],
           arguments: [
             tx.object(VERSIONS.SLUSH),
             tx.object(this.poolLabel.poolId),
+            tx.object(ALPHAFI_ORACLE),
             tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
             tx.object(await this.context.getPoolIdBySymbolsAndProtocol('stSUI', 'SUI', 'bluefin')),
             tx.object(GLOBAL_CONFIGS.BLUEFIN),
@@ -517,11 +520,12 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       } else if (coinTypes.includes(x.coinType) && x.coinType != this.poolLabel.asset.type) {
         // Other rewards -> SUI
         tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin`,
+          target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin_v2`,
           typeArguments: [this.poolLabel.asset.type, x.coinType, suiCoin.coinType],
           arguments: [
             tx.object(VERSIONS.SLUSH),
             tx.object(this.poolLabel.poolId),
+            tx.object(ALPHAFI_ORACLE),
             tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
             tx.object(
               await this.context.getPoolIdByTypesAndProtocol(
@@ -545,11 +549,12 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
     if (this.poolLabel.asset.name === 'USDSUI') {
       // SUI -> USDC
       tx.moveCall({
-        target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin`,
+        target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin_v2`,
         typeArguments: [this.poolLabel.asset.type, suiCoin.coinType, usdcCoin.coinType],
         arguments: [
           tx.object(VERSIONS.SLUSH),
           tx.object(this.poolLabel.poolId),
+          tx.object(ALPHAFI_ORACLE),
           tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
           tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'USDC', 'bluefin')),
           tx.object(GLOBAL_CONFIGS.BLUEFIN),
@@ -561,11 +566,12 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       });
       // USDC -> USDSUI (base asset)
       tx.moveCall({
-        target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin`,
+        target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin_v2`,
         typeArguments: [this.poolLabel.asset.type, this.poolLabel.asset.type, usdcCoin.coinType],
         arguments: [
           tx.object(VERSIONS.SLUSH),
           tx.object(this.poolLabel.poolId),
+          tx.object(ALPHAFI_ORACLE),
           tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
           tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDC', 'USDSUI', 'bluefin')),
           tx.object(GLOBAL_CONFIGS.BLUEFIN),
