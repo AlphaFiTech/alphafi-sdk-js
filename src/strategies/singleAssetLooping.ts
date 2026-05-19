@@ -393,7 +393,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
       }
     }
 
-    if (this.poolLabel.asset.name in ['tBTC', 'USDSUI', 'XAUm', 'WBTC']) {
+    if (['tBTC', 'USDSUI', 'XAUm', 'WBTC'].includes(this.poolLabel.asset.name)) {
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_bluefin`,
         typeArguments: [this.poolLabel.asset.type, suiCoin.coinType, usdcCoin.coinType],
@@ -408,7 +408,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
-      if (this.poolLabel.asset.name in ['XAUm']) {
+      if (['XAUm'].includes(this.poolLabel.asset.name)) {
         tx.moveCall({
           target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_mmt`,
           typeArguments: [xaumCoin.coinType, xaumCoin.coinType, usdcCoin.coinType],
@@ -461,7 +461,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
-    } else if (this.poolLabel.asset.name in ['DEEP', 'WAL']) {
+    } else if (['DEEP', 'WAL'].includes(this.poolLabel.asset.name)) {
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_bluefin`,
         typeArguments: [this.poolLabel.asset.type, this.poolLabel.asset.type, suiCoin.coinType],
