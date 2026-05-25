@@ -415,6 +415,17 @@ async function createTransferRequestAlphaFiReceipt() {
   });
   dryRunTransactionBlock(tx, address);
 }
+async function updatePool() {
+  const { address, keypair, suiClient } = getExecStuff();
+  const sdk = new AlphaFiSDK({ network: 'mainnet' });
+  const tx = await sdk.updatePool(
+    '0x4db8dacf91a31daa296cd3a32a11a140aa44f4ede663798e92cb1cf2e157e6cb',
+  );
+  tx.setGasBudget(2e8);
+  dryRunTransactionBlock(tx, address);
+  // executeTransactionBlock(tx);
+}
+updatePool();
 // claimAirdrop();
 // withdraw();
 // poolsData();
