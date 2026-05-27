@@ -310,9 +310,9 @@ async function adminAddAllowedBluefinPoolLockedLoopPool(
 // );
 
 // --- admin_add_allowed_bluefin_pool: locked-loop pool ---
-adminAddAllowedBluefinPoolLockedLoopPool(
-  '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9', // WAL single-loop
-  'stSUI', // R
-  'SUI', // S
-  300,
-);
+// adminAddAllowedBluefinPoolLockedLoopPool(
+//   '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9', // WAL single-loop
+//   'stSUI', // R
+//   'SUI', // S
+//   300,
+// );
