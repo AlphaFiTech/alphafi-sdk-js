@@ -53,8 +53,7 @@ export function getExecStuff() {
   const suiClient = getSuiClient(process.env.NETWORK);
 
   return {
-    // address,
-    address: '0xe25b5d16ca31ddfdc31a7219c90f88bdfc56b606c13df6619aef22515580e293',
+    address,
     keypair,
     suiClient,
   };
