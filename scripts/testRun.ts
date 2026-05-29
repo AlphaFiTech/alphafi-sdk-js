@@ -1,101 +1,10 @@
-import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { fromB64 } from '@mysten/sui/utils';
-import { SuiClient } from '@mysten/sui/client';
-import {
-  AlphaFiSDK,
-  addAirdropCoinTxb,
-  collectUnsuppliedBalance,
-  collectUnsuppliedBalanceTxb,
-  getCurrentTick,
-  getManualRebalanceUsingTicksTxb,
-  getTickSpacing,
-  getWithdrawRequestsAndUnsuppliedAmount,
-  processWithdrawRequestsManualTxb,
-  StrategyContext,
-} from '../src/index.js';
-import type { AlphaVaultPoolLabel } from '../src/strategies/alphaVault.js';
-import dotenv from 'dotenv';
 import { Transaction } from '@mysten/sui/transactions';
-import * as fs from 'fs';
+import { addAirdropCoinTxb, AlphaFiSDK, collectUnsuppliedBalance, collectUnsuppliedBalanceTxb, getCurrentTick, getManualRebalanceUsingTicksTxb, getTickSpacing, getWithdrawRequestsAndUnsuppliedAmount, processWithdrawRequestsManualTxb, StrategyContext } from '../src/index.js';
+import { AlphaVaultPoolLabel } from '../src/strategies/alphaVault.js';
+import { dryRunTransactionBlock, executeTransactionBlock, getExecStuff } from './utils.js';
+import fs from 'fs';
 
-dotenv.config();
 
-export function getSuiClient(network: string) {
-  const mainnetUrl = 'https://fullnode.mainnet.sui.io/';
-  const testnetUrl = 'https://fullnode.testnet.sui.io/';
-  const devnetUrl = 'https://fullnode.devnet.sui.io/';
-
-  let rpcUrl = devnetUrl;
-  if (network === 'mainnet') {
-    rpcUrl = mainnetUrl;
-  } else if (network === 'testnet') {
-    rpcUrl = testnetUrl;
-  }
-
-  return new SuiClient({
-    url: rpcUrl,
-  });
-}
-
-export function getExecStuff() {
-  if (!process.env.PK_B64) {
-    throw new Error('env var PK_B64 not configured');
-  }
-
-  const b64PrivateKey = process.env.PK_B64 as string;
-  const keypair = Ed25519Keypair.fromSecretKey(fromB64(b64PrivateKey).slice(1));
-  const address = `${keypair.getPublicKey().toSuiAddress()}`;
-
-  if (!process.env.NETWORK) {
-    throw new Error('env var NETWORK not configured');
-  }
-
-  const suiClient = getSuiClient(process.env.NETWORK);
-
-  return {
-    address,
-    keypair,
-    suiClient,
-  };
-}
-
-export async function dryRunTransactionBlock(txb: Transaction, add?: string) {
-  const { suiClient, address } = getExecStuff();
-
-  add ? txb.setSender(add) : txb.setSender(address);
-  // txb.setGasBudget(1e9);
-  try {
-    const serializedTxb = await txb.build({ client: suiClient });
-    const res = await suiClient.dryRunTransactionBlock({
-      transactionBlock: serializedTxb,
-    });
-    console.log(res.effects.status, res.balanceChanges, res.events);
-    return res;
-  } catch (e) {
-    console.error(e);
-  }
-}
-export async function executeTransactionBlock(txb: Transaction) {
-  const { keypair, suiClient } = getExecStuff();
-
-  await suiClient
-    .signAndExecuteTransaction({
-      signer: keypair,
-      transaction: txb,
-      requestType: 'WaitForLocalExecution',
-      options: {
-        showEffects: true,
-        showBalanceChanges: true,
-        showObjectChanges: true,
-      },
-    })
-    .then((res) => {
-      console.log(JSON.stringify(res, null, 2));
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-}
 // async function test() {
 //   const { address, keypair, suiClient } = getExecStuff();
 //   const lockedTableID = '0xe8474026c16bcb0581bc77169e1ee8d656d64c07ddfa02929ea536fe260e1a09';
@@ -215,7 +124,7 @@ export async function dryRunAllAlphaVaultAdminFunctions() {
 }
 
 async function main() {
-  const { address } = getExecStuff();
+  const { address, keypair, suiClient } = getExecStuff();
   const alphafiClient = new AlphaFiSDK({ network: 'mainnet' });
   const startTime = Date.now();
   const res = await alphafiClient.getPoolsData(
@@ -305,8 +214,8 @@ async function deposit() {
     network: 'mainnet',
   });
   const tx = await sdk.deposit({
-    poolId: '0x0e1399fe66eca3147766bb113ae7b52b31243874c9e4a64a48e6d8cb91aa3c04',
-    amount: 10_000n,
+    poolId: '0x18db5470cc2da4f74b1b957891f274d896764d08c56c3941788cef84d2a1362e',
+    amount: 1982616226n,
     address: address,
     isAmountA: false,
   });
@@ -424,7 +333,7 @@ async function updatePool() {
   dryRunTransactionBlock(tx, address);
   // executeTransactionBlock(tx);
 }
-updatePool();
+// updatePool();
 // claimAirdrop();
 // withdraw();
 // poolsData();
