@@ -15,7 +15,6 @@ import {
   TransactionResult,
 } from '@mysten/sui/transactions';
 import {
-  ADMIN,
   CLOCK_PACKAGE_ID,
   DISTRIBUTOR_OBJECT_ID,
   GLOBAL_CONFIGS,
@@ -2329,13 +2328,14 @@ export class LpStrategy extends BaseStrategy<
     const lo = toTwosComplementU32(Number(lowerTick));
     const hi = toTwosComplementU32(Number(upperTick));
 
-    const [blueInfo, suiInfo, deepInfo] = await context.getCoinsBySymbols(['BLUE', 'SUI', 'DEEP']);
+    const [blueInfo, suiInfo, deepInfo, usdcInfo] = await context.getCoinsBySymbols(['BLUE', 'SUI', 'DEEP', 'USDC']);
     const blueType = blueInfo.coinType;
     const suiType = suiInfo.coinType;
     const deepType = deepInfo.coinType;
 
     const blueSuiPool = await context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin');
     const deepSuiPool = await context.getPoolIdBySymbolsAndProtocol('DEEP', 'SUI', 'bluefin');
+    const bluefinSuiUsdc = await context.getPoolIdByTypesAndProtocol(suiInfo.coinType, usdcInfo.coinType, 'bluefin');
 
     // ─── Cetus LP pools ───────────────────────────────────────────────────────
     if (label.parentProtocol === 'Cetus') {
@@ -2632,7 +2632,7 @@ export class LpStrategy extends BaseStrategy<
           tx.object(GLOBAL_CONFIGS.BLUEFIN),
           tx.object(label.parentPoolId),
           tx.object(blueSuiPool),
-          tx.object(ADMIN.BLUEFIN_SUI_USDC_175_POOL),
+          tx.object(bluefinSuiUsdc),
           tx.object(STSUI.LST_INFO),
           tx.object(SUI_SYSTEM_STATE),
           tx.object(CLOCK_PACKAGE_ID),
@@ -2693,7 +2693,7 @@ export class LpStrategy extends BaseStrategy<
           tx.object(GLOBAL_CONFIGS.BLUEFIN),
           tx.object(bluefinAusdUsdc),
           tx.object(blueSuiPool),
-          tx.object(ADMIN.BLUEFIN_SUI_USDC_175_POOL),
+          tx.object(bluefinSuiUsdc),
           tx.object(STSUI.LST_INFO),
           tx.object(SUI_SYSTEM_STATE),
           tx.object(CLOCK_PACKAGE_ID),
@@ -2798,7 +2798,7 @@ export class LpStrategy extends BaseStrategy<
           tx.object(GLOBAL_CONFIGS.BLUEFIN),
           tx.object(label.parentPoolId),
           tx.object(blueSuiPool),
-          tx.object(ADMIN.BLUEFIN_SUI_USDC_175_POOL),
+          tx.object(bluefinSuiUsdc),
           tx.object(STSUI.LST_INFO),
           tx.object(SUI_SYSTEM_STATE),
           tx.object(CLOCK_PACKAGE_ID),
@@ -3076,7 +3076,7 @@ export class LpStrategy extends BaseStrategy<
           tx.object(GLOBAL_CONFIGS.BLUEFIN),
           tx.object(label.parentPoolId),
           tx.object(blueSuiPool),
-          tx.object(ADMIN.BLUEFIN_SUI_USDC_175_POOL),
+          tx.object(bluefinSuiUsdc),
           tx.object(STSUI.LST_INFO),
           tx.object(SUI_SYSTEM_STATE),
           tx.object(CLOCK_PACKAGE_ID),
@@ -3141,7 +3141,7 @@ export class LpStrategy extends BaseStrategy<
           tx.object(label.parentPoolId),
           tx.object(blueSuiPool),
           tx.object(deepSuiPool),
-          tx.object(ADMIN.BLUEFIN_SUI_USDC_175_POOL),
+          tx.object(bluefinSuiUsdc),
           tx.object(STSUI.LST_INFO),
           tx.object(SUI_SYSTEM_STATE),
           tx.object(CLOCK_PACKAGE_ID),
@@ -3193,6 +3193,7 @@ export class LpStrategy extends BaseStrategy<
         ],
       });
     } else if (poolName === 'BLUEFIN-LBTC-SUIBTC') {
+      const bluefinLbtcSuibtc = await context.getPoolIdByTypesAndProtocol(coinAType, coinBType, 'bluefin');
       const cetusSuibtcLbtc = await context.getPoolIdBySymbolsAndProtocol(
         'SUIBTC',
         'LBTC',
@@ -3211,7 +3212,7 @@ export class LpStrategy extends BaseStrategy<
           tx.object(VERSIONS.BLUEFIN_V2),
           tx.object(label.investorId),
           tx.object(GLOBAL_CONFIGS.BLUEFIN),
-          tx.object(ADMIN.BLUEFIN_LBTC_SUIBTC_POOL),
+          tx.object(bluefinLbtcSuibtc),
           tx.object(blueSuiPool),
           tx.object(deepSuiPool),
           tx.object(bluefinSuiSuibtc),
@@ -3234,7 +3235,7 @@ export class LpStrategy extends BaseStrategy<
           tx.pure.u32(lo),
           tx.pure.u32(hi),
           tx.pure.u32(loops),
-          tx.object(ADMIN.BLUEFIN_LBTC_SUIBTC_POOL),
+          tx.object(bluefinLbtcSuibtc),
           tx.object(cetusSuibtcLbtc),
           tx.object(blueSuiPool),
           tx.object(deepSuiPool),
@@ -3255,7 +3256,7 @@ export class LpStrategy extends BaseStrategy<
           tx.object(DISTRIBUTOR_OBJECT_ID),
           tx.object(GLOBAL_CONFIGS.BLUEFIN),
           tx.object(GLOBAL_CONFIGS.CETUS),
-          tx.object(ADMIN.BLUEFIN_LBTC_SUIBTC_POOL),
+          tx.object(bluefinLbtcSuibtc),
           tx.object(blueSuiPool),
           tx.object(deepSuiPool),
           tx.object(cetusSuibtcLbtc),
@@ -3278,7 +3279,7 @@ export class LpStrategy extends BaseStrategy<
           tx.object(GLOBAL_CONFIGS.BLUEFIN),
           tx.object(bluefinWalUsdc),
           tx.object(blueSuiPool),
-          tx.object(ADMIN.BLUEFIN_SUI_USDC_175_POOL),
+          tx.object(bluefinSuiUsdc),
           tx.object(STSUI.LST_INFO),
           tx.object(SUI_SYSTEM_STATE),
           tx.object(CLOCK_PACKAGE_ID),
@@ -3339,7 +3340,7 @@ export class LpStrategy extends BaseStrategy<
           tx.object(GLOBAL_CONFIGS.BLUEFIN),
           tx.object(bluefinSuiusdtUsdc),
           tx.object(blueSuiPool),
-          tx.object(ADMIN.BLUEFIN_SUI_USDC_175_POOL),
+          tx.object(bluefinSuiUsdc),
           tx.object(STSUI.LST_INFO),
           tx.object(SUI_SYSTEM_STATE),
           tx.object(CLOCK_PACKAGE_ID),
@@ -3406,7 +3407,7 @@ export class LpStrategy extends BaseStrategy<
           tx.object(label.parentPoolId),
           tx.object(blueSuiPool),
           tx.object(cetusSuiUsdc),
-          tx.object(ADMIN.BLUEFIN_SUI_USDC_175_POOL),
+          tx.object(bluefinSuiUsdc),
           tx.object(STSUI.LST_INFO),
           tx.object(SUI_SYSTEM_STATE),
           tx.pure.bool(swap_using_bluefin ?? false),
@@ -3427,7 +3428,7 @@ export class LpStrategy extends BaseStrategy<
           tx.object(label.parentPoolId),
           tx.object(blueSuiPool),
           tx.object(cetusSuiUsdc),
-          tx.object(ADMIN.BLUEFIN_SUI_USDC_175_POOL),
+          tx.object(bluefinSuiUsdc),
           tx.object(STSUI.LST_INFO),
           tx.object(SUI_SYSTEM_STATE),
           tx.pure.bool(swap_using_bluefin ?? false),

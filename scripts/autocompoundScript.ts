@@ -30,7 +30,7 @@
 
 import { AlphaFiSDK } from '../src/index.js';
 import fs from 'fs';
-import { getExecStuff } from './testRun.js';
+import { getExecStuff } from './utils.js';
 interface PoolConfig {
   strategy_type: string;
   data: {
@@ -102,12 +102,12 @@ async function testPoolAutocompound(
     console.log('💰 Balance Changes:', JSON.stringify(result.balanceChanges, null, 2));
     console.log('📝 Events Count:', result.events.length);
 
-    if (result.events.length > 0) {
-      console.log('📢 Events:');
-      result.events.forEach((event, idx) => {
-        console.log(`   ${idx + 1}. ${event.type}`);
-      });
-    }
+    // if (result.events.length > 0) {
+    //   console.log('📢 Events:');
+    //   result.events.forEach((event, idx) => {
+    //     console.log(`   ${idx + 1}. ${event.type}`);
+    //   });
+    // }
 
     return { success: true };
   } catch (error) {
@@ -254,7 +254,6 @@ async function testSpecificPools(poolIds: string[]) {
   const startTime = Date.now();
 
   try {
-    const { suiClient } = getExecStuff();
     const sdk = new AlphaFiSDK({ network: 'mainnet' });
 
     // Fetch pool configurations to get names

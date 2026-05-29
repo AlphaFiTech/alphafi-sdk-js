@@ -11,7 +11,6 @@ import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/cetus-sui
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
-  ADMIN,
   GLOBAL_CONFIGS,
   CLOCK_PACKAGE_ID,
   DISTRIBUTOR_OBJECT_ID,
@@ -557,32 +556,8 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     // Update pool
     const coinAType = this.poolLabel.assetA.type;
     const coinBType = this.poolLabel.assetB.type;
-    const poolName = this.poolLabel.poolName;
-
-    const suiFirstPools = new Set([
-      'BLUEFIN-AUTOBALANCE-SUI-USDC',
-      'BLUEFIN-AUTOBALANCE-SUI-LBTC',
-      'BLUEFIN-AUTOBALANCE-SUI-USDC-175',
-    ]);
-    const suiSecondPools = new Set([
-      'BLUEFIN-AUTOBALANCE-DEEP-SUI',
-      'BLUEFIN-AUTOBALANCE-BLUE-SUI',
-      'BLUEFIN-AUTOBALANCE-DEEP-SUI-175',
-      'BLUEFIN-AUTOBALANCE-WAL-SUI',
-    ]);
-
-    let poolModule: string;
-    let updateFn: string;
-    if (suiFirstPools.has(poolName)) {
-      poolModule = 'alphafi_bluefin_sui_first_pool';
-      updateFn = 'update_pool_v4';
-    } else if (suiSecondPools.has(poolName)) {
-      poolModule = 'alphafi_bluefin_sui_second_pool';
-      updateFn = 'update_pool_v3';
-    } else {
-      poolModule = 'alphafi_bluefin_type_1_pool';
-      updateFn = 'update_pool_v3';
-    }
+    const poolModule = this.getPoolModule();
+    const updateFn = this.getUpdatePoolFn();
 
     tx.moveCall({
       target: `${this.poolLabel.packageId}::${poolModule}::${updateFn}`,
@@ -1006,7 +981,7 @@ export class AutobalanceLpStrategy extends BaseStrategy<
           tx.pure.u32(loops),
           tx.object(this.poolLabel.parentPoolId),
           tx.object(cetusUsdcSuiusdt),
-          tx.object(ADMIN.BLUEFIN_BLUE_SUI_POOL_AUTOCOMPOUND),
+          tx.object(await context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin')),
           tx.object(cetusUsdcSui),
           tx.object(STSUI.LST_INFO),
           tx.object(SUI_SYSTEM_STATE),

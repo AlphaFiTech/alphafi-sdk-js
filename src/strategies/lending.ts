@@ -9,7 +9,6 @@ import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
-  ADMIN,
   BUCKET_CONFIG,
   CLOCK_PACKAGE_ID,
   DISTRIBUTOR_OBJECT_ID,
@@ -1092,7 +1091,7 @@ export class LendingStrategy extends BaseStrategy<
     } else if (this.poolLabel.packageNumber === 3) {
       // Package 3: NAVI-AUSD, NAVI-ETH, NAVI-SUIUSDT, NAVI-NS, NAVI-NAVX, NAVI-STSUI, NAVI-DEEP, NAVI-WAL
       tx.moveCall({
-        target: `${ADMIN.ALPHA_3_LATEST_PACKAGE_ID}::alphafi_navi_pool_v2::update_pool_v2`,
+        target: `${this.poolLabel.packageId}::alphafi_navi_pool_v2::update_pool_v2`,
         typeArguments: [this.poolLabel.asset.type],
         arguments: [
           tx.object(VERSIONS.ALPHA_VERSIONS[3]),
@@ -1112,7 +1111,7 @@ export class LendingStrategy extends BaseStrategy<
     } else if (this.poolLabel.packageNumber === 9) {
       // Package 9: NAVI-SUIBTC (special case)
       tx.moveCall({
-        target: `${ADMIN.ALPHA_NAVI_V2_LATEST_PACKAGE_ID}::alphafi_navi_pool_v2::update_pool_v3`,
+        target: `${this.poolLabel.packageId}::alphafi_navi_pool_v2::update_pool_v3`,
         typeArguments: [this.poolLabel.asset.type],
         arguments: [
           tx.object(VERSIONS.ALPHA_NAVI_V2),

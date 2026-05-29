@@ -408,44 +408,26 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
-      if (['XAUm'].includes(this.poolLabel.asset.name)) {
-        tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_mmt`,
-          typeArguments: [xaumCoin.coinType, xaumCoin.coinType, usdcCoin.coinType],
-          arguments: [
-            tx.object(VERSIONS.ALPHALEND_VERSION),
-            tx.object(this.poolLabel.investorId),
-            tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-            tx.object(await this.context.getPoolIdBySymbolsAndProtocol('XAUm', 'USDC', 'mmt')),
-            tx.object(VERSIONS.MMT),
-            tx.pure.bool(false),
-            tx.pure.bool(true),
-            tx.pure.u64(10),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-      } else {
-        tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_bluefin`,
-          typeArguments: [this.poolLabel.asset.type, this.poolLabel.asset.type, usdcCoin.coinType],
-          arguments: [
-            tx.object(VERSIONS.ALPHALEND_VERSION),
-            tx.object(this.poolLabel.investorId),
-            tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-            tx.object(
-              await this.context.getPoolIdBySymbolsAndProtocol(
-                this.poolLabel.asset.name,
-                'USDC',
-                'bluefin',
-              ),
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [this.poolLabel.asset.type, this.poolLabel.asset.type, usdcCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHALEND_VERSION),
+          tx.object(this.poolLabel.investorId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              this.poolLabel.asset.name,
+              'USDC',
+              'bluefin',
             ),
-            tx.object(GLOBAL_CONFIGS.BLUEFIN),
-            tx.pure.bool(false),
-            tx.pure.bool(true),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-      }
+          ),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(false),
+          tx.pure.bool(true),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
     } else if (this.poolLabel.asset.name === 'wBTC') {
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_bluefin`,
@@ -551,7 +533,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
         tx.object(VERSIONS.ALPHA_VERSIONS[1]),
         tx.object(this.receiptObjects[0].id),
         noneAlphaReceipt,
-        tx.object('0x6ee8f60226edf48772f81e5986994745dae249c2605a5b12de6602ef1b05b0c1'),
+        tx.object(POOLS.ALPHA_LEGACY),
         tx.object(this.poolLabel.poolId),
         tx.pure.u64(xTokens),
         tx.object(this.poolLabel.investorId),
