@@ -42,7 +42,7 @@
     "@alphafi/alphalend-sdk": "^2.0.1",
     "@alphafi/stsui-sdk": "^1.0.0",
     "@apollo/client": "^4.0.11",
-    "@cetusprotocol/aggregator-sdk": "^1.4.2",
+    "@cetusprotocol/aggregator-sdk": "^1.5.5",
     "@cetusprotocol/cetus-sui-clmm-sdk": "5.4.0",
     "bech32": "^2.0.0",
     "bn.js": "^5.2.2",
@@ -51,6 +51,7 @@
     "graphql": "^16.12.0"
   },
   "devDependencies": {
+    "@mysten/sui": "^2.17.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.13.10",
     "eslint": "^9.14.0",
@@ -66,6 +67,9 @@
     "typescript-eslint": "^8.14.0"
   },
   "peerDependencies": {
-    "@mysten/sui": "1.45.0"
+    "@mysten/sui": "^2.17.0"
+  },
+  "overrides": {
+    "@mysten/sui": "$@mysten/sui"
   }
 }

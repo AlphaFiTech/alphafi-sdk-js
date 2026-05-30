@@ -870,7 +870,8 @@ export class LendingStrategy extends BaseStrategy<
 
   private async updateSingleTokenPrice(tx: Transaction, pythPriceInfo: string, feedId: string) {
     const pythClient = new SuiPythClient(
-      this.context.blockchain.txBuildClient,
+      // @pythnetwork/pyth-sui-js still types the provider as legacy SuiClient
+      this.context.pythJsonRpcClient as ConstructorParameters<typeof SuiPythClient>[0],
       PYTH_STATE_ID,
       WORMHOLE_STATE_ID,
     );

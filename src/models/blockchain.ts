@@ -1,10 +1,9 @@
 /**
- * Blockchain interface wrapper for Sui network operations using GraphQL and JSON-RPC clients.
+ * Blockchain interface wrapper for Sui network operations using GraphQL.
  */
 
-import { SuiClient, SuiObjectData } from '@mysten/sui/client';
 import { SuiGraphQLClient } from '@mysten/sui/graphql';
-import { graphql } from '@mysten/sui/graphql/schemas/latest';
+import { graphql } from '@mysten/sui/graphql/schema';
 import { Transaction } from '@mysten/sui/transactions';
 import { toBase64 } from '@mysten/sui/utils';
 import type { SimulationGasSummary, SimulationResult } from './types.js';
@@ -12,15 +11,28 @@ import { Network } from '@alphafi/alphalend-sdk';
 
 export type BlockchainOptions = {
   network: Network;
-  txBuildClient?: SuiClient;
   graphqlUrl?: string;
+};
+
+/** A single entry from `address.dynamicFields.nodes` (GraphQL). */
+export type DynamicFieldNode = {
+  address: string;
+  name: {
+    type: { repr: string };
+    json?: unknown;
+  };
+  value?: {
+    __typename?: string;
+    json?: unknown;
+    address?: string;
+    contents?: { json?: unknown };
+  };
 };
 
 export class Blockchain {
   network: Network;
   graphqlUrl: string;
   gqlClient: SuiGraphQLClient;
-  txBuildClient: SuiClient;
 
   constructor(options: BlockchainOptions) {
     this.network = options.network;
@@ -29,14 +41,9 @@ export class Blockchain {
       (options.network === 'testnet'
         ? 'https://graphql.testnet.sui.io/graphql'
         : 'https://graphql.mainnet.sui.io/graphql');
-    this.txBuildClient = new SuiClient({
-      url:
-        options.network === 'testnet'
-          ? 'https://fullnode.testnet.sui.io/'
-          : 'https://fullnode.mainnet.sui.io/',
-    });
     this.gqlClient = new SuiGraphQLClient({
       url: this.graphqlUrl,
+      network: options.network,
     });
   }
 
@@ -120,13 +127,13 @@ export class Blockchain {
     return receiptOption;
   }
 
-  /** Simulate a transaction via GraphQL and return a typed simulation result. */
+  /** Simulate a transaction via GraphQL. BCS bytes are built via the same GraphQL client. */
   async simulateTransaction(
     tx: Transaction,
     sender: string,
   ): Promise<SimulationResult | undefined> {
     tx.setSenderIfNotSet(sender);
-    const txBytes = await tx.build({ client: this.txBuildClient });
+    const txBytes = await tx.build({ client: this.gqlClient });
     const txBase64 = toBase64(txBytes);
 
     const query = graphql(`
@@ -392,21 +399,57 @@ export class Blockchain {
     return graphql(query);
   }
 
-  /** Returns the object data of the first dynamic field whose key type contains `keyTypeFragment`, or null. */
+  /**
+   * Returns the first `dynamicFields` node whose key type contains
+   * `keyTypeFragment`, or null if none is found on the first page.
+   */
   async getDynamicFieldByKeyType(
     parentId: string,
     keyTypeFragment: string,
-  ): Promise<SuiObjectData | null> {
+  ): Promise<DynamicFieldNode | null> {
     try {
-      const fields = await this.txBuildClient.getDynamicFields({ parentId });
-      const match = fields.data.find((f) => f.name.type.includes(keyTypeFragment));
-      if (!match) return null;
+      const query = graphql(`
+        query getDynamicFieldByKeyType($parentId: SuiAddress!) {
+          address(address: $parentId) {
+            dynamicFields {
+              nodes {
+                address
+                name {
+                  type {
+                    repr
+                  }
+                  json
+                }
+                value {
+                  __typename
+                  ... on MoveValue {
+                    json
+                  }
+                  ... on MoveObject {
+                    address
+                    contents {
+                      json
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      `);
 
-      const obj = await this.txBuildClient.getObject({
-        id: match.objectId,
-        options: { showContent: true },
+      const result: any = await this.gqlClient.query({
+        query,
+        variables: { parentId },
       });
-      return obj?.data ?? null;
+
+      const match = result.data?.address?.dynamicFields?.nodes?.find(
+        (node: { address?: string; name?: { type?: { repr?: string } } }) =>
+          (node.name?.type?.repr ?? '').includes(keyTypeFragment),
+      );
+      if (!match?.address) return null;
+
+      return match as DynamicFieldNode;
     } catch (err) {
       console.error('[AlphaFiSDK] getDynamicFieldByKeyType error:', err);
       return null;

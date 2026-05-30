@@ -5,11 +5,11 @@
  * All data is loaded on-demand with automatic caching and TTL expiration.
  */
 
-import { Blockchain } from './blockchain.js';
+import { Blockchain, type DynamicFieldNode } from './blockchain.js';
 import { CoinInfoProvider } from './coinInfoProvider.js';
 import { PoolLabel, StrategyType } from '../strategies/strategy.js';
 import { Decimal } from 'decimal.js';
-import { SuiObjectData } from '@mysten/sui/client/index.js';
+import { SuiJsonRpcClient } from '@mysten/sui/jsonRpc';
 import { AlphalendClient, Network } from '@alphafi/alphalend-sdk';
 import {
   AlphaFiReceipt,
@@ -37,6 +37,8 @@ export class StrategyContext {
   blockchain: Blockchain;
   coinInfoProvider: CoinInfoProvider;
   alphalendClient: AlphalendClient;
+  /** Internal JSON-RPC client for `@pythnetwork/pyth-sui-js` only. */
+  readonly pythJsonRpcClient: SuiJsonRpcClient;
 
   // Singleton caches for global data
   private allPoolLabelsCache: SingletonCache<Map<string, PoolLabel>>; // For bulk fetches
@@ -58,6 +60,16 @@ export class StrategyContext {
     this.blockchain = new Blockchain({ network, graphqlUrl });
     this.coinInfoProvider = new CoinInfoProvider();
     this.alphalendClient = new AlphalendClient(network, graphqlUrl);
+    const pythFullnodeUrl =
+      network === 'mainnet'
+        ? 'https://fullnode.mainnet.sui.io/'
+        : network === 'testnet'
+          ? 'https://fullnode.testnet.sui.io/'
+          : 'https://fullnode.devnet.sui.io/';
+    this.pythJsonRpcClient = new SuiJsonRpcClient({
+      url: pythFullnodeUrl,
+      network,
+    });
 
     // Initialize singleton caches with appropriate TTLs
     this.allPoolLabelsCache = new SingletonCache(CACHE_TTL.POOL_LABELS);
@@ -888,18 +900,15 @@ export class StrategyContext {
   }
 
   /**
-   * Parses the raw Field<TransferRequestKey, TransferRequest> wrapper returned by
-   * `getDynamicFields` into a typed `TransferRequest`. The actual data lives at
-   * `content.fields.value.fields`, one level deeper than the field wrapper itself.
+   * Parses a GraphQL `dynamicFields` node into a typed `TransferRequest`.
+   * The inner struct lives in `value` (`MoveValue.json` or `MoveObject.contents.json`).
    */
-  private parseTransferRequestField(raw: SuiObjectData | null): TransferRequest | null {
-    if (!raw || raw.content?.dataType !== 'moveObject') return null;
+  private parseTransferRequestField(node: DynamicFieldNode | null): TransferRequest | null {
+    const valueFields = this.extractDynamicFieldValueFields(node);
+    if (!valueFields) return null;
 
-    // Drill through the Field<Key,Value> wrapper to reach TransferRequest fields.
-    const fieldWrapperFields = raw.content.fields as Record<string, unknown>;
-    const transferRequestFields = (fieldWrapperFields.value as Record<string, unknown> | undefined)
-      ?.fields as Record<string, unknown> | undefined;
-    const transferRequest = transferRequestFields ?? fieldWrapperFields;
+    const transferRequest =
+      (valueFields.fields as Record<string, unknown> | undefined) ?? valueFields;
 
     const objectIdField = transferRequest.id;
     const id =
@@ -907,7 +916,7 @@ export class StrategyContext {
         ? objectIdField
         : typeof (objectIdField as Record<string, unknown> | undefined)?.id === 'string'
           ? ((objectIdField as Record<string, unknown>).id as string)
-          : (raw.objectId ?? '');
+          : (node?.address ?? '');
     const receiver = typeof transferRequest.receiver === 'string' ? transferRequest.receiver : '';
     const receiptId =
       typeof transferRequest.receipt_id === 'string' ? transferRequest.receipt_id : '';
@@ -921,6 +930,23 @@ export class StrategyContext {
       autoAcceptTimestamp: Number(autoAcceptTimestampRaw),
       receiver,
     };
+  }
+
+  private extractDynamicFieldValueFields(
+    node: DynamicFieldNode | null,
+  ): Record<string, unknown> | null {
+    if (!node?.value) return null;
+
+    const value = node.value;
+    if (value.__typename === 'MoveObject') {
+      const json = value.contents?.json;
+      return json && typeof json === 'object' ? (json as Record<string, unknown>) : null;
+    }
+    if (value.__typename === 'MoveValue') {
+      const json = value.json;
+      return json && typeof json === 'object' ? (json as Record<string, unknown>) : null;
+    }
+    return null;
   }
 
   private parseAlphaFiReceipts(responses: any[]): AlphaFiReceipt[] {
