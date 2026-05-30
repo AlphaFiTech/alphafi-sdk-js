@@ -482,6 +482,11 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
     // Loop through rewards and collect/swap each one
     for (const x of rewards) {
       if (x.coinType == alphaCoin.coinType) {
+        alphalendClient.updatePrices(tx, [
+          alphaCoin.coinType,
+          stsuiCoin.coinType,
+          suiCoin.coinType,
+        ]);
         // ALPHA -> stSUI -> SUI
         tx.moveCall({
           target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin_v2`,
@@ -518,6 +523,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
           ],
         });
       } else if (coinTypes.includes(x.coinType) && x.coinType != this.poolLabel.asset.type) {
+        alphalendClient.updatePrices(tx, [x.coinType, suiCoin.coinType]);
         // Other rewards -> SUI
         tx.moveCall({
           target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin_v2`,
@@ -547,6 +553,11 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
     // After collecting all rewards, handle base asset conversion
     // If pool asset is USDSUI, convert SUI -> USDC, then USDC -> USDSUI
     if (this.poolLabel.asset.name === 'USDSUI') {
+      alphalendClient.updatePrices(tx, [
+        this.poolLabel.asset.type,
+        usdcCoin.coinType,
+        suiCoin.coinType,
+      ]);
       // SUI -> USDC
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin_v2`,

@@ -261,7 +261,17 @@ export class SlushLendingStrategy extends BaseStrategy<
         'WAL',
         'USDSUI',
       ]);
-
+    const alphalendClient = this.context.alphalendClient;
+    alphalendClient.updatePrices(tx, [
+      alphaCoin.coinType,
+      stsuiCoin.coinType,
+      suiCoin.coinType,
+      blueCoin.coinType,
+      deepCoin.coinType,
+      usdcCoin.coinType,
+      walCoin.coinType,
+      usdsuiCoin.coinType,
+    ]);
     tx.moveCall({
       target: `${this.poolLabel.packageId}::alphalend_slush_pool::collect_reward_and_swap_bluefin_v2`,
       typeArguments: [this.poolLabel.asset.type, alphaCoin.coinType, stsuiCoin.coinType],
