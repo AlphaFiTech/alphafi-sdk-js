@@ -274,21 +274,6 @@ export class SlushLendingStrategy extends BaseStrategy<
     ]);
     tx.moveCall({
       target: `${this.poolLabel.packageId}::alphalend_slush_pool::collect_reward_and_swap_bluefin_v2`,
-      typeArguments: [this.poolLabel.asset.type, alphaCoin.coinType, stsuiCoin.coinType],
-      arguments: [
-        tx.object(VERSIONS.SLUSH),
-        tx.object(this.poolLabel.poolId),
-        tx.object(ALPHAFI_ORACLE),
-        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('ALPHA', 'stSUI', 'bluefin')),
-        tx.object(GLOBAL_CONFIGS.BLUEFIN),
-        tx.pure.bool(true),
-        tx.pure.bool(true),
-        tx.object(CLOCK_PACKAGE_ID),
-      ],
-    });
-    tx.moveCall({
-      target: `${this.poolLabel.packageId}::alphalend_slush_pool::collect_reward_and_swap_bluefin_v2`,
       typeArguments: [this.poolLabel.asset.type, stsuiCoin.coinType, suiCoin.coinType],
       arguments: [
         tx.object(VERSIONS.SLUSH),
@@ -302,22 +287,6 @@ export class SlushLendingStrategy extends BaseStrategy<
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
-    tx.moveCall({
-      target: `${this.poolLabel.packageId}::alphalend_slush_pool::collect_reward_and_swap_bluefin_v2`,
-      typeArguments: [this.poolLabel.asset.type, blueCoin.coinType, suiCoin.coinType],
-      arguments: [
-        tx.object(VERSIONS.SLUSH),
-        tx.object(this.poolLabel.poolId),
-        tx.object(ALPHAFI_ORACLE),
-        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin')),
-        tx.object(GLOBAL_CONFIGS.BLUEFIN),
-        tx.pure.bool(true),
-        tx.pure.bool(true),
-        tx.object(CLOCK_PACKAGE_ID),
-      ],
-    });
-
     if (this.poolLabel.asset.type !== deepCoin.coinType) {
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphalend_slush_pool::collect_reward_and_swap_bluefin_v2`,
