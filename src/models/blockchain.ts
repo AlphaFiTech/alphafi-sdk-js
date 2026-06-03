@@ -2,9 +2,9 @@
  * Blockchain interface wrapper for Sui network operations using GraphQL and JSON-RPC clients.
  */
 
-import { SuiClient, SuiObjectData } from '@mysten/sui/client';
+import { SuiJsonRpcClient, SuiObjectData } from '@mysten/sui/jsonRpc';
 import { SuiGraphQLClient } from '@mysten/sui/graphql';
-import { graphql } from '@mysten/sui/graphql/schemas/latest';
+import { graphql } from '@mysten/sui/graphql/schema';
 import { Transaction } from '@mysten/sui/transactions';
 import { toBase64 } from '@mysten/sui/utils';
 import type { SimulationGasSummary, SimulationResult } from './types.js';
@@ -12,7 +12,7 @@ import { Network } from '@alphafi/alphalend-sdk';
 
 export type BlockchainOptions = {
   network: Network;
-  txBuildClient?: SuiClient;
+  txBuildClient?: SuiJsonRpcClient;
   graphqlUrl?: string;
 };
 
@@ -20,7 +20,7 @@ export class Blockchain {
   network: Network;
   graphqlUrl: string;
   gqlClient: SuiGraphQLClient;
-  txBuildClient: SuiClient;
+  txBuildClient: SuiJsonRpcClient;
 
   constructor(options: BlockchainOptions) {
     this.network = options.network;
@@ -29,14 +29,16 @@ export class Blockchain {
       (options.network === 'testnet'
         ? 'https://graphql.testnet.sui.io/graphql'
         : 'https://graphql.mainnet.sui.io/graphql');
-    this.txBuildClient = new SuiClient({
+    this.txBuildClient = new SuiJsonRpcClient({
       url:
         options.network === 'testnet'
           ? 'https://fullnode.testnet.sui.io/'
           : 'https://fullnode.mainnet.sui.io/',
+      network: options.network === 'testnet' ? 'testnet' : 'mainnet',
     });
     this.gqlClient = new SuiGraphQLClient({
       url: this.graphqlUrl,
+      network: options.network === 'testnet' ? 'testnet' : 'mainnet',
     });
   }
 

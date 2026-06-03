@@ -15,11 +15,7 @@
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
-    "inlineSources": true,
-    "baseUrl": "./",
-    "paths": {
-      "@mysten/sui/*": ["node_modules/@mysten/sui/dist/esm/*"]
-    }
+    "inlineSources": true
   },
   "include": ["src/**/*"],
   "exclude": ["src/__tests__"]
