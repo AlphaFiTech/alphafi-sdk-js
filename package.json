@@ -41,8 +41,8 @@
     "node": ">=22.14.0"
   },
   "dependencies": {
-    "@alphafi/alphalend-sdk": "^3.0.0",
-    "@alphafi/stsui-sdk": "^2.0.0",
+    "@alphafi/alphalend-sdk": "^3.0.1",
+    "@alphafi/stsui-sdk": "^2.0.2",
     "@apollo/client": "^4.0.11",
     "@cetusprotocol/aggregator-sdk": "^1.5.5",
     "@cetusprotocol/common-sdk": "^1.3.7",
