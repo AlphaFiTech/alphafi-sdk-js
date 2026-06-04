@@ -44,7 +44,7 @@ import {
 import { ZapDepositStrategy } from '../strategies/zapDeposit.js';
 import { LpStrategy } from '../strategies/lp.js';
 import { SlushSingleAssetLoopingStrategy } from '../strategies/slushSingleAssetLooping.js';
-import { SingleAssetLoopingStrategy } from 'src/strategies/singleAssetLooping.js';
+import { SingleAssetLoopingStrategy } from '../strategies/singleAssetLooping.js';
 
 // Re-export types for external use
 export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';

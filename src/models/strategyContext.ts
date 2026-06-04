@@ -9,7 +9,7 @@ import { Blockchain } from './blockchain.js';
 import { CoinInfoProvider } from './coinInfoProvider.js';
 import { PoolLabel, StrategyType } from '../strategies/strategy.js';
 import { Decimal } from 'decimal.js';
-import { SuiObjectData } from '@mysten/sui/client/index.js';
+import { SuiObjectData } from '@mysten/sui/jsonRpc';
 import { AlphalendClient, Network } from '@alphafi/alphalend-sdk';
 import {
   AlphaFiReceipt,
