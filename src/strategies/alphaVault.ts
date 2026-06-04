@@ -694,9 +694,10 @@ export class AlphaVaultStrategy extends BaseStrategy<
   }
 
   async deposit(tx: Transaction, options: DepositOptions) {
-    const depositCoin = this.context.blockchain.getSpendCoin(
+    const depositCoin = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.asset.type,
+      options.address,
       options.amount,
     );
 

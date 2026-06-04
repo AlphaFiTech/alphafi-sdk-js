@@ -1693,14 +1693,16 @@ export class LpStrategy extends BaseStrategy<
       const [amountA, amountB] = this.getOtherAmount(options.amount.toString(), options.isAmountA);
 
       // get Coin Objects
-      depositCoinA = this.context.blockchain.getSpendCoin(
+      depositCoinA = this.context.blockchain.getCoinObject(
         tx,
         this.poolLabel.assetA.type,
+        options.address,
         BigInt(amountA),
       );
-      depositCoinB = this.context.blockchain.getSpendCoin(
+      depositCoinB = this.context.blockchain.getCoinObject(
         tx,
         this.poolLabel.assetB.type,
+        options.address,
         BigInt(amountB),
       );
     } else {

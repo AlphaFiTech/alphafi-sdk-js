@@ -404,9 +404,10 @@ export class ZapDepositStrategy {
     // Source the full input amount from address balance + coin objects, once.
     // We split the deposit and swap portions from it locally (their sum equals
     // inputCoinAmount, so the source coin is fully consumed — no remainder).
-    const source = this.context.blockchain.getSpendCoin(
+    const source = this.context.blockchain.getCoinObject(
       tx,
       isInputA ? coinTypeA : coinTypeB,
+      address,
       BigInt(inputCoinAmount),
     );
 
@@ -442,8 +443,13 @@ export class ZapDepositStrategy {
       });
     } else {
       // No swap needed: produce a zero-value coin of the other token to satisfy
-      // the deposit shape (getSpendCoin handles SUI/gas internally).
-      swappedCoin = this.context.blockchain.getSpendCoin(tx, isInputA ? coinTypeB : coinTypeA, 0n);
+      // the deposit shape (getCoinObject handles SUI/gas internally).
+      swappedCoin = this.context.blockchain.getCoinObject(
+        tx,
+        isInputA ? coinTypeB : coinTypeA,
+        address,
+        0n,
+      );
     }
 
     if (!swappedCoin) {
