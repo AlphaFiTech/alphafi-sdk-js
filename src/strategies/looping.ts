@@ -599,10 +599,9 @@ export class LoopingStrategy extends BaseStrategy<
 
   async deposit(tx: Transaction, options: DepositOptions) {
     // get Coin Object
-    const depositCoin = await this.context.blockchain.getCoinObject(
+    const depositCoin = this.context.blockchain.getSpendCoin(
       tx,
       this.poolLabel.userDepositAsset.type,
-      options.address,
       options.amount,
     );
 

@@ -746,10 +746,9 @@ export class LendingStrategy extends BaseStrategy<
   }
 
   async deposit(tx: Transaction, options: DepositOptions) {
-    const depositCoin = await this.context.blockchain.getCoinObject(
+    const depositCoin = this.context.blockchain.getSpendCoin(
       tx,
       this.poolLabel.asset.type,
-      options.address,
       BigInt(options.amount),
     );
 

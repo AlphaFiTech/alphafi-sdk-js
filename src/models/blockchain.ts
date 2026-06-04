@@ -42,66 +42,40 @@ export class Blockchain {
     });
   }
 
-  async getCoinObject(tx: Transaction, coinType: string, address: string, amount?: bigint) {
+  /**
+   * Source an exact-`amount` coin of `coinType` for spending, drawing from BOTH
+   * the user's address balance (the accumulator) AND their `Coin<T>` objects.
+   *
+   * Uses `@mysten/sui`'s `tx.coin()` (the `coinWithBalance` intent), resolved
+   * lazily at `tx.build({ client })` time — so the transaction MUST be built with
+   * a v2 client that exposes `.core` (our `SuiJsonRpcClient` does, as does the
+   * wallet's dapp-kit client). SUI is always sourced from the gas coin
+   * (`useGasCoin: true`); keep ALL SUI sourcing on this path so a single tx never
+   * mixes gas-sourced and non-gas SUI intents (which `@mysten/sui` forbids).
+   */
+  getSpendCoin(tx: Transaction, coinType: string, amount: bigint) {
     if (this.isCoinTypeSui(coinType)) {
-      if (amount) {
-        return tx.splitCoins(tx.gas, [amount]);
-      } else {
-        return tx.gas;
-      }
-    }
-
-    const query = graphql(`
-      query getCoins($address: SuiAddress!, $coinType: String!, $cursor: String) {
-        address(address: $address) {
-          objects(after: $cursor, filter: { type: $coinType }) {
-            pageInfo {
-              hasNextPage
-              endCursor
-            }
-            nodes {
-              address
-            }
-          }
-        }
-      }
-    `);
-
-    const wrappedCoinType = `0x2::coin::Coin<${coinType}>`;
-    let currentCursor: string | null | undefined = null;
-    const coinObjectIds: string[] = [];
-    do {
-      const response: any = await this.gqlClient.query({
-        query,
-        variables: { address, coinType: wrappedCoinType, cursor: currentCursor },
+      return tx.coin({
+        type: '0x2::sui::SUI',
+        balance: amount,
+        useGasCoin: true,
       });
-      const objects: any = response.data?.address?.objects;
-      if (objects?.nodes) {
-        for (const node of objects.nodes) {
-          if (node?.address) {
-            coinObjectIds.push(node.address);
-          }
-        }
-      }
-      if (objects?.pageInfo?.hasNextPage && objects.pageInfo.endCursor) {
-        currentCursor = objects.pageInfo.endCursor;
-      } else break;
-    } while (true);
-
-    if (coinObjectIds.length === 0) {
-      throw new Error(`No coins found for ${coinType} for owner ${address}`);
     }
+    return tx.coin({ type: coinType, balance: amount });
+  }
 
-    const [coin] = tx.splitCoins(tx.object(coinObjectIds[0]), [0]);
-    tx.mergeCoins(coin, coinObjectIds);
-
-    if (amount) {
-      const returnCoin = tx.splitCoins(coin, [amount]);
-      tx.transferObjects([coin], address);
-      return returnCoin;
-    } else {
-      return coin;
+  /**
+   * @deprecated Use {@link getSpendCoin}. Retained for source compatibility.
+   * Now address-balance aware and requires an explicit `amount`; the `address`
+   * argument is ignored (coins resolve against the tx sender at build time).
+   */
+  async getCoinObject(tx: Transaction, coinType: string, _address: string, amount?: bigint) {
+    if (amount === undefined) {
+      throw new Error(
+        'getCoinObject now requires an `amount`; use getSpendCoin(tx, coinType, amount).',
+      );
     }
+    return this.getSpendCoin(tx, coinType, amount);
   }
 
   getOptionReceipt(tx: Transaction, receiptType: string, receiptId?: string) {
@@ -190,7 +164,11 @@ export class Blockchain {
     }
   }
 
-  /** Get all coin balances owned by an address using GraphQL, paginated. */
+  /**
+   * Get all coin balances owned by an address using GraphQL, paginated.
+   * Uses `totalBalance` (= address-balance accumulator + `Coin<T>` objects), so
+   * funds held in the address balance are included.
+   */
   async getAllBalances(address: string): Promise<{ coinType: string; totalBalance: string }[]> {
     const query = graphql(`
       query getBalances($address: SuiAddress!, $cursor: String) {
@@ -204,7 +182,7 @@ export class Blockchain {
               coinType {
                 repr
               }
-              coinBalance
+              totalBalance
             }
           }
         }
@@ -221,10 +199,10 @@ export class Blockchain {
       const balancesConn: any = response.data?.address?.balances;
       if (balancesConn?.nodes) {
         for (const node of balancesConn.nodes) {
-          if (node?.coinType?.repr && node?.coinBalance) {
+          if (node?.coinType?.repr && node?.totalBalance) {
             balances.push({
               coinType: node.coinType.repr,
-              totalBalance: node.coinBalance,
+              totalBalance: node.totalBalance,
             });
           }
         }

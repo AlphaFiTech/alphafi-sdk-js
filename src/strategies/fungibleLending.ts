@@ -183,10 +183,9 @@ export class FungibleLendingStrategy extends BaseStrategy<
       throw new Error('cannot supply 0 amount');
     }
 
-    const depositCoin = await this.context.blockchain.getCoinObject(
+    const depositCoin = this.context.blockchain.getSpendCoin(
       tx,
       this.poolLabel.asset.type,
-      options.address,
       BigInt(amount),
     );
     const lst = tx.moveCall({
@@ -218,10 +217,9 @@ export class FungibleLendingStrategy extends BaseStrategy<
       xTokenAmount = this.coinAmountToXToken(options.amount.toString());
     }
 
-    const withdrawFungibleCoin = await this.context.blockchain.getCoinObject(
+    const withdrawFungibleCoin = this.context.blockchain.getSpendCoin(
       tx,
       this.poolLabel.fungibleCoin.type,
-      options.address,
       BigInt(xTokenAmount),
     );
 
