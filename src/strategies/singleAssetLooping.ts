@@ -471,7 +471,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
     const alphalendClient = this.context.alphalendClient;
 
     // get Coin Object
-    const depositCoin = await this.context.blockchain.getCoinObject(
+    const depositCoin = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.asset.type,
       options.address,

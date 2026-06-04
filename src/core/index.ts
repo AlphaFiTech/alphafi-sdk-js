@@ -154,6 +154,20 @@ export class AlphaFiSDK {
   }
 
   /**
+   * Get all wallet coin balances for an address via GraphQL.
+   *
+   * Each balance is the **combined** total — the address-balance accumulator
+   * plus owned `Coin<T>` objects (GraphQL `totalBalance`) — so funds held in the
+   * address balance are included.
+   *
+   * @param address - User's wallet address
+   * @returns Map of normalized coin type to total balance (base units, as string)
+   */
+  async getWalletBalances(address: string): Promise<Map<string, string>> {
+    return this.portfolio.getWalletCoins(address);
+  }
+
+  /**
    * Deposit assets into a DeFi pool to start earning yield.
    *
    * Supports all pool types:

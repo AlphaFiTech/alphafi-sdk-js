@@ -420,14 +420,14 @@ export class FungibleLpStrategy extends BaseStrategy<
     const [amountA, amountB] = this.getOtherAmount(options.amount.toString(), options.isAmountA);
 
     // get Coin Objects
-    const depositCoinA = await this.context.blockchain.getCoinObject(
+    const depositCoinA = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.assetA.type,
       options.address,
       BigInt(amountA),
     );
 
-    const depositCoinB = await this.context.blockchain.getCoinObject(
+    const depositCoinB = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.assetB.type,
       options.address,
@@ -475,7 +475,7 @@ export class FungibleLpStrategy extends BaseStrategy<
       xTokenAmount = this.coinAmountToXToken(options.amount.toString(), options.isAmountA);
     }
 
-    const withdrawFungibleCoin = await this.context.blockchain.getCoinObject(
+    const withdrawFungibleCoin = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.fungibleCoin.type,
       options.address,

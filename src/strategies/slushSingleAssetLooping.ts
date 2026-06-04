@@ -297,7 +297,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
     await this.collectAndSwapRewards(tx);
 
     // Get coin object
-    const depositCoin = await this.context.blockchain.getCoinObject(
+    const depositCoin = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.asset.type,
       options.address,

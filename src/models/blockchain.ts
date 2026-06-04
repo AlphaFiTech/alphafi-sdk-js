@@ -42,66 +42,13 @@ export class Blockchain {
     });
   }
 
-  async getCoinObject(tx: Transaction, coinType: string, address: string, amount?: bigint) {
-    if (this.isCoinTypeSui(coinType)) {
-      if (amount) {
-        return tx.splitCoins(tx.gas, [amount]);
-      } else {
-        return tx.gas;
-      }
-    }
-
-    const query = graphql(`
-      query getCoins($address: SuiAddress!, $coinType: String!, $cursor: String) {
-        address(address: $address) {
-          objects(after: $cursor, filter: { type: $coinType }) {
-            pageInfo {
-              hasNextPage
-              endCursor
-            }
-            nodes {
-              address
-            }
-          }
-        }
-      }
-    `);
-
-    const wrappedCoinType = `0x2::coin::Coin<${coinType}>`;
-    let currentCursor: string | null | undefined = null;
-    const coinObjectIds: string[] = [];
-    do {
-      const response: any = await this.gqlClient.query({
-        query,
-        variables: { address, coinType: wrappedCoinType, cursor: currentCursor },
-      });
-      const objects: any = response.data?.address?.objects;
-      if (objects?.nodes) {
-        for (const node of objects.nodes) {
-          if (node?.address) {
-            coinObjectIds.push(node.address);
-          }
-        }
-      }
-      if (objects?.pageInfo?.hasNextPage && objects.pageInfo.endCursor) {
-        currentCursor = objects.pageInfo.endCursor;
-      } else break;
-    } while (true);
-
-    if (coinObjectIds.length === 0) {
-      throw new Error(`No coins found for ${coinType} for owner ${address}`);
-    }
-
-    const [coin] = tx.splitCoins(tx.object(coinObjectIds[0]), [0]);
-    tx.mergeCoins(coin, coinObjectIds);
-
-    if (amount) {
-      const returnCoin = tx.splitCoins(coin, [amount]);
-      tx.transferObjects([coin], address);
-      return returnCoin;
-    } else {
-      return coin;
-    }
+  /**
+   * Source an exact-`amount` coin of `coinType` for spending, drawing from BOTH
+   * the user's address balance (the accumulator) AND their `Coin<T>` objects.
+   */
+  getCoinObject(tx: Transaction, coinType: string, address: string, amount: bigint) {
+    tx.setSenderIfNotSet(address);
+    return tx.coin({ type: coinType, balance: amount });
   }
 
   getOptionReceipt(tx: Transaction, receiptType: string, receiptId?: string) {
@@ -190,7 +137,11 @@ export class Blockchain {
     }
   }
 
-  /** Get all coin balances owned by an address using GraphQL, paginated. */
+  /**
+   * Get all coin balances owned by an address using GraphQL, paginated.
+   * Uses `totalBalance` (= address-balance accumulator + `Coin<T>` objects), so
+   * funds held in the address balance are included.
+   */
   async getAllBalances(address: string): Promise<{ coinType: string; totalBalance: string }[]> {
     const query = graphql(`
       query getBalances($address: SuiAddress!, $cursor: String) {
@@ -204,7 +155,7 @@ export class Blockchain {
               coinType {
                 repr
               }
-              coinBalance
+              totalBalance
             }
           }
         }
@@ -221,10 +172,10 @@ export class Blockchain {
       const balancesConn: any = response.data?.address?.balances;
       if (balancesConn?.nodes) {
         for (const node of balancesConn.nodes) {
-          if (node?.coinType?.repr && node?.coinBalance) {
+          if (node?.coinType?.repr && node?.totalBalance) {
             balances.push({
               coinType: node.coinType.repr,
-              totalBalance: node.coinBalance,
+              totalBalance: node.totalBalance,
             });
           }
         }
@@ -413,12 +364,5 @@ export class Blockchain {
       console.error('[AlphaFiSDK] getDynamicFieldByKeyType error:', err);
       return null;
     }
-  }
-
-  private isCoinTypeSui(coinType: string) {
-    return (
-      coinType === '0x2::sui::SUI' ||
-      coinType === '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'
-    );
   }
 }

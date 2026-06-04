@@ -639,14 +639,14 @@ export class LyfStrategy extends BaseStrategy<
     const [amountA, amountB] = this.getOtherAmount(options.amount.toString(), options.isAmountA);
 
     // get Coin Objects
-    const depositCoinA = await this.context.blockchain.getCoinObject(
+    const depositCoinA = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.assetA.type,
       options.address,
       BigInt(amountA),
     );
 
-    const depositCoinB = await this.context.blockchain.getCoinObject(
+    const depositCoinB = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.assetB.type,
       options.address,

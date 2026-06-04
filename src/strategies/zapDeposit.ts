@@ -401,11 +401,14 @@ export class ZapDepositStrategy {
     const coinTypeA = poolDetails.assetA.type;
     const coinTypeB = poolDetails.assetB.type;
     const parentPoolId = this.getPoolLabel().parentPoolId;
-    // Get the input coin from user's wallet
-    const coinObject = await this.context.blockchain.getCoinObject(
+    // Source the full input amount from address balance + coin objects, once.
+    // We split the deposit and swap portions from it locally (their sum equals
+    // inputCoinAmount, so the source coin is fully consumed — no remainder).
+    const source = this.context.blockchain.getCoinObject(
       tx,
       isInputA ? coinTypeA : coinTypeB,
       address,
+      BigInt(inputCoinAmount),
     );
 
     // Calculate optimal amounts
@@ -416,8 +419,8 @@ export class ZapDepositStrategy {
     });
     // Split input coin into deposit and swap portions
     const [depositCoin] = isInputA
-      ? tx.splitCoins(coinObject, [quoteAmountA])
-      : tx.splitCoins(coinObject, [quoteAmountB]);
+      ? tx.splitCoins(source, [quoteAmountA])
+      : tx.splitCoins(source, [quoteAmountB]);
 
     const amountToSwap = isInputA
       ? BigInt(inputCoinAmount) - BigInt(quoteAmountA)
@@ -426,7 +429,7 @@ export class ZapDepositStrategy {
     let swappedCoin: TransactionObjectArgument | undefined;
     // Execute swap to get the other token
     if (parseFloat(amountToSwap.toString()) > 0) {
-      const [swapCoin] = tx.splitCoins(coinObject, [amountToSwap.toString()]);
+      const [swapCoin] = tx.splitCoins(source, [amountToSwap.toString()]);
 
       swappedCoin = await this.zapSwap({
         tx,
@@ -439,19 +442,14 @@ export class ZapDepositStrategy {
         parentPoolId,
       });
     } else {
-      if (
-        (isInputA && coinTypeB === '0x2::sui::SUI') ||
-        (!isInputA && coinTypeA === '0x2::sui::SUI')
-      ) {
-        swappedCoin = tx.splitCoins(tx.gas, [0]);
-      } else {
-        const coinObject = await this.context.blockchain.getCoinObject(
-          tx,
-          isInputA ? coinTypeB : coinTypeA,
-          address,
-        );
-        swappedCoin = tx.splitCoins(coinObject, [0]);
-      }
+      // No swap needed: produce a zero-value coin of the other token to satisfy
+      // the deposit shape (getCoinObject handles SUI/gas internally).
+      swappedCoin = this.context.blockchain.getCoinObject(
+        tx,
+        isInputA ? coinTypeB : coinTypeA,
+        address,
+        0n,
+      );
     }
 
     if (!swappedCoin) {
@@ -477,7 +475,7 @@ export class ZapDepositStrategy {
     );
 
     // Transfer remaining coins back to user
-    tx.transferObjects([actualDepositCoins[2], actualDepositCoins[3], coinObject], address);
+    tx.transferObjects([actualDepositCoins[2], actualDepositCoins[3], source], address);
 
     return tx;
   }
