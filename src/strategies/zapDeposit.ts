@@ -474,9 +474,8 @@ export class ZapDepositStrategy {
       [actualDepositCoins[0], actualDepositCoins[1]],
     );
 
-    // Transfer remaining coins back to user (the input source is fully consumed
-    // by the deposit + swap splits, so there is no leftover input coin to return).
-    tx.transferObjects([actualDepositCoins[2], actualDepositCoins[3]], address);
+    // Transfer remaining coins back to user
+    tx.transferObjects([actualDepositCoins[2], actualDepositCoins[3], source], address);
 
     return tx;
   }
