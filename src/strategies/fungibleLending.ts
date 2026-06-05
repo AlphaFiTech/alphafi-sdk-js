@@ -200,7 +200,12 @@ export class FungibleLendingStrategy extends BaseStrategy<
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
-    tx.transferObjects([lst], options.address);
+    this.context.blockchain.sendCoinToAddressBalance(
+      tx,
+      this.poolLabel.fungibleCoin.type,
+      options.address,
+      lst,
+    );
   }
 
   async withdraw(tx: Transaction, options: WithdrawOptions) {
@@ -236,7 +241,12 @@ export class FungibleLendingStrategy extends BaseStrategy<
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
-    tx.transferObjects([coin], options.address);
+    this.context.blockchain.sendCoinToAddressBalance(
+      tx,
+      this.poolLabel.asset.type,
+      options.address,
+      coin,
+    );
   }
 
   async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {

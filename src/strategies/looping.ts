@@ -928,11 +928,12 @@ export class LoopingStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
-      tx.moveCall({
-        target: `0x2::transfer::public_transfer`,
-        typeArguments: [`0x2::coin::Coin<${suiCoin.coinType}>`],
-        arguments: [stsui_coin, tx.pure.address(options.address)],
-      });
+      this.context.blockchain.sendCoinToAddressBalance(
+        tx,
+        suiCoin.coinType,
+        options.address,
+        stsui_coin,
+      );
       return;
     }
 
@@ -981,11 +982,12 @@ export class LoopingStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
-      tx.moveCall({
-        target: `0x2::transfer::public_transfer`,
-        typeArguments: [`0x2::coin::Coin<${this.poolLabel.supplyAsset.type}>`],
-        arguments: [vsui_coin, tx.pure.address(options.address)],
-      });
+      this.context.blockchain.sendCoinToAddressBalance(
+        tx,
+        this.poolLabel.supplyAsset.type,
+        options.address,
+        vsui_coin,
+      );
     } else if (this.poolLabel.supplyAsset.name === 'HASUI') {
       const [hasuiCoin] = tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_navi_hasui_sui_pool::user_withdraw_v2`, // change package id for testing
@@ -1012,11 +1014,12 @@ export class LoopingStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
-      tx.moveCall({
-        target: `0x2::transfer::public_transfer`,
-        typeArguments: [`0x2::coin::Coin<${this.poolLabel.supplyAsset.type}>`],
-        arguments: [hasuiCoin, tx.pure.address(options.address)],
-      });
+      this.context.blockchain.sendCoinToAddressBalance(
+        tx,
+        this.poolLabel.supplyAsset.type,
+        options.address,
+        hasuiCoin,
+      );
     } else if (this.poolLabel.supplyAsset.name === 'USDC') {
       const [usdcCoin] = tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_navi_native_usdc_usdt_pool::user_withdraw_v4`,
@@ -1045,11 +1048,12 @@ export class LoopingStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
-      tx.moveCall({
-        target: `0x2::transfer::public_transfer`,
-        typeArguments: [`0x2::coin::Coin<${this.poolLabel.supplyAsset.type}>`],
-        arguments: [usdcCoin, tx.pure.address(options.address)],
-      });
+      this.context.blockchain.sendCoinToAddressBalance(
+        tx,
+        this.poolLabel.supplyAsset.type,
+        options.address,
+        usdcCoin,
+      );
     } else if (this.poolLabel.supplyAsset.name === 'USDT') {
       const [usdtCoin] = tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_navi_usdt_usdc_pool::user_withdraw_v3`,
@@ -1075,11 +1079,12 @@ export class LoopingStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
-      tx.moveCall({
-        target: `0x2::transfer::public_transfer`,
-        typeArguments: [`0x2::coin::Coin<${this.poolLabel.supplyAsset.type}>`],
-        arguments: [usdtCoin, tx.pure.address(options.address)],
-      });
+      this.context.blockchain.sendCoinToAddressBalance(
+        tx,
+        this.poolLabel.supplyAsset.type,
+        options.address,
+        usdtCoin,
+      );
     }
   }
 

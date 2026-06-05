@@ -5,7 +5,7 @@
 import { SuiJsonRpcClient, SuiObjectData } from '@mysten/sui/jsonRpc';
 import { SuiGraphQLClient } from '@mysten/sui/graphql';
 import { graphql } from '@mysten/sui/graphql/schema';
-import { Transaction } from '@mysten/sui/transactions';
+import { Transaction, TransactionObjectArgument } from '@mysten/sui/transactions';
 import { toBase64 } from '@mysten/sui/utils';
 import type { SimulationGasSummary, SimulationResult } from './types.js';
 import { Network } from '@alphafi/alphalend-sdk';
@@ -49,6 +49,22 @@ export class Blockchain {
   getCoinObject(tx: Transaction, coinType: string, address: string, amount: bigint) {
     tx.setSenderIfNotSet(address);
     return tx.coin({ type: coinType, balance: amount });
+  }
+
+  /**
+   * Credit a `Coin<coinType>` to `address`'s address balance (the accumulator)
+   */
+  sendCoinToAddressBalance(
+    tx: Transaction,
+    coinType: string,
+    address: string,
+    coin: TransactionObjectArgument | string,
+  ) {
+    tx.moveCall({
+      target: '0x2::coin::send_funds',
+      typeArguments: [coinType],
+      arguments: [typeof coin === 'string' ? tx.object(coin) : coin, tx.pure.address(address)],
+    });
   }
 
   getOptionReceipt(tx: Transaction, receiptType: string, receiptId?: string) {

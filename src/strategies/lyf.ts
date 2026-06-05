@@ -764,9 +764,20 @@ export class LyfStrategy extends BaseStrategy<
         typeArguments: [getStsuiConf().STSUI_COIN_TYPE],
       });
       tx.mergeCoins(sui, [lyfCoinB]);
-      tx.transferObjects([sui], options.address);
+      this.context.blockchain.sendCoinToAddressBalance(tx, '0x2::sui::SUI', options.address, sui);
     } else {
-      tx.transferObjects([lyfCoinA, lyfCoinB], options.address);
+      this.context.blockchain.sendCoinToAddressBalance(
+        tx,
+        this.poolLabel.assetA.type,
+        options.address,
+        lyfCoinA,
+      );
+      this.context.blockchain.sendCoinToAddressBalance(
+        tx,
+        this.poolLabel.assetB.type,
+        options.address,
+        lyfCoinB,
+      );
     }
   }
 
