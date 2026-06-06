@@ -572,7 +572,7 @@ export class LoopingStrategy extends BaseStrategy<
 
   private async updateSingleTokenPrice(tx: Transaction, pythPriceInfo: string, feedId: string) {
     const pythClient = new SuiPythClient(
-      this.context.blockchain.txBuildClient,
+      this.context.blockchain.pythSuiClient,
       PYTH_STATE_ID,
       WORMHOLE_STATE_ID,
     );

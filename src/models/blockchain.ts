@@ -1,18 +1,21 @@
 /**
- * Blockchain interface wrapper for Sui network operations using GraphQL and JSON-RPC clients.
+ * Blockchain interface wrapper for Sui network operations.
+ *
+ * Reads and transaction simulation go through GraphQL (`gqlClient`), using
+ * `gqlClient.core.simulateTransaction` for simulation (server-side build + gas
+ * resolution). A JSON-RPC client (`pythSuiClient`) is retained only for the
+ * Pyth `SuiPythClient` integration, which still requires it.
  */
 
-import { SuiJsonRpcClient, SuiObjectData } from '@mysten/sui/jsonRpc';
+import { SuiJsonRpcClient } from '@mysten/sui/jsonRpc';
 import { SuiGraphQLClient } from '@mysten/sui/graphql';
 import { graphql } from '@mysten/sui/graphql/schema';
 import { Transaction, TransactionObjectArgument } from '@mysten/sui/transactions';
-import { toBase64 } from '@mysten/sui/utils';
-import type { SimulationGasSummary, SimulationResult } from './types.js';
 import { Network } from '@alphafi/alphalend-sdk';
 
 export type BlockchainOptions = {
   network: Network;
-  txBuildClient?: SuiJsonRpcClient;
+  pythSuiClient?: SuiJsonRpcClient;
   graphqlUrl?: string;
 };
 
@@ -20,7 +23,8 @@ export class Blockchain {
   network: Network;
   graphqlUrl: string;
   gqlClient: SuiGraphQLClient;
-  txBuildClient: SuiJsonRpcClient;
+  /** Retained only for the Pyth `SuiPythClient` integration (needs JSON-RPC). */
+  pythSuiClient: SuiJsonRpcClient;
 
   constructor(options: BlockchainOptions) {
     this.network = options.network;
@@ -29,13 +33,15 @@ export class Blockchain {
       (options.network === 'testnet'
         ? 'https://graphql.testnet.sui.io/graphql'
         : 'https://graphql.mainnet.sui.io/graphql');
-    this.txBuildClient = new SuiJsonRpcClient({
-      url:
-        options.network === 'testnet'
-          ? 'https://fullnode.testnet.sui.io/'
-          : 'https://fullnode.mainnet.sui.io/',
-      network: options.network === 'testnet' ? 'testnet' : 'mainnet',
-    });
+    this.pythSuiClient =
+      options.pythSuiClient ??
+      new SuiJsonRpcClient({
+        url:
+          options.network === 'testnet'
+            ? 'https://fullnode.testnet.sui.io/'
+            : 'https://fullnode.mainnet.sui.io/',
+        network: options.network === 'testnet' ? 'testnet' : 'mainnet',
+      });
     this.gqlClient = new SuiGraphQLClient({
       url: this.graphqlUrl,
       network: options.network === 'testnet' ? 'testnet' : 'mainnet',
@@ -85,68 +91,30 @@ export class Blockchain {
     return receiptOption;
   }
 
-  /** Simulate a transaction via GraphQL and return a typed simulation result. */
-  async simulateTransaction(
-    tx: Transaction,
-    sender: string,
-  ): Promise<SimulationResult | undefined> {
+  /**
+   * Simulate a transaction via the GraphQL client's core API, which builds the
+   * transaction, resolves gas, and simulates server-side. Returns the parsed
+   * transaction effects and per-command results (return values as raw BCS).
+   */
+  async simulateTransaction(tx: Transaction, sender: string) {
     tx.setSenderIfNotSet(sender);
-    const txBytes = await tx.build({ client: this.txBuildClient });
-    const txBase64 = toBase64(txBytes);
-
-    const query = graphql(`
-      query simulate($tx: JSON!) {
-        simulateTransaction(transaction: $tx, checksEnabled: true, doGasSelection: false) {
-          effects {
-            status
-            balanceChangesJson
-            gasEffects {
-              gasSummary {
-                computationCost
-                storageCost
-                storageRebate
-                nonRefundableStorageFee
-              }
-            }
-          }
-          outputs {
-            returnValues {
-              argument {
-                __typename
-              }
-              value {
-                type {
-                  repr
-                }
-                json
-                display {
-                  output
-                }
-              }
-            }
-          }
-        }
-      }
-    `);
-
-    const result = await this.gqlClient.query({
-      query,
-      variables: { tx: { bcs: { value: txBase64 } } },
+    const result = await this.gqlClient.core.simulateTransaction({
+      transaction: tx,
+      include: { effects: true, commandResults: true },
     });
-
-    return result.data?.simulateTransaction as SimulationResult | undefined;
+    const txData = result.$kind === 'Transaction' ? result.Transaction : result.FailedTransaction;
+    return { effects: txData?.effects, commandResults: result.commandResults };
   }
 
   /** Estimate gas budget for transaction execution. */
   async getEstimatedGasBudget(tx: Transaction, sender: string): Promise<number | undefined> {
     try {
-      const simResult = await this.simulateTransaction(tx, sender);
-      const gasSummary: SimulationGasSummary | null | undefined =
-        simResult?.effects?.gasEffects?.gasSummary;
-      if (!gasSummary) {
+      const { effects } = await this.simulateTransaction(tx, sender);
+      const gasUsed = effects?.gasUsed;
+      if (!gasUsed) {
         throw new Error('Simulation returned no gas summary');
       }
-      return Number(gasSummary.computationCost) + Number(gasSummary.nonRefundableStorageFee) + 1e8;
+      return Number(gasUsed.computationCost) + Number(gasUsed.nonRefundableStorageFee) + 1e8;
     } catch (err) {
       console.error(`Error estimating transaction gasBudget`, err);
       return undefined;
@@ -361,21 +329,80 @@ export class Blockchain {
     return graphql(query);
   }
 
-  /** Returns the object data of the first dynamic field whose key type contains `keyTypeFragment`, or null. */
+  /**
+   * Returns the first dynamic field under `parentId` whose key type contains
+   * `keyTypeFragment`, or null. Reads via GraphQL, paginating the dynamic-field
+   * connection until a match is found.
+   *
+   * `fieldAddress` is the `Field<K, V>` wrapper object's address (equivalent to
+   * the JSON-RPC `objectId`); `valueJson` carries the unwrapped value struct
+   * fields (`MoveValue.json`, or `MoveObject.contents.json` for dynamic object
+   * fields).
+   */
   async getDynamicFieldByKeyType(
     parentId: string,
     keyTypeFragment: string,
-  ): Promise<SuiObjectData | null> {
-    try {
-      const fields = await this.txBuildClient.getDynamicFields({ parentId });
-      const match = fields.data.find((f) => f.name.type.includes(keyTypeFragment));
-      if (!match) return null;
+  ): Promise<{ fieldAddress: string; valueJson: Record<string, unknown> } | null> {
+    const query = graphql(`
+      query getDynamicFieldByKeyType($parent: SuiAddress!, $cursor: String) {
+        address(address: $parent) {
+          dynamicFields(after: $cursor) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              address
+              name {
+                type {
+                  repr
+                }
+              }
+              value {
+                __typename
+                ... on MoveValue {
+                  json
+                }
+                ... on MoveObject {
+                  address
+                  contents {
+                    json
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `);
 
-      const obj = await this.txBuildClient.getObject({
-        id: match.objectId,
-        options: { showContent: true },
-      });
-      return obj?.data ?? null;
+    try {
+      let cursor: string | null | undefined = null;
+      do {
+        const response: any = await this.gqlClient.query({
+          query,
+          variables: { parent: parentId, cursor },
+        });
+        const connection = response.data?.address?.dynamicFields;
+        for (const node of connection?.nodes ?? []) {
+          const keyType: string = node?.name?.type?.repr ?? '';
+          if (!keyType.includes(keyTypeFragment)) continue;
+
+          const value = node?.value;
+          const valueJson =
+            value?.__typename === 'MoveObject' ? value?.contents?.json : value?.json;
+          if (valueJson && typeof valueJson === 'object') {
+            return {
+              fieldAddress: node.address as string,
+              valueJson: valueJson as Record<string, unknown>,
+            };
+          }
+        }
+        if (connection?.pageInfo?.hasNextPage && connection.pageInfo.endCursor) {
+          cursor = connection.pageInfo.endCursor;
+        } else break;
+      } while (true);
+      return null;
     } catch (err) {
       console.error('[AlphaFiSDK] getDynamicFieldByKeyType error:', err);
       return null;
