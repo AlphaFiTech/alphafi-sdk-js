@@ -10,6 +10,7 @@ import {
   ADMIN,
   ALPHALEND_LENDING_PROTOCOL_ID,
   CLOCK_PACKAGE_ID,
+  VERSIONS,
 } from '../utils/constants.js';
 
 // Mainnet WAL coin type
@@ -139,7 +140,7 @@ export async function addExternalRewardsWalLockedTxb(
     typeArguments: [WAL_COIN_TYPE],
     arguments: [
       tx.object(adminCapId),
-      tx.object(ADMIN.ALPHA_SLUSH_VERSION),
+      tx.object(VERSIONS.SLUSH),
       tx.object(ADMIN.ALPHA_SLUSH_WAL_LOOP_POOL_ID),
       rewardCoin,
       tx.pure.u64(startTimeMs),

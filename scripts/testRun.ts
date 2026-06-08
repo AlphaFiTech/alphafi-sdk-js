@@ -1,5 +1,5 @@
 import { Transaction } from '@mysten/sui/transactions';
-import { addAirdropCoinTxb, AlphaFiSDK, collectUnsuppliedBalance, collectUnsuppliedBalanceTxb, getCurrentTick, getManualRebalanceUsingTicksTxb, getTickSpacing, getWithdrawRequestsAndUnsuppliedAmount, processWithdrawRequestsManualTxb, StrategyContext } from '../src/index.js';
+import { addAirdropCoinTxb, addExternalRewardsWalLockedTxb, AlphaFiSDK, collectUnsuppliedBalance, collectUnsuppliedBalanceTxb, getCurrentTick, getManualRebalanceUsingTicksTxb, getTickSpacing, getWithdrawRequestsAndUnsuppliedAmount, processWithdrawRequestsManualTxb, StrategyContext } from '../src/index.js';
 import { AlphaVaultPoolLabel } from '../src/strategies/alphaVault.js';
 import { dryRunTransactionBlock, executeTransactionBlock, getExecStuff } from './utils.js';
 import fs from 'fs';
@@ -323,17 +323,35 @@ async function createTransferRequestAlphaFiReceipt() {
   });
   dryRunTransactionBlock(tx, address);
 }
+async function addExternalRewardsWalLocked() {
+  const { address } = getExecStuff();
+  const context = new StrategyContext('mainnet');
+  const tx = new Transaction();
+  const amount = 1_000_000_000n; // 1 WAL (WAL_DECIMALS = 9)
+  const startTimeMs = Date.now() + 60 * 1000; // +1 minute from now
+  const endTimeMs = startTimeMs + 7 * 24 * 60 * 60 * 1000; // +7 days
+  await addExternalRewardsWalLockedTxb(tx, address, amount, startTimeMs, endTimeMs, context);
+  tx.setGasBudget(2e8);
+  console.log('[slushAdmin] dryRun addExternalRewardsWalLockedTxb', {
+    address,
+    amount: amount.toString(),
+    startTimeMs,
+    endTimeMs,
+  });
+  dryRunTransactionBlock(tx, address);
+  // executeTransactionBlock(tx);
+}
 async function updatePool() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ network: 'mainnet' });
   const tx = await sdk.updatePool(
-    '0x4db8dacf91a31daa296cd3a32a11a140aa44f4ede663798e92cb1cf2e157e6cb',
+    '0x0e1399fe66eca3147766bb113ae7b52b31243874c9e4a64a48e6d8cb91aa3c04',
   );
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx, address);
   // executeTransactionBlock(tx);
 }
-// updatePool();
+updatePool();
 // claimAirdrop();
 // withdraw();
 // poolsData();
@@ -342,5 +360,6 @@ async function updatePool() {
 // deposit();
 // cancelSlushWithdraw();
 // rebalance();
+// addExternalRewardsWalLocked();
 // dryRunAllAlphaVaultAdminFunctions();
 // createTransferRequestAlphaFiReceipt();

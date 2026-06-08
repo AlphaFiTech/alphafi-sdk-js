@@ -595,7 +595,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
         target: `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::collect_reward_and_swap_bluefin`,
         typeArguments: [blueInfo.coinType, suiInfo.coinType],
         arguments: [
-          tx.object(ADMIN.ALPHA_SLUSH_VERSION),
+          tx.object(VERSIONS.SLUSH),
           tx.object(this.poolLabel.poolId),
           tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
           tx.object(await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin')),
@@ -610,7 +610,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
         target: `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::collect_reward_and_swap_bluefin`,
         typeArguments: [stsuiInfo.coinType, suiInfo.coinType],
         arguments: [
-          tx.object(ADMIN.ALPHA_SLUSH_VERSION),
+          tx.object(VERSIONS.SLUSH),
           tx.object(this.poolLabel.poolId),
           tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
           tx.object(await this.context.getPoolIdBySymbolsAndProtocol('stSUI', 'SUI', 'bluefin')),
@@ -624,7 +624,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::update_pool`,
         arguments: [
-          tx.object(ADMIN.ALPHA_SLUSH_VERSION),
+          tx.object(VERSIONS.SLUSH),
           tx.object(this.poolLabel.poolId),
           tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
           tx.object(STSUI.LST_INFO),
