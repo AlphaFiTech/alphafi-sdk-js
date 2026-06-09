@@ -44,7 +44,7 @@ import {
 import { ZapDepositStrategy } from '../strategies/zapDeposit.js';
 import { LpStrategy } from '../strategies/lp.js';
 import { SlushSingleAssetLoopingStrategy } from '../strategies/slushSingleAssetLooping.js';
-import { SingleAssetLoopingStrategy } from 'src/strategies/singleAssetLooping.js';
+import { SingleAssetLoopingStrategy } from '../strategies/singleAssetLooping.js';
 
 // Re-export types for external use
 export type { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
@@ -151,6 +151,20 @@ export class AlphaFiSDK {
     strategiesType?: StrategyType[],
   ): Promise<UserPortfolioData> {
     return this.portfolio.getUserPortfolio(address, strategiesType);
+  }
+
+  /**
+   * Get all wallet coin balances for an address via GraphQL.
+   *
+   * Each balance is the **combined** total — the address-balance accumulator
+   * plus owned `Coin<T>` objects (GraphQL `totalBalance`) — so funds held in the
+   * address balance are included.
+   *
+   * @param address - User's wallet address
+   * @returns Map of normalized coin type to total balance (base units, as string)
+   */
+  async getWalletBalances(address: string): Promise<Map<string, string>> {
+    return this.portfolio.getWalletCoins(address);
   }
 
   /**

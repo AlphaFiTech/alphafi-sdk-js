@@ -7,9 +7,10 @@ import { AlphaMiningData, BaseStrategy, StringMap, ProtocolType } from './strate
 import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
-import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
+import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/common-sdk';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
+import { bcs } from '@mysten/sui/bcs';
 import {
   GLOBAL_CONFIGS,
   CLOCK_PACKAGE_ID,
@@ -306,8 +307,8 @@ export class AutobalanceLpStrategy extends BaseStrategy<
       false,
     );
 
-    const amountA = new Decimal(amounts.coinA.toString()).div(scalingA);
-    const amountB = new Decimal(amounts.coinB.toString()).div(scalingB);
+    const amountA = new Decimal(amounts.coin_amount_a.toString()).div(scalingA);
+    const amountB = new Decimal(amounts.coin_amount_b.toString()).div(scalingB);
     return { amountA, amountB };
   }
 
@@ -323,7 +324,7 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     }
     const currentSqrtPriceBN = new BN(this.parentPoolObject.currentSqrtPrice);
 
-    return ClmmPoolUtil.estLiquidityAndcoinAmountFromOneAmounts(
+    return ClmmPoolUtil.estLiquidityAndCoinAmountFromOneAmounts(
       lowerTick,
       upperTick,
       new BN(`${Math.floor(parseFloat(amount))}`),
@@ -336,11 +337,11 @@ export class AutobalanceLpStrategy extends BaseStrategy<
 
   getOtherAmount(amount: string, isAmountA: boolean): [string, string] {
     const liquidity = this.getLiquidity(amount, isAmountA);
-    return [liquidity.coinAmountA.toString(), liquidity.coinAmountB.toString()];
+    return [liquidity.coin_amount_a.toString(), liquidity.coin_amount_b.toString()];
   }
 
   private coinAmountToXToken(amount: string, isAmountA: boolean): string {
-    const liquidity = new Decimal(this.getLiquidity(amount, isAmountA).liquidityAmount.toString());
+    const liquidity = new Decimal(this.getLiquidity(amount, isAmountA).liquidity_amount.toString());
     const exchangeRate = this.exchangeRate();
     return liquidity.div(exchangeRate).floor().toString();
   }
@@ -456,13 +457,13 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     const [amountA, amountB] = this.getOtherAmount(options.amount.toString(), options.isAmountA);
 
     // get Coin Objects
-    const depositCoinA = await this.context.blockchain.getCoinObject(
+    const depositCoinA = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.assetA.type,
       options.address,
       BigInt(amountA),
     );
-    const depositCoinB = await this.context.blockchain.getCoinObject(
+    const depositCoinB = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.assetB.type,
       options.address,
@@ -591,13 +592,11 @@ export class AutobalanceLpStrategy extends BaseStrategy<
       userPendingReward[rewardType] = receipt.pendingRewards[i].value;
     }
 
-    // `get_cur_acc_per_xtoken` returns a `VecMap<TypeName, u256>` which GraphQL
-    // encodes as `{ contents: [{ key, value }, ...] }`.
-    const lastOutput = res?.outputs?.[res.outputs.length - 1];
-    const rawJson = lastOutput?.returnValues?.[0]?.value?.json;
-    const currAccForAllRewards: Array<{ key: string; value: string }> = isVecMapJson(rawJson)
-      ? rawJson.contents
-      : [];
+    // `get_cur_acc_per_xtoken` returns a `VecMap<TypeName, u256>`; the core
+    // simulation API returns command return values as raw BCS, so decode it.
+    const lastCommand = res?.commandResults?.[res.commandResults.length - 1];
+    const returnValueBcs = lastCommand?.returnValues?.[0]?.bcs;
+    const currAccForAllRewards = returnValueBcs ? decodeVecMapTypeNameU256(returnValueBcs) : [];
     currAccForAllRewards.forEach((reward) => {
       curAcc[this.normalizeRewardType(reward.key)] = String(reward.value);
     });
@@ -784,18 +783,28 @@ export class AutobalanceLpStrategy extends BaseStrategy<
   }
 }
 
-/** GraphQL JSON shape of a Move `VecMap<K, V>` return value. */
-interface MoveVecMapJson {
-  contents: Array<{ key: string; value: string }>;
-}
+/**
+ * BCS schema for a `VecMap<TypeName, u256>` return value. A Move struct's BCS is
+ * the concatenation of its fields, so single-field wrappers (`VecMap.contents`,
+ * `TypeName.name`, `ascii::String.bytes`) collapse to their inner layout.
+ */
+const VecMapTypeNameU256Bcs = bcs.vector(
+  bcs.struct('Entry', {
+    key: bcs.struct('TypeName', { name: bcs.string() }),
+    value: bcs.u256(),
+  }),
+);
 
-/** Narrow a `SimulationReturnValue.value.json` blob to a `VecMap` shape. */
-function isVecMapJson(json: unknown): json is MoveVecMapJson {
-  return (
-    typeof json === 'object' &&
-    json !== null &&
-    Array.isArray((json as { contents?: unknown }).contents)
-  );
+/**
+ * Decode a BCS-encoded `VecMap<TypeName, u256>` (e.g. the raw return value from
+ * `get_cur_acc_per_xtoken`) into `{ key, value }` entries. `key` is the bare
+ * type string (no `0x`), matching the previous GraphQL `value.json` shape.
+ */
+function decodeVecMapTypeNameU256(bytes: Uint8Array): Array<{ key: string; value: string }> {
+  return VecMapTypeNameU256Bcs.parse(new Uint8Array(bytes)).map((entry) => ({
+    key: entry.key.name,
+    value: String(entry.value),
+  }));
 }
 
 /**

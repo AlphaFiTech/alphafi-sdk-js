@@ -1,4 +1,4 @@
-import { PoolLabel } from 'src/strategies/strategy.js';
+import { PoolLabel } from '../strategies/strategy.js';
 
 export const TEST_POOLS: PoolLabel[] = [
   {
