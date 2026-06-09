@@ -119,11 +119,10 @@ async function withdraw() {
   const { address } = getExecStuff();
   // const address = '0xfd839097e089804fa39e3a99a47b889dfe1fa8b5506ee5238e9b06794490f841';
   const sdk = new AlphaFiSDK({
-    suiClient: suiClient,
     network: 'mainnet',
   });
   const tx = await sdk.withdraw({
-    poolId: '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
+    poolId: '0xed4302b0db5a1eabc2f8404222572892c0bf7c81004935b23e4f22808b52a0af',
     withdrawMax: true,
     amount: '5_000_000',
     isAmountA: true,
@@ -179,7 +178,7 @@ async function updatePool() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ network: 'mainnet' });
   const tx = await sdk.updatePool(
-    '0x4db8dacf91a31daa296cd3a32a11a140aa44f4ede663798e92cb1cf2e157e6cb',
+    '0x18db5470cc2da4f74b1b957891f274d896764d08c56c3941788cef84d2a1362e',
   );
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx, address);
@@ -187,7 +186,7 @@ async function updatePool() {
 }
 // updatePool();
 // claimAirdrop();
-// withdraw();
+withdraw();
 // poolsData();
 // portfolioData();
 // claimSlushWithdraw();
