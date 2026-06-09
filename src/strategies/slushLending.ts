@@ -476,7 +476,12 @@ export class SlushLendingStrategy extends BaseStrategy<
       ],
     });
 
-    tx.transferObjects([slushCoin], options.address);
+    this.context.blockchain.sendCoinToAddressBalance(
+      tx,
+      this.poolLabel.asset.type,
+      options.address,
+      slushCoin,
+    );
   }
 
   async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {

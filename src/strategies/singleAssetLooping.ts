@@ -542,7 +542,12 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
-    tx.transferObjects([coin], options.address);
+    this.context.blockchain.sendCoinToAddressBalance(
+      tx,
+      this.poolLabel.asset.type,
+      options.address,
+      coin,
+    );
   }
 
   async claimRewards(tx: Transaction, alphaReceipt: TransactionResult) {

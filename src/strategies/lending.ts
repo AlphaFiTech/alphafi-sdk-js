@@ -3,7 +3,13 @@
  */
 
 import { Decimal } from 'decimal.js';
-import { AlphaMiningData, BaseStrategy, StringMap, ProtocolType } from './strategy.js';
+import {
+  AlphaMiningData,
+  BaseStrategy,
+  StringMap,
+  ProtocolType,
+  ALPHA_COIN_TYPE,
+} from './strategy.js';
 import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
@@ -870,7 +876,7 @@ export class LendingStrategy extends BaseStrategy<
 
   private async updateSingleTokenPrice(tx: Transaction, pythPriceInfo: string, feedId: string) {
     const pythClient = new SuiPythClient(
-      this.context.blockchain.txBuildClient,
+      this.context.blockchain.pythSuiClient,
       PYTH_STATE_ID,
       WORMHOLE_STATE_ID,
     );
@@ -948,11 +954,12 @@ export class LendingStrategy extends BaseStrategy<
             tx.object(CLOCK_PACKAGE_ID),
           ],
         });
-        tx.moveCall({
-          target: `0x2::transfer::public_transfer`,
-          typeArguments: [`0x2::coin::Coin<${buckCoin.coinType}>`],
-          arguments: [buck, tx.pure.address(options.address)],
-        });
+        this.context.blockchain.sendCoinToAddressBalance(
+          tx,
+          buckCoin.coinType,
+          options.address,
+          buck,
+        );
       } else {
         const [withdrawnCoin, alphaCoin] = tx.moveCall({
           target: `${this.poolLabel.packageId}::alphafi_navi_pool_v2::user_emergency_withdraw`,
@@ -972,7 +979,18 @@ export class LendingStrategy extends BaseStrategy<
           ],
           arguments: [noneAlphaReceipt],
         });
-        tx.transferObjects([withdrawnCoin, alphaCoin], options.address);
+        this.context.blockchain.sendCoinToAddressBalance(
+          tx,
+          this.poolLabel.asset.type,
+          options.address,
+          withdrawnCoin,
+        );
+        this.context.blockchain.sendCoinToAddressBalance(
+          tx,
+          ALPHA_COIN_TYPE,
+          options.address,
+          alphaCoin,
+        );
       }
     } else if (this.poolLabel.asset.name === 'wBTC') {
       await this.updateSingleTokenPrice(

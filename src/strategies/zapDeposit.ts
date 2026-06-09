@@ -474,8 +474,15 @@ export class ZapDepositStrategy {
       [actualDepositCoins[0], actualDepositCoins[1]],
     );
 
-    // Transfer remaining coins back to user
-    tx.transferObjects([actualDepositCoins[2], actualDepositCoins[3], source], address);
+    // Credit remaining coins back to the user's address balance
+    this.context.blockchain.sendCoinToAddressBalance(tx, coinTypeA, address, actualDepositCoins[2]);
+    this.context.blockchain.sendCoinToAddressBalance(tx, coinTypeB, address, actualDepositCoins[3]);
+    this.context.blockchain.sendCoinToAddressBalance(
+      tx,
+      isInputA ? coinTypeA : coinTypeB,
+      address,
+      source,
+    );
 
     return tx;
   }

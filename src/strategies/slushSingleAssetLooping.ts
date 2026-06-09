@@ -393,7 +393,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       ],
     });
 
-    tx.transferObjects([coin], address);
+    this.context.blockchain.sendCoinToAddressBalance(tx, this.poolLabel.asset.type, address, coin);
   }
   async cancelWithdraw(tx: Transaction, withdrawRequestId: string, address: string) {
     const alphalendClient = this.context.alphalendClient;
