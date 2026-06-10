@@ -1,0 +1,33 @@
+name: Claude Code Review
+on:
+  pull_request:
+    types: [opened, synchronize]
+  issue_comment:
+    types: [created] # lets a human re-trigger with an @claude mention
+  schedule:
+    - cron: '0 * * * *' # hourly sweep of open PRs
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          plugin_marketplaces: 'https://github.com/obra/superpowers-marketplace.git'
+          plugins: 'superpowers@superpowers-marketplace'
+          prompt: |
+            Review the changes using the superpowers code-review skill
+            (/superpowers:requesting-code-review). Check correctness, security,
+            error handling, test coverage, and this repo's CLAUDE.md conventions.
+            Post findings as PR review comments, ranked by severity.
+            If this run was triggered on a schedule, instead enumerate open PRs
+            (via gh pr list) and review any with new commits since the last review.
