@@ -7,7 +7,7 @@ import { AlphaMiningData, BaseStrategy, StringMap, ProtocolType } from './strate
 import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
-import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
+import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/common-sdk';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
@@ -318,8 +318,8 @@ export class LyfStrategy extends BaseStrategy<
       false,
     );
 
-    let amountA = new Decimal(amounts.coinA.toString()).div(scalingA);
-    let amountB = new Decimal(amounts.coinB.toString()).div(scalingB);
+    let amountA = new Decimal(amounts.coin_amount_a.toString()).div(scalingA);
+    let amountB = new Decimal(amounts.coin_amount_b.toString()).div(scalingB);
     const leverage = this.getLeverage();
     if (!leverage.isZero()) {
       amountA = amountA.div(leverage);
@@ -340,7 +340,7 @@ export class LyfStrategy extends BaseStrategy<
     }
     const currentSqrtPriceBN = new BN(this.parentPoolObject.currentSqrtPrice);
 
-    return ClmmPoolUtil.estLiquidityAndcoinAmountFromOneAmounts(
+    return ClmmPoolUtil.estLiquidityAndCoinAmountFromOneAmounts(
       lowerTick,
       upperTick,
       new BN(`${Math.floor(parseFloat(amount))}`),
@@ -353,12 +353,12 @@ export class LyfStrategy extends BaseStrategy<
 
   getOtherAmount(amount: string, isAmountA: boolean): [string, string] {
     const liquidity = this.getLiquidity(amount, isAmountA);
-    return [liquidity.coinAmountA.toString(), liquidity.coinAmountB.toString()];
+    return [liquidity.coin_amount_a.toString(), liquidity.coin_amount_b.toString()];
   }
 
   private coinAmountToXToken(amount: string, isAmountA: boolean): string {
     const liquidity = new Decimal(
-      this.getLiquidity(amount, isAmountA).liquidityAmount.toString(),
+      this.getLiquidity(amount, isAmountA).liquidity_amount.toString(),
     ).div(
       new Decimal(1).minus(new Decimal(this.investorObject.currentDebtToSupplyRatio).div(1e18)),
     );
@@ -640,14 +640,14 @@ export class LyfStrategy extends BaseStrategy<
     const [amountA, amountB] = this.getOtherAmount(options.amount.toString(), options.isAmountA);
 
     // get Coin Objects
-    const depositCoinA = await this.context.blockchain.getCoinObject(
+    const depositCoinA = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.assetA.type,
       options.address,
       BigInt(amountA),
     );
 
-    const depositCoinB = await this.context.blockchain.getCoinObject(
+    const depositCoinB = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.assetB.type,
       options.address,
@@ -765,9 +765,20 @@ export class LyfStrategy extends BaseStrategy<
         typeArguments: [getStsuiConf().STSUI_COIN_TYPE],
       });
       tx.mergeCoins(sui, [lyfCoinB]);
-      tx.transferObjects([sui], options.address);
+      this.context.blockchain.sendCoinToAddressBalance(tx, '0x2::sui::SUI', options.address, sui);
     } else {
-      tx.transferObjects([lyfCoinA, lyfCoinB], options.address);
+      this.context.blockchain.sendCoinToAddressBalance(
+        tx,
+        this.poolLabel.assetA.type,
+        options.address,
+        lyfCoinA,
+      );
+      this.context.blockchain.sendCoinToAddressBalance(
+        tx,
+        this.poolLabel.assetB.type,
+        options.address,
+        lyfCoinB,
+      );
     }
   }
 

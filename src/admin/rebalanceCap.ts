@@ -8,10 +8,10 @@ import { ADMIN } from '../utils/constants.js';
 /**
  * Find the RebalanceCap object owned by `address` and return its object ID.
  * Throws if no cap is found (wallet doesn't have permission to rebalance).
- * Uses JSON-RPC via `context.blockchain.txBuildClient` (same as tx building).
+ * Uses JSON-RPC via `context.blockchain.pythSuiClient`.
  */
 export async function getRebalanceCap(address: string, context: StrategyContext): Promise<string> {
-  const rpc = context.blockchain.txBuildClient;
+  const rpc = context.blockchain.pythSuiClient;
   const rebalanceCapType = `${ADMIN.ALPHA_FIRST_PACKAGE_ID}::distributor::RebalanceCap`;
   const data = await rpc.getOwnedObjects({
     owner: address,

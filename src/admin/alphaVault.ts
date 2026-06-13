@@ -4,7 +4,7 @@
  */
 
 import { Transaction } from '@mysten/sui/transactions';
-import { SuiMoveObject } from '@mysten/sui/client';
+import { SuiMoveObject } from '@mysten/sui/jsonRpc';
 import { StrategyContext } from '../models/strategyContext.js';
 import { AlphaVaultPoolLabel } from '../strategies/alphaVault.js';
 import { VERSIONS } from '../utils/constants.js';
@@ -28,10 +28,11 @@ async function tryGetCoinObject(
   tx: Transaction,
   coinType: string,
   address: string,
+  amount: bigint,
   context: StrategyContext,
 ) {
   try {
-    return await context.blockchain.getCoinObject(tx, coinType, address);
+    return context.blockchain.getCoinObject(tx, coinType, address, amount);
   } catch {
     return undefined;
   }
@@ -56,7 +57,7 @@ export async function getWithdrawRequestsAndUnsuppliedAmount(
   context: StrategyContext,
 ): Promise<WithdrawRequestsAndUnsuppliedAmount> {
   const label = await getAlphaLabel(context);
-  const pool = await context.blockchain.txBuildClient.getObject({
+  const pool = await context.blockchain.pythSuiClient.getObject({
     id: label.poolId,
     options: { showContent: true },
   });
@@ -91,20 +92,13 @@ export async function processWithdrawRequestsManualTxb(
   const label = await getAlphaLabel(context);
   const typeT = label.asset.type;
 
-  const coin = await tryGetCoinObject(tx, typeT, address, context);
+  const coin = await tryGetCoinObject(tx, typeT, address, BigInt(amount), context);
   if (!coin) throw new Error('no coin available');
-
-  const finalCoin = tx.splitCoins(coin, [amount]);
-  tx.transferObjects([coin], address);
 
   tx.moveCall({
     target: `${label.packageId}::interface::process_withdraw_requests_manual`,
     typeArguments: [typeT],
-    arguments: [
-      tx.object(VERSIONS.ALPHA_EMBER),
-      tx.object(label.poolId),
-      tx.object(finalCoin),
-    ],
+    arguments: [tx.object(VERSIONS.ALPHA_EMBER), tx.object(label.poolId), coin],
   });
 }
 
@@ -153,19 +147,12 @@ export async function addAirdropCoinTxb(
   const typeT = label.asset.type;
   const typeR = '0x2::sui::SUI';
 
-  const coin = await tryGetCoinObject(tx, typeR, address, context);
+  const coin = await tryGetCoinObject(tx, typeR, address, BigInt(amount), context);
   if (!coin) throw new Error('no coin available');
-
-  const finalCoin = tx.splitCoins(coin, [amount]);
-  tx.transferObjects([coin], address);
 
   tx.moveCall({
     target: `${label.packageId}::interface::add_airdrop_coin`,
     typeArguments: [typeT, typeR],
-    arguments: [
-      tx.object(VERSIONS.ALPHA_EMBER),
-      tx.object(label.poolId),
-      tx.object(finalCoin),
-    ],
+    arguments: [tx.object(VERSIONS.ALPHA_EMBER), tx.object(label.poolId), coin],
   });
 }

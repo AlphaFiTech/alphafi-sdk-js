@@ -3,7 +3,7 @@
  */
 
 import { Transaction } from '@mysten/sui/transactions';
-import { SuiMoveObject, type SuiObjectResponse } from '@mysten/sui/client';
+import { SuiMoveObject, type SuiObjectResponse } from '@mysten/sui/jsonRpc';
 import { Decimal } from 'decimal.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import {
@@ -51,7 +51,7 @@ function numberTypeToHuman(raw: string, tokenDecimals: number): number {
 export async function getWalLockedRewardInfo(
   context: StrategyContext,
 ): Promise<WalLockedRewardInfo | null> {
-  const pool = await context.blockchain.txBuildClient.getObject({
+  const pool = await context.blockchain.pythSuiClient.getObject({
     id: ADMIN.ALPHA_SLUSH_WAL_LOOP_POOL_ID,
     options: { showContent: true },
   });
@@ -103,7 +103,7 @@ export async function addExternalRewardsWalLockedTxb(
   endTimeMs: number,
   context: StrategyContext,
 ): Promise<void> {
-  const rpc = context.blockchain.txBuildClient;
+  const rpc = context.blockchain.pythSuiClient;
 
   // Find AdminCap owned by this wallet
   const ownedCaps = await rpc.getOwnedObjects({
@@ -130,10 +130,7 @@ export async function addExternalRewardsWalLockedTxb(
   const alphalendClient = context.alphalendClient;
   await alphalendClient.updatePrices(tx, [WAL_COIN_TYPE]);
 
-  // Merge all WAL coins and split the reward amount
-  const mergedWalCoin = await context.blockchain.getCoinObject(tx, WAL_COIN_TYPE, address);
-  const [rewardCoin] = tx.splitCoins(mergedWalCoin, [tx.pure.u64(amount)]);
-  tx.transferObjects([mergedWalCoin], address);
+  const rewardCoin = context.blockchain.getCoinObject(tx, WAL_COIN_TYPE, address, amount);
 
   tx.moveCall({
     target: `${ADMIN.ALPHA_SLUSH_LATEST_PACKAGE_ID}::alphalend_slush_locked_loop_pool::add_external_rewards`,

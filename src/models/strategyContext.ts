@@ -9,7 +9,6 @@ import { Blockchain } from './blockchain.js';
 import { CoinInfoProvider } from './coinInfoProvider.js';
 import { PoolLabel, StrategyType } from '../strategies/strategy.js';
 import { Decimal } from 'decimal.js';
-import { SuiObjectData } from '@mysten/sui/client/index.js';
 import { AlphalendClient, Network } from '@alphafi/alphalend-sdk';
 import {
   AlphaFiReceipt,
@@ -901,18 +900,17 @@ export class StrategyContext {
   }
 
   /**
-   * Parses the raw Field<TransferRequestKey, TransferRequest> wrapper returned by
-   * `getDynamicFields` into a typed `TransferRequest`. The actual data lives at
-   * `content.fields.value.fields`, one level deeper than the field wrapper itself.
+   * Parses the value of the `Field<TransferRequestKey, TransferRequest>` dynamic
+   * field (returned by `getDynamicFieldByKeyType`) into a typed `TransferRequest`.
+   * The GraphQL value JSON already carries the unwrapped `TransferRequest` struct
+   * fields, so no `Field<K, V>` wrapper drilling is needed.
    */
-  private parseTransferRequestField(raw: SuiObjectData | null): TransferRequest | null {
-    if (!raw || raw.content?.dataType !== 'moveObject') return null;
+  private parseTransferRequestField(
+    raw: { fieldAddress: string; valueJson: Record<string, unknown> } | null,
+  ): TransferRequest | null {
+    if (!raw) return null;
 
-    // Drill through the Field<Key,Value> wrapper to reach TransferRequest fields.
-    const fieldWrapperFields = raw.content.fields as Record<string, unknown>;
-    const transferRequestFields = (fieldWrapperFields.value as Record<string, unknown> | undefined)
-      ?.fields as Record<string, unknown> | undefined;
-    const transferRequest = transferRequestFields ?? fieldWrapperFields;
+    const transferRequest = raw.valueJson;
 
     const objectIdField = transferRequest.id;
     const id =
@@ -920,7 +918,7 @@ export class StrategyContext {
         ? objectIdField
         : typeof (objectIdField as Record<string, unknown> | undefined)?.id === 'string'
           ? ((objectIdField as Record<string, unknown>).id as string)
-          : (raw.objectId ?? '');
+          : raw.fieldAddress;
     const receiver = typeof transferRequest.receiver === 'string' ? transferRequest.receiver : '';
     const receiptId =
       typeof transferRequest.receipt_id === 'string' ? transferRequest.receipt_id : '';
