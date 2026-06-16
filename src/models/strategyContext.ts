@@ -1044,6 +1044,7 @@ export class StrategyContext {
    */
   clearUserCaches(userAddress: string): void {
     this.slushPositionCapsCache.delete(userAddress);
+    this.slushPositionCapsCache.delete(`${userAddress}:${SLUSH_LOOP_POSITION_CAP_TYPE}`);
     this.alphaFiReceiptsCache.delete(userAddress);
     this.slushPositionsCache.delete(userAddress);
     this.alphaFiPositionsCache.delete(userAddress);
