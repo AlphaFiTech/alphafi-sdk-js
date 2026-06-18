@@ -77,25 +77,22 @@ async function main() {
 }
 
 async function poolsData() {
-  const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({
-    suiClient: suiClient,
     network: 'mainnet',
   });
   const data = await sdk.getSinglePoolData(
-    '0xccc08b2e42a88002b4bd505e7e0b5bed17079d4cafc2ccbe82da0172d5291867',
+    '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
   );
   console.log('data', data);
 }
 async function portfolioData() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({
-    suiClient: suiClient,
     network: 'mainnet',
   });
   const data = await sdk.getUserSinglePoolBalance(
     address,
-    '0xccc08b2e42a88002b4bd505e7e0b5bed17079d4cafc2ccbe82da0172d5291867',
+    '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
   );
   console.log('user data', data);
 }
@@ -105,8 +102,8 @@ async function deposit() {
     network: 'mainnet',
   });
   const tx = await sdk.deposit({
-    poolId: '0x18db5470cc2da4f74b1b957891f274d896764d08c56c3941788cef84d2a1362e',
-    amount: 1982616226n,
+    poolId: '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
+    amount: 100000000n,
     address: address,
     isAmountA: false,
   });
@@ -122,8 +119,8 @@ async function withdraw() {
     network: 'mainnet',
   });
   const tx = await sdk.withdraw({
-    poolId: '0xed4302b0db5a1eabc2f8404222572892c0bf7c81004935b23e4f22808b52a0af',
-    withdrawMax: true,
+    poolId: '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
+    withdrawMax: false,
     amount: '5_000_000',
     isAmountA: true,
     address,

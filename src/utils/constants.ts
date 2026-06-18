@@ -11,6 +11,7 @@ export const VERSIONS = {
   ALPHALEND_VERSION: '0x66b34c1d2d0aa4198e1a2ba172cb4a80d0cfd501a376d5c3782365d0c8282abe',
   ALPHA_NAVI_V2: '0xd912c62a88d526233bf456e77802a5c370cd625e4327c76662e68450b396a797',
   SLUSH: '0x146d1785834528d08a44cac4a59c6a981d43cc13b1d07818e7fa3d29318ca00f',
+  SLUSH_LOOP: '0x1140f0b482f22650ab1c51baa9758e4bacba05e5de66dff7ccb1bc60308dbe17',
   MMT: '0x2375a0b1ec12010aaea3b2545acfa2ad34cfbba03ce4b59f4c39e1e25eed1b2a',
   FUNGIBLE_LP: '0x3293f5616005b03c5d7a8ad161aa91c4229ce0df19f61dab1d1d6d0b8f4a1cac',
   LYF_LP: '0xc1619e578f6d6488064babe43c2aee7ae69227d98972a4164107d6d3e9c713cd',
@@ -51,6 +52,10 @@ export const ALPHAFI_RECEIPT_WHITELISTED_ADDRESSES =
 
 export const SLUSH_POSITION_CAP_TYPE =
   '0x41b1def47b6259cd7306e049d6500eabb1a984e25558b56eefa9b6c000a038c3::alphalend_slush_pool::PositionCap';
+
+// SlushLooping uses a separate contract, so its position cap is a different type.
+export const SLUSH_LOOP_POSITION_CAP_TYPE =
+  '0xd1b9ef397179f39002deeb7165674626bc81884025d15fc3efb612c5bc2caaa0::alphalend_slush_pool::PositionCap';
 
 export const ALPHAFI_RECEIPT_TYPE = `${PACKAGE_IDS.ALPHAFI_RECEIPT_FIRST_PACKAGE_ID}::alphafi_receipt::AlphaFiReceipt`;
 
