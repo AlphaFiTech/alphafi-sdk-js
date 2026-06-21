@@ -24,8 +24,13 @@ import {
   SLUSH_LOOP_POSITION_CAP_TYPE,
   STSUI,
   SUI_SYSTEM_STATE,
-  VERSIONS,
 } from '../utils/constants.js';
+
+// The original stSUI/SUI loop pool deployed on the standalone test package. Pools other than
+// this one run on the main `alphalend_slush` package, whose autocompound collects stSUI rewards
+// itself (no external collect/swap) and which uses a config-driven version + shared cap type.
+const OLD_SLUSH_LOOP_POOL_ID =
+  '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c';
 
 /**
  * SlushLooping Strategy for the stSUI/SUI loop pool (separate contract).
@@ -247,6 +252,22 @@ export class SlushLoopingStrategy extends BaseStrategy<
     return new Decimal(amount).div(exchangeRate).floor().toString();
   }
 
+  /** Whether this pool is the legacy test-package deployment. */
+  private get isOldPool(): boolean {
+    return this.poolLabel.poolId === OLD_SLUSH_LOOP_POOL_ID;
+  }
+
+  /**
+   * Resolve this pool's position cap id. The legacy pool has its own cap type; new pools share
+   * the main package cap type with the other slush strategies.
+   */
+  private async getPositionCapId(address: string): Promise<string | undefined> {
+    const caps = this.isOldPool
+      ? await this.context.getSlushPositionCaps(address, SLUSH_LOOP_POSITION_CAP_TYPE)
+      : await this.context.getSlushPositionCaps(address);
+    return caps[0]?.id;
+  }
+
   /**
    * Collect rewards from the position and swap them to SUI (the borrow asset).
    *
@@ -255,6 +276,11 @@ export class SlushLoopingStrategy extends BaseStrategy<
    * (`collect_reward_and_swap_bluefin`, no oracle / slippage args).
    */
   private async collectAndSwapRewards(tx: Transaction) {
+    // New pools collect stSUI rewards inside the contract's autocompound, so nothing to do here.
+    // Only the legacy pool needs external reward collection + swap.
+    if (!this.isOldPool) {
+      return;
+    }
     const positionId = this.poolObject.investor.positionCap.positionId;
     const alphalendClient = this.context.alphalendClient;
 
@@ -278,7 +304,7 @@ export class SlushLoopingStrategy extends BaseStrategy<
         target: `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::collect_reward_and_swap_bluefin`,
         typeArguments: [reward.coinType, suiCoin.coinType],
         arguments: [
-          tx.object(VERSIONS.SLUSH_LOOP),
+          tx.object(this.poolLabel.versionId),
           tx.object(this.poolLabel.poolId),
           tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
           tx.object(
@@ -312,18 +338,15 @@ export class SlushLoopingStrategy extends BaseStrategy<
       BigInt(options.amount),
     );
 
-    const positionCaps = await this.context.getSlushPositionCaps(
-      options.address,
-      SLUSH_LOOP_POSITION_CAP_TYPE,
-    );
+    const existingCapId = await this.getPositionCapId(options.address);
     const target = `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::user_deposit`;
 
-    if (positionCaps.length === 0) {
+    if (!existingCapId) {
       const positionCap: TransactionResult = this.createPositionCap(tx);
       tx.moveCall({
         target,
         arguments: [
-          tx.object(VERSIONS.SLUSH_LOOP),
+          tx.object(this.poolLabel.versionId),
           positionCap,
           tx.object(this.poolLabel.poolId),
           depositCoin,
@@ -338,8 +361,8 @@ export class SlushLoopingStrategy extends BaseStrategy<
       tx.moveCall({
         target,
         arguments: [
-          tx.object(VERSIONS.SLUSH_LOOP),
-          tx.object(positionCaps[0].id),
+          tx.object(this.poolLabel.versionId),
+          tx.object(existingCapId),
           tx.object(this.poolLabel.poolId),
           depositCoin,
           tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
@@ -367,15 +390,15 @@ export class SlushLoopingStrategy extends BaseStrategy<
 
     await this.collectAndSwapRewards(tx);
 
-    const positionCaps = await this.context.getSlushPositionCaps(
-      options.address,
-      SLUSH_LOOP_POSITION_CAP_TYPE,
-    );
+    const capId = await this.getPositionCapId(options.address);
+    if (!capId) {
+      throw new Error('No position cap found for withdraw');
+    }
     const [slushCoin] = tx.moveCall({
       target: `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::user_withdraw`,
       arguments: [
-        tx.object(VERSIONS.SLUSH_LOOP),
-        tx.object(positionCaps[0].id),
+        tx.object(this.poolLabel.versionId),
+        tx.object(capId),
         tx.object(this.poolLabel.poolId),
         tx.pure.u64(xTokenAmount),
         tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
@@ -441,6 +464,7 @@ export interface SlushLoopingPoolLabel {
   poolId: string;
   packageId: string;
   packageNumber: number;
+  versionId: string;
   strategyType: 'SlushLooping';
   parentProtocol: ProtocolType;
   asset: StringMap;
