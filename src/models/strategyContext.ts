@@ -24,6 +24,7 @@ import {
   ALPHAFI_TRANSFER_REQUEST_KEY_TYPE,
   CACHE_TTL,
   DISTRIBUTOR_OBJECT_ID,
+  SLUSH_LOOP_POSITION_CAP_TYPE,
   SLUSH_POSITION_CAP_TYPE,
 } from '../utils/constants.js';
 import { getCanonicalPairKey, POOL_REGISTRY, ProtocolPoolIds } from '../utils/poolMap.js';
@@ -286,6 +287,21 @@ export class StrategyContext {
         asset: d.asset,
         events: {
           autocompoundEventType: d.events?.xtoken_ratio_change_event_type,
+        },
+        isActive: d.is_active,
+        poolName: d.pool_name,
+        isNative: d.is_native,
+      } as PoolLabel;
+    } else if (strategyType === 'SlushLooping') {
+      return {
+        poolId: d.pool_id,
+        packageId: d.package_id,
+        packageNumber: d.package_number,
+        strategyType: strategyType,
+        parentProtocol: d.parent_protocol,
+        asset: d.asset,
+        events: {
+          autocompoundEventType: d.events?.autocompound_event_type,
         },
         isActive: d.is_active,
         poolName: d.pool_name,
@@ -726,7 +742,13 @@ export class StrategyContext {
    */
   async getAllSlushPositions(userAddress: string): Promise<Map<string, any[]>> {
     return this.slushPositionsCache.getOrFetch(userAddress, async () => {
-      const caps = await this.getSlushPositionCaps(userAddress);
+      // Slush positions can be held under two distinct position-cap types: the
+      // standard slush cap and the separate SlushLooping cap. Fetch both.
+      const [defaultCaps, loopCaps] = await Promise.all([
+        this.getSlushPositionCaps(userAddress),
+        this.getSlushPositionCaps(userAddress, SLUSH_LOOP_POSITION_CAP_TYPE),
+      ]);
+      const caps = [...defaultCaps, ...loopCaps];
       if (!caps.length) {
         return new Map();
       }
@@ -770,9 +792,14 @@ export class StrategyContext {
   /**
    * Fetch and cache slush position caps for a user.
    */
-  async getSlushPositionCaps(userAddress: string): Promise<SlushPositionCap[]> {
-    return this.slushPositionCapsCache.getOrFetch(userAddress, async () => {
-      const caps = await this.blockchain.getReceipt(userAddress, SLUSH_POSITION_CAP_TYPE);
+  async getSlushPositionCaps(
+    userAddress: string,
+    capType: string = SLUSH_POSITION_CAP_TYPE,
+  ): Promise<SlushPositionCap[]> {
+    const cacheKey =
+      capType === SLUSH_POSITION_CAP_TYPE ? userAddress : `${userAddress}:${capType}`;
+    return this.slushPositionCapsCache.getOrFetch(cacheKey, async () => {
+      const caps = await this.blockchain.getReceipt(userAddress, capType);
       if (!caps || caps.length === 0) {
         return [];
       }
@@ -1030,6 +1057,7 @@ export class StrategyContext {
    */
   clearUserCaches(userAddress: string): void {
     this.slushPositionCapsCache.delete(userAddress);
+    this.slushPositionCapsCache.delete(`${userAddress}:${SLUSH_LOOP_POSITION_CAP_TYPE}`);
     this.alphaFiReceiptsCache.delete(userAddress);
     this.slushPositionsCache.delete(userAddress);
     this.alphaFiPositionsCache.delete(userAddress);

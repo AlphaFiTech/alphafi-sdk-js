@@ -1,6 +1,6 @@
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { fromB64 } from '@mysten/sui/utils';
-import { SuiClient } from '@mysten/sui/client';
+import { fromBase64 } from '@mysten/bcs';
+import { SuiJsonRpcClient as SuiClient } from '@mysten/sui/jsonRpc';
 
 import dotenv from 'dotenv';
 import { Transaction } from '@mysten/sui/transactions';
@@ -30,7 +30,7 @@ export function getExecStuff() {
   }
 
   const b64PrivateKey = process.env.PK_B64 as string;
-  const keypair = Ed25519Keypair.fromSecretKey(fromB64(b64PrivateKey).slice(1));
+  const keypair = Ed25519Keypair.fromSecretKey(fromBase64(b64PrivateKey).slice(1));
   const address = `${keypair.getPublicKey().toSuiAddress()}`;
 
   if (!process.env.NETWORK) {

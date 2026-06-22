@@ -1,5 +1,13 @@
 /**
- * SlushLending Strategy
+ * SlushLooping Strategy
+ *
+ * Slush looping strategy implemented in a separate contract
+ * (`alphafi_slush_stsui_sui_loop_pool`). Unlike the other slush strategies it
+ * uses its own package, version object and position-cap type, and passes an
+ * extra LST info object to deposit/withdraw. Withdrawals are immediate
+ * (one-shot) like SlushLending — there is no delayed withdrawal queue.
+ *
+ * Pool: alphalend-slush-stsui-loop
  */
 
 import { Decimal } from 'decimal.js';
@@ -9,42 +17,43 @@ import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
-  ALPHAFI_ORACLE,
   ALPHALEND_LENDING_PROTOCOL_ID,
   CLOCK_PACKAGE_ID,
   GLOBAL_CONFIGS,
   IMAGE_URLS,
+  SLUSH_LOOP_POSITION_CAP_TYPE,
+  STSUI,
   SUI_SYSTEM_STATE,
   VERSIONS,
 } from '../utils/constants.js';
 
 /**
- * SlushLending Strategy for slush lending pools without alpha mining
+ * SlushLooping Strategy for the stSUI/SUI loop pool (separate contract).
  */
-export class SlushLendingStrategy extends BaseStrategy<
-  SlushLendingPoolObject,
+export class SlushLoopingStrategy extends BaseStrategy<
+  SlushLoopingPoolObject,
+  never, // Investor is embedded in PoolObject
   never,
-  never,
-  SlushLendingReceiptObject
+  SlushLoopingReceiptObject
 > {
-  private poolLabel: SlushLendingPoolLabel;
-  private poolObject: SlushLendingPoolObject;
-  private receiptObjects: SlushLendingReceiptObject[] = [];
+  private poolLabel: SlushLoopingPoolLabel;
+  private poolObject: SlushLoopingPoolObject;
+  private receiptObjects: SlushLoopingReceiptObject[] = [];
   private context: StrategyContext;
 
-  constructor(poolLabel: SlushLendingPoolLabel, poolObject: any, context: StrategyContext) {
+  constructor(poolLabel: SlushLoopingPoolLabel, poolObject: any, context: StrategyContext) {
     super();
     this.poolLabel = poolLabel;
     this.poolObject = this.parsePoolObject(poolObject);
     this.context = context;
   }
 
-  getPoolLabel(): SlushLendingPoolLabel {
+  getPoolLabel(): SlushLoopingPoolLabel {
     return this.poolLabel;
   }
 
   getOtherAmount(_amount: string, _isAmountA: boolean): [string, string] {
-    throw new Error('getOtherAmount is not supported for single-asset SlushLending strategy');
+    throw new Error('getOtherAmount is not supported for single-asset SlushLooping strategy');
   }
 
   updateReceipts(receipts: any[]): void {
@@ -52,7 +61,7 @@ export class SlushLendingStrategy extends BaseStrategy<
   }
 
   /**
-   * Returns alpha mining data - SlushLending pools do not support alpha mining
+   * Returns alpha mining data - SlushLooping pools do not support alpha mining
    */
   protected getAlphaMiningData(): AlphaMiningData {
     return {
@@ -122,7 +131,7 @@ export class SlushLendingStrategy extends BaseStrategy<
   async getParentTvl(): Promise<SingleTvl> {
     const protocol = this.poolLabel.parentProtocol;
     if (protocol !== 'Alphalend') {
-      throw new Error(`Unsupported parent protocol for SlushLending: ${protocol}`);
+      throw new Error(`Unsupported parent protocol for SlushLooping: ${protocol}`);
     }
     const [tokenAmount, price] = await Promise.all([
       this.context.getAlphaLendTvl(this.poolLabel.asset.type),
@@ -152,45 +161,26 @@ export class SlushLendingStrategy extends BaseStrategy<
   /**
    * Parse pool object from blockchain response
    */
-  parsePoolObject(response: any): SlushLendingPoolObject {
+  parsePoolObject(response: any): SlushLoopingPoolObject {
     return this.safeParseObject(() => {
       const fields = this.extractFields(response);
 
       return {
         id: this.getStringField(fields, 'id'),
-        xTokenSupply: this.getNestedField(fields, 'xTokenSupply.value'),
-        tokensInvested: this.getStringField(fields, 'tokensInvested'),
-        interestBasedRewardsData: {
-          rewardBalance: this.getStringField(fields.interest_based_rewards_data, 'reward_balance'),
-          lastUpdatedTimestamp: this.getStringField(
-            fields.interest_based_rewards_data,
-            'last_updated_timestamp',
-          ),
-          rewardShareFromInterestBps: this.getNestedField(
-            fields.interest_based_rewards_data,
-            'reward_share_from_interest_bps.value',
-          ),
-        },
-        timeBasedRewardsData: {
-          rewardBalance: this.getStringField(fields.time_based_rewards_data, 'reward_balance'),
-          startTime: this.getStringField(fields.time_based_rewards_data, 'start_time'),
-          endTime: this.getStringField(fields.time_based_rewards_data, 'end_time'),
-          rewardPerMs: this.getNestedField(fields.time_based_rewards_data, 'reward_per_ms.value'),
-          lastUpdatedTimestamp: this.getStringField(
-            fields.time_based_rewards_data,
-            'last_updated_timestamp',
-          ),
-        },
+        xTokenSupply:
+          this.getNestedField(fields, 'x_token_supply.value') ||
+          this.getNestedField(fields, 'xTokenSupply.value'),
+        tokensInvested:
+          this.getStringField(fields, 'tokens_invested') ||
+          this.getStringField(fields, 'tokensInvested'),
         positionCount: this.getNestedField(fields, 'positions.size'),
         positionsTableId: this.getNestedField(fields, 'positions.id'),
         feeCollected: this.getStringField(fields, 'fee_collected'),
-        depositFee: this.getStringField(fields, 'deposit_fee'),
-        depositFeeMaxCap: this.getStringField(fields, 'deposit_fee_max_cap'),
-        withdrawalFee: this.getStringField(fields, 'withdrawal_fee'),
-        withdrawFeeMaxCap: this.getStringField(fields, 'withdraw_fee_max_cap'),
+        paused: this.getBooleanField(fields, 'paused', false),
         investor: {
           id: this.getStringField(fields.investor, 'id'),
           marketId: this.getStringField(fields.investor, 'market_id'),
+          borrowMarketId: this.getStringField(fields.investor, 'borrow_market_id'),
           positionCap: {
             clientAddress: this.getNestedField(
               fields,
@@ -201,29 +191,28 @@ export class SlushLendingStrategy extends BaseStrategy<
             positionId: this.getNestedField(fields, 'investor.alphalend_position_cap.position_id'),
           },
         },
-        paused: this.getBooleanField(fields, 'paused', false),
       };
-    }, 'Failed to parse Slush Lending pool object');
+    }, 'Failed to parse SlushLooping pool object');
   }
 
   /**
-   * Parse investor object (not applicable for SlushLending)
+   * Parse investor object (not applicable as it is embedded in pool)
    */
   parseInvestorObject(_: any): never {
-    throw new Error('Investor object not used for SlushLending');
+    throw new Error('Investor object embedded in pool for SlushLooping');
   }
 
   /**
-   * Parse parent pool object (not applicable for SlushLending)
+   * Parse parent pool object (not applicable)
    */
   parseParentPoolObject(_: any): never {
-    throw new Error('Parent pool object not used for SlushLending');
+    throw new Error('Parent pool object not used for SlushLooping');
   }
 
   /**
    * Parse receipt objects from blockchain responses
    */
-  parseReceiptObjects(responses: any[]): SlushLendingReceiptObject[] {
+  parseReceiptObjects(responses: any[]): SlushLoopingReceiptObject[] {
     return responses.map((response, index) => {
       return this.safeParseObject(() => {
         const fields = this.extractFields(response);
@@ -239,7 +228,7 @@ export class SlushLendingStrategy extends BaseStrategy<
             this.getStringField(fields, 'x_token_balance') ||
             this.getStringField(fields, 'xTokenBalance'),
         };
-      }, `Failed to parse Slush Lending receipt object at index ${index}`);
+      }, `Failed to parse SlushLooping receipt object at index ${index}`);
     });
   }
 
@@ -258,6 +247,13 @@ export class SlushLendingStrategy extends BaseStrategy<
     return new Decimal(amount).div(exchangeRate).floor().toString();
   }
 
+  /**
+   * Collect rewards from the position and swap them to SUI (the borrow asset).
+   *
+   * Uses the rewards-loop pattern (iterate `portfolio.rewardsToClaim`) as in
+   * SlushLending, but with the loop contract's move signature
+   * (`collect_reward_and_swap_bluefin`, no oracle / slippage args).
+   */
   private async collectAndSwapRewards(tx: Transaction) {
     const positionId = this.poolObject.investor.positionCap.positionId;
     const alphalendClient = this.context.alphalendClient;
@@ -270,98 +266,43 @@ export class SlushLendingStrategy extends BaseStrategy<
       return;
     }
 
-    const [stsuiCoin, suiCoin, deepCoin, walCoin, usdcCoin] = await this.context.getCoinsBySymbols([
-      'stSUI',
-      'SUI',
-      'DEEP',
-      'WAL',
-      'USDC',
-    ]);
-
-    alphalendClient.updatePrices(tx, [
-      stsuiCoin.coinType,
-      suiCoin.coinType,
-      deepCoin.coinType,
-      walCoin.coinType,
-    ]);
-
-    let anyRewardToSui = false;
+    const [suiCoin] = await this.context.getCoinsBySymbols(['SUI']);
 
     for (const reward of rewards) {
-      if (reward.coinType !== this.poolLabel.asset.type && reward.coinType !== suiCoin.coinType) {
-        tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphalend_slush_pool::collect_reward_and_swap_bluefin_v2`,
-          typeArguments: [this.poolLabel.asset.type, reward.coinType, suiCoin.coinType],
-          arguments: [
-            tx.object(VERSIONS.SLUSH),
-            tx.object(this.poolLabel.poolId),
-            tx.object(ALPHAFI_ORACLE),
-            tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-            tx.object(
-              await this.context.getPoolIdByTypesAndProtocol(
-                reward.coinType,
-                suiCoin.coinType,
-                'bluefin',
-              ),
-            ),
-            tx.object(GLOBAL_CONFIGS.BLUEFIN),
-            tx.pure.bool(true),
-            tx.pure.bool(true),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-        anyRewardToSui = true;
+      if (reward.coinType === suiCoin.coinType) {
+        continue;
       }
-    }
-
-    if (anyRewardToSui && this.poolLabel.asset.type !== suiCoin.coinType) {
-      if (this.poolLabel.asset.type === usdcCoin.coinType) {
-        // SUI/USDC pool (A=SUI, B=USDC): a2b=true swaps SUI→USDC
-        tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphalend_slush_pool::collect_reward_and_swap_bluefin_v2`,
-          typeArguments: [this.poolLabel.asset.type, suiCoin.coinType, usdcCoin.coinType],
-          arguments: [
-            tx.object(VERSIONS.SLUSH),
-            tx.object(this.poolLabel.poolId),
-            tx.object(ALPHAFI_ORACLE),
-            tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-            tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'USDC', 'bluefin')),
-            tx.object(GLOBAL_CONFIGS.BLUEFIN),
-            tx.pure.bool(true),
-            tx.pure.bool(true),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-      } else {
-        // base/SUI pool (A=base, B=SUI): a2b=false swaps SUI→base
-        tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphalend_slush_pool::collect_reward_and_swap_bluefin_v2`,
-          typeArguments: [this.poolLabel.asset.type, this.poolLabel.asset.type, suiCoin.coinType],
-          arguments: [
-            tx.object(VERSIONS.SLUSH),
-            tx.object(this.poolLabel.poolId),
-            tx.object(ALPHAFI_ORACLE),
-            tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-            tx.object(
-              await this.context.getPoolIdBySymbolsAndProtocol(
-                this.poolLabel.asset.name,
-                'SUI',
-                'bluefin',
-              ),
+      alphalendClient.updatePrices(tx, [reward.coinType, suiCoin.coinType]);
+      // reward -> SUI
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [reward.coinType, suiCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.SLUSH_LOOP),
+          tx.object(this.poolLabel.poolId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(
+            await this.context.getPoolIdByTypesAndProtocol(
+              reward.coinType,
+              suiCoin.coinType,
+              'bluefin',
             ),
-            tx.object(GLOBAL_CONFIGS.BLUEFIN),
-            tx.pure.bool(false),
-            tx.pure.bool(true),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-      }
+          ),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(true),
+          tx.pure.bool(true),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
     }
   }
 
   async deposit(tx: Transaction, options: DepositOptions) {
     const alphalendClient = this.context.alphalendClient;
-    await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
+    const [suiCoin] = await this.context.getCoinsBySymbols(['SUI']);
+    await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type, suiCoin.coinType]);
+
+    await this.collectAndSwapRewards(tx);
 
     // Get coin object
     const depositCoin = this.context.blockchain.getCoinObject(
@@ -371,20 +312,23 @@ export class SlushLendingStrategy extends BaseStrategy<
       BigInt(options.amount),
     );
 
-    await this.collectAndSwapRewards(tx);
+    const positionCaps = await this.context.getSlushPositionCaps(
+      options.address,
+      SLUSH_LOOP_POSITION_CAP_TYPE,
+    );
+    const target = `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::user_deposit`;
 
-    const positionCaps = await this.context.getSlushPositionCaps(options.address);
     if (positionCaps.length === 0) {
       const positionCap: TransactionResult = this.createPositionCap(tx);
       tx.moveCall({
-        target: `${this.poolLabel.packageId}::alphalend_slush_pool::user_deposit`,
-        typeArguments: [this.poolLabel.asset.type],
+        target,
         arguments: [
-          tx.object(VERSIONS.SLUSH),
+          tx.object(VERSIONS.SLUSH_LOOP),
           positionCap,
           tx.object(this.poolLabel.poolId),
           depositCoin,
           tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(STSUI.LST_INFO),
           tx.object(SUI_SYSTEM_STATE),
           tx.object(CLOCK_PACKAGE_ID),
         ],
@@ -392,14 +336,14 @@ export class SlushLendingStrategy extends BaseStrategy<
       tx.transferObjects([positionCap], options.address);
     } else {
       tx.moveCall({
-        target: `${this.poolLabel.packageId}::alphalend_slush_pool::user_deposit`,
-        typeArguments: [this.poolLabel.asset.type],
+        target,
         arguments: [
-          tx.object(VERSIONS.SLUSH),
+          tx.object(VERSIONS.SLUSH_LOOP),
           tx.object(positionCaps[0].id),
           tx.object(this.poolLabel.poolId),
           depositCoin,
           tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(STSUI.LST_INFO),
           tx.object(SUI_SYSTEM_STATE),
           tx.object(CLOCK_PACKAGE_ID),
         ],
@@ -413,7 +357,8 @@ export class SlushLendingStrategy extends BaseStrategy<
     }
 
     const alphalendClient = this.context.alphalendClient;
-    await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
+    const [suiCoin] = await this.context.getCoinsBySymbols(['SUI']);
+    await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type, suiCoin.coinType]);
 
     let xTokenAmount = this.coinAmountToXToken(options.amount);
     if (options.withdrawMax) {
@@ -422,16 +367,19 @@ export class SlushLendingStrategy extends BaseStrategy<
 
     await this.collectAndSwapRewards(tx);
 
-    const positionCaps = await this.context.getSlushPositionCaps(options.address);
+    const positionCaps = await this.context.getSlushPositionCaps(
+      options.address,
+      SLUSH_LOOP_POSITION_CAP_TYPE,
+    );
     const [slushCoin] = tx.moveCall({
-      target: `${this.poolLabel.packageId}::alphalend_slush_pool::user_withdraw`,
-      typeArguments: [this.poolLabel.asset.type],
+      target: `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::user_withdraw`,
       arguments: [
-        tx.object(VERSIONS.SLUSH),
+        tx.object(VERSIONS.SLUSH_LOOP),
         tx.object(positionCaps[0].id),
         tx.object(this.poolLabel.poolId),
         tx.pure.u64(xTokenAmount),
         tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.object(CLOCK_PACKAGE_ID),
       ],
@@ -448,63 +396,23 @@ export class SlushLendingStrategy extends BaseStrategy<
   async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {
     return;
   }
-
-  async updatePool(tx: Transaction): Promise<Transaction> {
-    const coinType = this.poolLabel.asset.type;
-
-    // Update Alphalend prices
-    const alphalendClient = this.context.alphalendClient;
-    await alphalendClient.updatePrices(tx, [coinType]);
-
-    // Collect rewards
-    await this.collectAndSwapRewards(tx);
-
-    // Update pool
-    tx.moveCall({
-      target: `${this.poolLabel.packageId}::alphalend_slush_pool::update_pool`,
-      typeArguments: [coinType],
-      arguments: [
-        tx.object(VERSIONS.SLUSH),
-        tx.object(this.poolLabel.poolId),
-        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-        tx.object(SUI_SYSTEM_STATE),
-        tx.object(CLOCK_PACKAGE_ID),
-      ],
-    });
-
-    return tx;
-  }
 }
 
 /**
- * SlushLending Pool object data structure
+ * SlushLooping Pool object data structure
  */
-export interface SlushLendingPoolObject {
+export interface SlushLoopingPoolObject {
   id: string;
   xTokenSupply: string;
   tokensInvested: string;
-  interestBasedRewardsData: {
-    rewardBalance: string;
-    lastUpdatedTimestamp: string;
-    rewardShareFromInterestBps: string;
-  };
-  timeBasedRewardsData: {
-    rewardBalance: string;
-    startTime: string;
-    endTime: string;
-    rewardPerMs: string;
-    lastUpdatedTimestamp: string;
-  };
   positionCount: string;
   positionsTableId: string;
   feeCollected: string;
-  depositFee: string;
-  depositFeeMaxCap: string;
-  withdrawalFee: string;
-  withdrawFeeMaxCap: string;
+  paused: boolean;
   investor: {
     id: string;
     marketId: string;
+    borrowMarketId: string;
     positionCap: {
       clientAddress: string;
       id: string;
@@ -512,13 +420,12 @@ export interface SlushLendingPoolObject {
       positionId: string;
     };
   };
-  paused: boolean;
 }
 
 /**
- * SlushLending Receipt object data structure
+ * SlushLooping Receipt object data structure
  */
-export interface SlushLendingReceiptObject {
+export interface SlushLoopingReceiptObject {
   id: string;
   positionCapId: string;
   poolId: string;
@@ -528,13 +435,13 @@ export interface SlushLendingReceiptObject {
 }
 
 /**
- * SlushLending Pool Label configuration
+ * SlushLooping Pool Label configuration
  */
-export interface SlushLendingPoolLabel {
+export interface SlushLoopingPoolLabel {
   poolId: string;
   packageId: string;
   packageNumber: number;
-  strategyType: 'SlushLending';
+  strategyType: 'SlushLooping';
   parentProtocol: ProtocolType;
   asset: StringMap;
   events: {

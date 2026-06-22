@@ -188,12 +188,11 @@ async function main() {
 }
 
 async function poolsData() {
-  const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({
     network: 'mainnet',
   });
   const data = await sdk.getSinglePoolData(
-    '0x594f13b8f287003fd48e4264e7056e274b84709ada31e3657f00eeedc1547e37',
+    '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
   );
   console.log('data', data);
 }
@@ -204,7 +203,7 @@ async function portfolioData() {
   });
   const data = await sdk.getUserSinglePoolBalance(
     address,
-    '0xccc08b2e42a88002b4bd505e7e0b5bed17079d4cafc2ccbe82da0172d5291867',
+    '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
   );
   console.log('user data', data);
 }
@@ -214,8 +213,8 @@ async function deposit() {
     network: 'mainnet',
   });
   const tx = await sdk.deposit({
-    poolId: '0x18db5470cc2da4f74b1b957891f274d896764d08c56c3941788cef84d2a1362e',
-    amount: 1982616226n,
+    poolId: '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
+    amount: 100000000n,
     address: address,
     isAmountA: false,
   });
@@ -231,8 +230,8 @@ async function withdraw() {
     network: 'mainnet',
   });
   const tx = await sdk.withdraw({
-    poolId: '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
-    withdrawMax: true,
+    poolId: '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
+    withdrawMax: false,
     amount: '5_000_000',
     isAmountA: true,
     address,
@@ -345,7 +344,7 @@ async function updatePool() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ network: 'mainnet' });
   const tx = await sdk.updatePool(
-    '0x0e1399fe66eca3147766bb113ae7b52b31243874c9e4a64a48e6d8cb91aa3c04',
+    '0x18db5470cc2da4f74b1b957891f274d896764d08c56c3941788cef84d2a1362e',
   );
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx, address);
@@ -353,7 +352,7 @@ async function updatePool() {
 }
 updatePool();
 // claimAirdrop();
-// withdraw();
+withdraw();
 // poolsData();
 // portfolioData();
 // claimSlushWithdraw();
