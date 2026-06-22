@@ -5,7 +5,7 @@
 
 import BN from 'bn.js';
 import { Decimal } from 'decimal.js';
-import { TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
+import { TickMath } from '@cetusprotocol/common-sdk';
 import { StrategyContext } from '../models/strategyContext.js';
 import { LpPoolLabel } from '../strategies/strategy.js';
 import { LyfPoolLabel } from '../strategies/lyf.js';

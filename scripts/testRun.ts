@@ -350,15 +350,15 @@ async function updatePool() {
   dryRunTransactionBlock(tx, address);
   // executeTransactionBlock(tx);
 }
-updatePool();
+// updatePool();
 // claimAirdrop();
-withdraw();
+// withdraw();
 // poolsData();
 // portfolioData();
 // claimSlushWithdraw();
 // deposit();
 // cancelSlushWithdraw();
 // rebalance();
-// addExternalRewardsWalLocked();
+addExternalRewardsWalLocked();
 // dryRunAllAlphaVaultAdminFunctions();
 // createTransferRequestAlphaFiReceipt();
