@@ -103,9 +103,9 @@ async function deposit() {
   });
   const tx = await sdk.deposit({
     poolId: '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
-    amount: 100000000n,
+    amount: 1000000000n,
     address: address,
-    isAmountA: false,
+    coinType: '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
   });
   dryRunTransactionBlock(tx);
   // executeTransactionBlock(tx);
@@ -122,8 +122,8 @@ async function withdraw() {
     poolId: '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
     withdrawMax: false,
     amount: '5_000_000',
-    isAmountA: true,
     address,
+    coinType: '0x000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
   });
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx);

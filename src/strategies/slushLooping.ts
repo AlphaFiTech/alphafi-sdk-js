@@ -16,6 +16,7 @@ import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
+import { getConf as getStsuiConf } from '@alphafi/stsui-sdk';
 import {
   ALPHALEND_LENDING_PROTOCOL_ID,
   CLOCK_PACKAGE_ID,
@@ -331,12 +332,33 @@ export class SlushLoopingStrategy extends BaseStrategy<
     await this.collectAndSwapRewards(tx);
 
     // Get coin object
-    const depositCoin = this.context.blockchain.getCoinObject(
-      tx,
-      this.poolLabel.asset.type,
-      options.address,
-      BigInt(options.amount),
-    );
+    let depositCoin: any;
+    if (options.coinType && options.coinType === suiCoin.coinType) {
+      const suiDepositCoin = this.context.blockchain.getCoinObject(
+        tx,
+        suiCoin.coinType,
+        options.address,
+        BigInt(options.amount),
+      );
+      [depositCoin] = tx.moveCall({
+        target: getStsuiConf().STSUI_LATEST_PACKAGE_ID + '::liquid_staking::mint',
+        arguments: [
+          tx.object(getStsuiConf().LST_INFO),
+          tx.object(getStsuiConf().SUI_SYSTEM_STATE_OBJECT_ID),
+          suiDepositCoin,
+        ],
+        typeArguments: [getStsuiConf().STSUI_COIN_TYPE],
+      });
+    } else if (!options.coinType || options.coinType === this.poolLabel.asset.type) {
+      depositCoin = this.context.blockchain.getCoinObject(
+        tx,
+        this.poolLabel.asset.type,
+        options.address,
+        BigInt(options.amount),
+      );
+    } else {
+      throw new Error(`Unsupported coin type for SlushLooping deposit: ${options.coinType}`);
+    }
 
     const existingCapId = await this.getPositionCapId(options.address);
     const target = `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::user_deposit`;
@@ -408,12 +430,32 @@ export class SlushLoopingStrategy extends BaseStrategy<
       ],
     });
 
-    this.context.blockchain.sendCoinToAddressBalance(
-      tx,
-      this.poolLabel.asset.type,
-      options.address,
-      slushCoin,
-    );
+    if (options.coinType && options.coinType === suiCoin.coinType) {
+      const [sui] = tx.moveCall({
+        target: getStsuiConf().STSUI_LATEST_PACKAGE_ID + '::liquid_staking::redeem',
+        arguments: [
+          tx.object(getStsuiConf().LST_INFO),
+          slushCoin,
+          tx.object(getStsuiConf().SUI_SYSTEM_STATE_OBJECT_ID),
+        ],
+        typeArguments: [getStsuiConf().STSUI_COIN_TYPE],
+      });
+      this.context.blockchain.sendCoinToAddressBalance(
+        tx,
+        suiCoin.coinType,
+        options.address,
+        sui,
+      );
+    } else if (!options.coinType || options.coinType === this.poolLabel.asset.type) {
+      this.context.blockchain.sendCoinToAddressBalance(
+        tx,
+        this.poolLabel.asset.type,
+        options.address,
+        slushCoin,
+      );
+    } else {
+      throw new Error(`Unsupported coin type for SlushLooping withdraw: ${options.coinType}`);
+    }
   }
 
   async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {
