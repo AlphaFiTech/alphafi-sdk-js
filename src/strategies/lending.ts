@@ -19,14 +19,14 @@ import {
   CLOCK_PACKAGE_ID,
   DISTRIBUTOR_OBJECT_ID,
   GLOBAL_CONFIGS,
+  getPythCoreConfig,
   NAVI_CONFIG,
   POOLS,
-  PYTH_STATE_ID,
   SUI_SYSTEM_STATE,
   VERSIONS,
-  WORMHOLE_STATE_ID,
 } from '../utils/constants.js';
-import { SuiPriceServiceConnection, SuiPythClient } from '@pythnetwork/pyth-sui-js';
+import { SuiPythClient } from '@pythnetwork/pyth-sui-js';
+import { HermesClient } from '@pythnetwork/hermes-client';
 
 /**
  * Lending Strategy for single-asset pools with lending protocol integration
@@ -875,14 +875,21 @@ export class LendingStrategy extends BaseStrategy<
   }
 
   private async updateSingleTokenPrice(tx: Transaction, pythPriceInfo: string, feedId: string) {
+    const pythCore = getPythCoreConfig();
     const pythClient = new SuiPythClient(
       this.context.blockchain.pythSuiClient,
-      PYTH_STATE_ID,
-      WORMHOLE_STATE_ID,
+      pythCore.pythStateId,
+      pythCore.wormholeStateId,
     );
-    const pythConnection = new SuiPriceServiceConnection('https://hermes.pyth.network');
+    const hermesClient = new HermesClient(pythCore.hermesUrl);
 
-    const priceFeedUpdateData = await pythConnection.getPriceFeedsUpdateData([pythPriceInfo]);
+    const priceUpdates = await hermesClient.getLatestPriceUpdates([pythPriceInfo], {
+      encoding: 'base64',
+      parsed: false,
+    });
+    const priceFeedUpdateData = priceUpdates.binary.data.map((update) =>
+      Buffer.from(update, 'base64'),
+    );
     const priceInfoObjectIds = await pythClient.updatePriceFeeds(tx, priceFeedUpdateData, [
       pythPriceInfo,
     ]);

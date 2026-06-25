@@ -12,17 +12,17 @@ import {
   ALPHALEND_LENDING_PROTOCOL_ID,
   CLOCK_PACKAGE_ID,
   DISTRIBUTOR_OBJECT_ID,
+  getPythCoreConfig,
   GLOBAL_CONFIGS,
   NAVI_CONFIG,
   POOLS,
-  PYTH_STATE_ID,
   STSUI,
   SUI_SYSTEM_STATE,
   VERSIONS,
-  WORMHOLE_STATE_ID,
 } from '../utils/constants.js';
 import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
-import { SuiPriceServiceConnection, SuiPythClient } from '@pythnetwork/pyth-sui-js';
+import { SuiPythClient } from '@pythnetwork/pyth-sui-js';
+import { HermesClient } from '@pythnetwork/hermes-client';
 
 /**
  * Looping Strategy for leveraged positions with automated compounding
@@ -571,14 +571,21 @@ export class LoopingStrategy extends BaseStrategy<
   }
 
   private async updateSingleTokenPrice(tx: Transaction, pythPriceInfo: string, feedId: string) {
+    const pythCore = getPythCoreConfig();
     const pythClient = new SuiPythClient(
       this.context.blockchain.pythSuiClient,
-      PYTH_STATE_ID,
-      WORMHOLE_STATE_ID,
+      pythCore.pythStateId,
+      pythCore.wormholeStateId,
     );
-    const pythConnection = new SuiPriceServiceConnection('https://hermes.pyth.network');
+    const hermesClient = new HermesClient(pythCore.hermesUrl);
 
-    const priceFeedUpdateData = await pythConnection.getPriceFeedsUpdateData([pythPriceInfo]);
+    const priceUpdates = await hermesClient.getLatestPriceUpdates([pythPriceInfo], {
+      encoding: 'base64',
+      parsed: false,
+    });
+    const priceFeedUpdateData = priceUpdates.binary.data.map((update) =>
+      Buffer.from(update, 'base64'),
+    );
     const priceInfoObjectIds = await pythClient.updatePriceFeeds(tx, priceFeedUpdateData, [
       pythPriceInfo,
     ]);

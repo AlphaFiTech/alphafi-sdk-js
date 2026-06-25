@@ -266,6 +266,25 @@ export const NAVI_CONFIG = {
 export const PYTH_STATE_ID = '0x1f9310238ee9298fb703c3419030b35b22bb1cc37113e3bb5007c99aec79e5b8';
 export const WORMHOLE_STATE_ID =
   '0xaeab97f96cf9877fee2883315d459552b2b921edc16d7ceac6eab944dd88919c';
+export const PYTH_UPGRADED_STATE_ID =
+  '0x03719fae774ddab3cfcaa53bbc046f0cbe21410019b6280811bf3f9f4b05839d';
+export const WORMHOLE_UPGRADED_STATE_ID =
+  '0xdbca52b9fb4f712e25f61f974586d93ac541bcf8389564f0323bb07215168b5c';
+export const PYTH_PROXY_URL = 'https://hermes.pyth.network';
+
+export function getPythCoreConfig(): {
+  pythStateId: string;
+  wormholeStateId: string;
+  hermesUrl: string;
+} {
+  const env = typeof process !== 'undefined' ? process.env : {};
+  const upgraded = ['1', 'true', 'TRUE', 'yes', 'YES'].includes(env.PYTH_CORE_UPGRADED ?? '');
+  return {
+    pythStateId: upgraded ? PYTH_UPGRADED_STATE_ID : PYTH_STATE_ID,
+    wormholeStateId: upgraded ? WORMHOLE_UPGRADED_STATE_ID : WORMHOLE_STATE_ID,
+    hermesUrl: upgraded ? (env.PYTH_PROXY_URL || PYTH_PROXY_URL) : 'https://hermes.pyth.network',
+  };
+}
 
 export const BLUEFIN_STRATEGY_PACKAGE_ID =
   '0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c';
