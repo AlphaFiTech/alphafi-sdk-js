@@ -270,7 +270,7 @@ export const PYTH_UPGRADED_STATE_ID =
   '0x03719fae774ddab3cfcaa53bbc046f0cbe21410019b6280811bf3f9f4b05839d';
 export const WORMHOLE_UPGRADED_STATE_ID =
   '0xdbca52b9fb4f712e25f61f974586d93ac541bcf8389564f0323bb07215168b5c';
-export const PYTH_PROXY_URL = 'https://hermes.pyth.network';
+export const PYTH_HERMES_URL = 'https://hermes.pyth.network';
 
 export function getPythCoreConfig(): {
   pythStateId: string;
@@ -282,7 +282,7 @@ export function getPythCoreConfig(): {
   return {
     pythStateId: upgraded ? PYTH_UPGRADED_STATE_ID : PYTH_STATE_ID,
     wormholeStateId: upgraded ? WORMHOLE_UPGRADED_STATE_ID : WORMHOLE_STATE_ID,
-    hermesUrl: upgraded ? (env.PYTH_PROXY_URL || PYTH_PROXY_URL) : 'https://hermes.pyth.network',
+    hermesUrl: upgraded ? (env.PYTH_HERMES_URL || PYTH_HERMES_URL) : 'https://hermes.pyth.network',
   };
 }
 
