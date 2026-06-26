@@ -278,11 +278,13 @@ export function getPythCoreConfig(): {
   hermesUrl: string;
 } {
   const env = typeof process !== 'undefined' ? process.env : {};
-  const upgraded = ['1', 'true', 'TRUE', 'yes', 'YES'].includes(env.PYTH_CORE_UPGRADED ?? '');
+  const upgraded = ['1', 'true', 'yes', 'on', 'y'].includes(
+    (env.PYTH_CORE_UPGRADED ?? '').trim().toLowerCase(),
+  );
   return {
     pythStateId: upgraded ? PYTH_UPGRADED_STATE_ID : PYTH_STATE_ID,
     wormholeStateId: upgraded ? WORMHOLE_UPGRADED_STATE_ID : WORMHOLE_STATE_ID,
-    hermesUrl: upgraded ? (env.PYTH_HERMES_URL || PYTH_HERMES_URL) : 'https://hermes.pyth.network',
+    hermesUrl: env.PYTH_HERMES_URL || PYTH_HERMES_URL,
   };
 }
 
