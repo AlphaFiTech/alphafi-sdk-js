@@ -16,7 +16,8 @@ import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
-import { getConf as getStsuiConf } from '@alphafi/stsui-sdk';
+import { normalizeStructTag } from '@mysten/sui/utils';
+import { getConf as getStsuiConf, stSuiExchangeRate } from '@alphafi/stsui-sdk';
 import {
   ALPHALEND_LENDING_PROTOCOL_ID,
   CLOCK_PACKAGE_ID,
@@ -30,8 +31,7 @@ import {
 // The original stSUI/SUI loop pool deployed on the standalone test package. Pools other than
 // this one run on the main `alphalend_slush` package, whose autocompound collects stSUI rewards
 // itself (no external collect/swap) and which uses a config-driven version + shared cap type.
-const OLD_SLUSH_LOOP_POOL_ID =
-  '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c';
+const OLD_SLUSH_LOOP_POOL_ID = '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c';
 
 /**
  * SlushLooping Strategy for the stSUI/SUI loop pool (separate contract).
@@ -124,9 +124,10 @@ export class SlushLoopingStrategy extends BaseStrategy<
       this.context.getCoinPrice(coinType),
       this.context.getCoinDecimals(coinType),
     ]);
-    const tokenAmount = new Decimal(this.poolObject.tokensInvested).div(
+    const stsuiAmount = new Decimal(this.poolObject.tokensInvested).div(
       new Decimal(10).pow(decimals),
     );
+    const tokenAmount = await this.toAssetAmount(stsuiAmount);
     const usdValue = tokenAmount.mul(price);
     return { tokenAmount, usdValue };
   }
@@ -160,7 +161,8 @@ export class SlushLoopingStrategy extends BaseStrategy<
       Promise.resolve(this.exchangeRate()),
       this.context.getCoinDecimals(this.poolLabel.asset.type),
     ]);
-    const tokens = xTokens.mul(exchangeRate).div(new Decimal(10).pow(decimals));
+    const stsuiTokens = xTokens.mul(exchangeRate).div(new Decimal(10).pow(decimals));
+    const tokens = await this.toAssetAmount(stsuiTokens);
     return { tokenAmount: tokens, usdValue: tokens.mul(price) };
   }
 
@@ -259,6 +261,23 @@ export class SlushLoopingStrategy extends BaseStrategy<
   }
 
   /**
+   * Contract balances are always in stSUI. A SUI-asset pool reports SUI amounts (converted via
+   * the stSUI exchange rate); a stSUI-asset pool reports stSUI amounts directly.
+   */
+  private get isSuiAsset(): boolean {
+    return normalizeStructTag(this.poolLabel.asset.type) === normalizeStructTag('0x2::sui::SUI');
+  }
+
+  /** stSUI amount -> display amount: scale by the stSUI exchange rate only for a SUI-asset pool. */
+  private async toAssetAmount(stsuiAmount: Decimal): Promise<Decimal> {
+    if (!this.isSuiAsset) {
+      return stsuiAmount;
+    }
+    const rate = new Decimal(await stSuiExchangeRate(getStsuiConf().LST_INFO, false));
+    return stsuiAmount.mul(rate);
+  }
+
+  /**
    * Resolve this pool's position cap id. The legacy pool has its own cap type; new pools share
    * the main package cap type with the other slush strategies.
    */
@@ -327,13 +346,16 @@ export class SlushLoopingStrategy extends BaseStrategy<
   async deposit(tx: Transaction, options: DepositOptions) {
     const alphalendClient = this.context.alphalendClient;
     const [suiCoin] = await this.context.getCoinsBySymbols(['SUI']);
-    await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type, suiCoin.coinType]);
+    const stsuiType = getStsuiConf().STSUI_COIN_TYPE;
+    await alphalendClient.updatePrices(tx, [stsuiType, suiCoin.coinType]);
 
     await this.collectAndSwapRewards(tx);
 
-    // Get coin object
+    // The contract only takes stSUI. Default to the pool's asset type when no coinType is given:
+    // SUI -> mint to stSUI; stSUI -> deposit directly; anything else is unsupported.
+    const effectiveCoinType = options.coinType ?? this.poolLabel.asset.type;
     let depositCoin: any;
-    if (options.coinType && options.coinType === suiCoin.coinType) {
+    if (normalizeStructTag(effectiveCoinType) === normalizeStructTag(suiCoin.coinType)) {
       const suiDepositCoin = this.context.blockchain.getCoinObject(
         tx,
         suiCoin.coinType,
@@ -347,17 +369,17 @@ export class SlushLoopingStrategy extends BaseStrategy<
           tx.object(getStsuiConf().SUI_SYSTEM_STATE_OBJECT_ID),
           suiDepositCoin,
         ],
-        typeArguments: [getStsuiConf().STSUI_COIN_TYPE],
+        typeArguments: [stsuiType],
       });
-    } else if (!options.coinType || options.coinType === this.poolLabel.asset.type) {
+    } else if (normalizeStructTag(effectiveCoinType) === normalizeStructTag(stsuiType)) {
       depositCoin = this.context.blockchain.getCoinObject(
         tx,
-        this.poolLabel.asset.type,
+        stsuiType,
         options.address,
         BigInt(options.amount),
       );
     } else {
-      throw new Error(`Unsupported coin type for SlushLooping deposit: ${options.coinType}`);
+      throw new Error(`Unsupported coin type for SlushLooping deposit: ${effectiveCoinType}`);
     }
 
     const existingCapId = await this.getPositionCapId(options.address);
@@ -403,7 +425,8 @@ export class SlushLoopingStrategy extends BaseStrategy<
 
     const alphalendClient = this.context.alphalendClient;
     const [suiCoin] = await this.context.getCoinsBySymbols(['SUI']);
-    await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type, suiCoin.coinType]);
+    const stsuiType = getStsuiConf().STSUI_COIN_TYPE;
+    await alphalendClient.updatePrices(tx, [stsuiType, suiCoin.coinType]);
 
     let xTokenAmount = this.coinAmountToXToken(options.amount);
     if (options.withdrawMax) {
@@ -430,7 +453,10 @@ export class SlushLoopingStrategy extends BaseStrategy<
       ],
     });
 
-    if (options.coinType && options.coinType === suiCoin.coinType) {
+    // The contract always returns stSUI. Default to the pool's asset type when no coinType is
+    // given: SUI -> redeem to SUI; stSUI -> return directly; anything else is unsupported.
+    const effectiveCoinType = options.coinType ?? this.poolLabel.asset.type;
+    if (normalizeStructTag(effectiveCoinType) === normalizeStructTag(suiCoin.coinType)) {
       const [sui] = tx.moveCall({
         target: getStsuiConf().STSUI_LATEST_PACKAGE_ID + '::liquid_staking::redeem',
         arguments: [
@@ -438,23 +464,13 @@ export class SlushLoopingStrategy extends BaseStrategy<
           slushCoin,
           tx.object(getStsuiConf().SUI_SYSTEM_STATE_OBJECT_ID),
         ],
-        typeArguments: [getStsuiConf().STSUI_COIN_TYPE],
+        typeArguments: [stsuiType],
       });
-      this.context.blockchain.sendCoinToAddressBalance(
-        tx,
-        suiCoin.coinType,
-        options.address,
-        sui,
-      );
-    } else if (!options.coinType || options.coinType === this.poolLabel.asset.type) {
-      this.context.blockchain.sendCoinToAddressBalance(
-        tx,
-        this.poolLabel.asset.type,
-        options.address,
-        slushCoin,
-      );
+      this.context.blockchain.sendCoinToAddressBalance(tx, suiCoin.coinType, options.address, sui);
+    } else if (normalizeStructTag(effectiveCoinType) === normalizeStructTag(stsuiType)) {
+      this.context.blockchain.sendCoinToAddressBalance(tx, stsuiType, options.address, slushCoin);
     } else {
-      throw new Error(`Unsupported coin type for SlushLooping withdraw: ${options.coinType}`);
+      throw new Error(`Unsupported coin type for SlushLooping withdraw: ${effectiveCoinType}`);
     }
   }
 
