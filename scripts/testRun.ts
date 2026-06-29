@@ -102,7 +102,7 @@ async function deposit() {
     network: 'mainnet',
   });
   const tx = await sdk.deposit({
-    poolId: '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
+    poolId: '0xc4caf2d31693974b838ffb83b0c8ae880a6b09ca251a07062cf66453bf3e3ce0',
     amount: 100000000n,
     address: address,
     isAmountA: false,
@@ -183,10 +183,10 @@ async function updatePool() {
 }
 // updatePool();
 // claimAirdrop();
-withdraw();
+// withdraw();
 // poolsData();
 // portfolioData();
 // claimSlushWithdraw();
-// deposit();
+deposit();
 // cancelSlushWithdraw();
 // createTransferRequestAlphaFiReceipt();
