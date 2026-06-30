@@ -102,8 +102,13 @@ async function deposit() {
     network: 'mainnet',
   });
   const tx = await sdk.deposit({
+<<<<<<< HEAD
     poolId: '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
     amount: 1000000n,
+=======
+    poolId: '0xc4caf2d31693974b838ffb83b0c8ae880a6b09ca251a07062cf66453bf3e3ce0',
+    amount: 100000000n,
+>>>>>>> 00d0c4432e7de067b2f6465c5817406884649afd
     address: address,
     // coinType: '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
   });
@@ -184,9 +189,9 @@ async function updatePool() {
 // updatePool();
 // claimAirdrop();
 // withdraw();
-poolsData();
-portfolioData();
+// poolsData();
+// portfolioData();
 // claimSlushWithdraw();
-// deposit();
+deposit();
 // cancelSlushWithdraw();
 // createTransferRequestAlphaFiReceipt();

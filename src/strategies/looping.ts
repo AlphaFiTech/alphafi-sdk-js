@@ -608,12 +608,19 @@ export class LoopingStrategy extends BaseStrategy<
 
     const receiptOption = this.context.blockchain.getOptionReceipt(
       tx,
-      this.poolLabel.poolId,
-      options.address,
+      this.poolLabel.receipt.type,
+      this.receiptObjects.length > 0 ? this.receiptObjects[0].id : undefined,
     );
 
     if (this.poolLabel.parentProtocol === 'Alphalend') {
-      const [alphaCoin, blueCoin] = await this.context.getCoinsBySymbols(['ALPHA', 'BLUE']);
+      const [alphaCoin, blueCoin, stsuiCoin, suiCoin] = await this.context.getCoinsBySymbols([
+        'ALPHA',
+        'BLUE',
+        'stSUI',
+        'SUI',
+      ]);
+      const alphalendClient = this.context.alphalendClient;
+      await alphalendClient.updatePrices(tx, [stsuiCoin.coinType, suiCoin.coinType]);
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_one_swap`,
         typeArguments: [alphaCoin.coinType],
@@ -645,7 +652,7 @@ export class LoopingStrategy extends BaseStrategy<
           tx.object(STSUI.LST_INFO),
           tx.object(SUI_SYSTEM_STATE),
           tx.object(await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'cetus')),
-          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(GLOBAL_CONFIGS.CETUS),
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
