@@ -81,7 +81,7 @@ async function poolsData() {
     network: 'mainnet',
   });
   const data = await sdk.getSinglePoolData(
-    '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
+    '0xccda433a3324dc743478c7f79cce584628f6303501281167a3f4b386187c8c63',
   );
   console.log('data', data);
 }
@@ -92,7 +92,7 @@ async function portfolioData() {
   });
   const data = await sdk.getUserSinglePoolBalance(
     address,
-    '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
+    '0xccda433a3324dc743478c7f79cce584628f6303501281167a3f4b386187c8c63',
   );
   console.log('user data', data);
 }
@@ -102,15 +102,10 @@ async function deposit() {
     network: 'mainnet',
   });
   const tx = await sdk.deposit({
-<<<<<<< HEAD
-    poolId: '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
+    poolId: '0xccda433a3324dc743478c7f79cce584628f6303501281167a3f4b386187c8c63',
     amount: 1000000n,
-=======
-    poolId: '0xc4caf2d31693974b838ffb83b0c8ae880a6b09ca251a07062cf66453bf3e3ce0',
-    amount: 100000000n,
->>>>>>> 00d0c4432e7de067b2f6465c5817406884649afd
     address: address,
-    // coinType: '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
+    // coinType: '0xd1b72982e40348d069bb1ff701e634c117bb5f741f44dff91e472d3b01461e55::stsui::STSUI',
   });
   dryRunTransactionBlock(tx);
   // executeTransactionBlock(tx);
@@ -124,15 +119,15 @@ async function withdraw() {
     network: 'mainnet',
   });
   const tx = await sdk.withdraw({
-    poolId: '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
+    poolId: '0xccda433a3324dc743478c7f79cce584628f6303501281167a3f4b386187c8c63',
     withdrawMax: false,
-    amount: '5_000_000',
+    amount: '5_000_00',
     address,
-    // coinType: '0x000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
+    // coinType: '0xd1b72982e40348d069bb1ff701e634c117bb5f741f44dff91e472d3b01461e55::stsui::STSUI',
   });
   tx.setGasBudget(2e8);
-  dryRunTransactionBlock(tx);
-  // executeTransactionBlock(tx);
+  // dryRunTransactionBlock(tx);
+  executeTransactionBlock(tx);
 }
 async function claimSlushWithdraw() {
   const { address, keypair, suiClient } = getExecStuff();
@@ -189,9 +184,9 @@ async function updatePool() {
 // updatePool();
 // claimAirdrop();
 // withdraw();
-// poolsData();
-// portfolioData();
+poolsData();
+portfolioData();
 // claimSlushWithdraw();
-deposit();
+// deposit();
 // cancelSlushWithdraw();
 // createTransferRequestAlphaFiReceipt();

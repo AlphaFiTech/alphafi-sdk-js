@@ -427,7 +427,11 @@ export class SlushLoopingStrategy extends BaseStrategy<
     const [suiCoin] = await this.context.getCoinsBySymbols(['SUI']);
     const stsuiType = getStsuiConf().STSUI_COIN_TYPE;
     await alphalendClient.updatePrices(tx, [stsuiType, suiCoin.coinType]);
-
+    const effectiveCoinType = options.coinType ?? this.poolLabel.asset.type;
+    if (normalizeStructTag(effectiveCoinType) === normalizeStructTag(suiCoin.coinType)) {
+      const rate = new Decimal(await stSuiExchangeRate(getStsuiConf().LST_INFO, false));
+      options.amount = new Decimal(options.amount).div(rate).toString();
+    }
     let xTokenAmount = this.coinAmountToXToken(options.amount);
     if (options.withdrawMax) {
       xTokenAmount = this.receiptObjects[0].xTokens;
@@ -455,7 +459,7 @@ export class SlushLoopingStrategy extends BaseStrategy<
 
     // The contract always returns stSUI. Default to the pool's asset type when no coinType is
     // given: SUI -> redeem to SUI; stSUI -> return directly; anything else is unsupported.
-    const effectiveCoinType = options.coinType ?? this.poolLabel.asset.type;
+
     if (normalizeStructTag(effectiveCoinType) === normalizeStructTag(suiCoin.coinType)) {
       const [sui] = tx.moveCall({
         target: getStsuiConf().STSUI_LATEST_PACKAGE_ID + '::liquid_staking::redeem',
