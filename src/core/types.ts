@@ -16,7 +16,7 @@ export interface AlphaFiSDKConfig {
   graphqlUrl?: string;
   /** Base URL for the AlphaFi API (defaults to 'https://api.alphafi.xyz') */
   apiBaseUrl?: string;
-  /** Use Pyth Lazer for embedded AlphaLend price updates */
+  /** Use Pyth Lazer for embedded AlphaLend price updates. Defaults to true. */
   useLazer?: boolean;
 }
 

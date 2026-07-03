@@ -57,7 +57,7 @@ export class StrategyContext {
     this.apiBaseUrl = apiBaseUrl ?? DEFAULT_API_BASE_URL;
     this.blockchain = new Blockchain({ network, graphqlUrl });
     this.coinInfoProvider = new CoinInfoProvider();
-    this.alphalendClient = new AlphalendClient(network, graphqlUrl, { useLazer });
+    this.alphalendClient = new AlphalendClient(network, graphqlUrl, { useLazer: useLazer ?? true });
 
     // Initialize singleton caches with appropriate TTLs
     this.allPoolLabelsCache = new SingletonCache(CACHE_TTL.POOL_LABELS);
