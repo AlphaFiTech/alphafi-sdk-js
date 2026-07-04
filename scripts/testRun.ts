@@ -1,6 +1,7 @@
 import { Transaction } from '@mysten/sui/transactions';
 import {
   addAirdropCoinTxb,
+  addExternalRewardsWalLockedTxb,
   AlphaFiSDK,
   collectUnsuppliedBalance,
   collectUnsuppliedBalanceTxb,
@@ -332,6 +333,24 @@ async function createTransferRequestAlphaFiReceipt() {
   });
   dryRunTransactionBlock(tx, address);
 }
+async function addExternalRewardsWalLocked() {
+  const { address } = getExecStuff();
+  const context = new StrategyContext('mainnet');
+  const tx = new Transaction();
+  const amount = 1_000_000_000n; // 1 WAL (WAL_DECIMALS = 9)
+  const startTimeMs = Date.now() + 60 * 1000; // +1 minute from now
+  const endTimeMs = startTimeMs + 7 * 24 * 60 * 60 * 1000; // +7 days
+  await addExternalRewardsWalLockedTxb(tx, address, amount, startTimeMs, endTimeMs, context);
+  tx.setGasBudget(2e8);
+  console.log('[slushAdmin] dryRun addExternalRewardsWalLockedTxb', {
+    address,
+    amount: amount.toString(),
+    startTimeMs,
+    endTimeMs,
+  });
+  dryRunTransactionBlock(tx, address);
+  // executeTransactionBlock(tx);
+}
 async function updatePool() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ network: 'mainnet' });
@@ -351,5 +370,6 @@ updatePool();
 // deposit();
 // cancelSlushWithdraw();
 // rebalance();
+addExternalRewardsWalLocked();
 // dryRunAllAlphaVaultAdminFunctions();
 // createTransferRequestAlphaFiReceipt();
