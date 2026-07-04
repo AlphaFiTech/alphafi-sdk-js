@@ -1,4 +1,4 @@
-import { PoolLabel } from 'src/strategies/strategy.js';
+import { PoolLabel } from '../strategies/strategy.js';
 
 export const TEST_POOLS: PoolLabel[] = [
   {
@@ -72,6 +72,25 @@ export const TEST_POOLS: PoolLabel[] = [
     },
     isActive: true,
     poolName: 'ALPHALEND-SLUSH-USDSUI-SINGLE-LOOP',
+    isNative: true,
+  },
+  {
+    poolId: '0xccda433a3324dc743478c7f79cce584628f6303501281167a3f4b386187c8c63',
+    packageId: '0x2bcf16ac9570eb384bc65f9e74acb9abbfb6716fea0cfef5e1fd1ab301a08069',
+    strategyType: 'SlushLooping',
+    packageNumber: 12,
+    versionId: '0x146d1785834528d08a44cac4a59c6a981d43cc13b1d07818e7fa3d29318ca00f',
+    parentProtocol: 'Alphalend',
+    asset: {
+      name: 'SUI',
+      type: '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
+    },
+    events: {
+      autocompoundEventType:
+        '0x2bcf16ac9570eb384bc65f9e74acb9abbfb6716fea0cfef5e1fd1ab301a08069::alphafi_slush_stsui_sui_loop_pool::XtokenRatioChangeEvent',
+    },
+    isActive: true,
+    poolName: 'ALPHALEND-SLUSH-STSUI-LOOP',
     isNative: true,
   },
 ];

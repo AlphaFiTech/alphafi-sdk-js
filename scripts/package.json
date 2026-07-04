@@ -2,7 +2,7 @@
   "name": "scripts",
   "version": "1.0.0",
   "description": "",
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "link": "npm link @alphafi/alphafi-sdk sui-alpha-sdk @alphafi/stsui-sdk"
@@ -18,7 +18,7 @@
     "ts-node": "^10.9.2"
   },
   "dependencies": {
-    "@mysten/sui": "1.45.0",
+    "@mysten/sui": "2.17.0",
     "@mysten/wallet-standard": "^0.17.0",
     "axios": "^1.12.2",
     "bn.js": "^5.2.1",

@@ -21,6 +21,24 @@ import { dryRunTransactionBlock, executeTransactionBlock } from './utils.js';
 const ADMIN_CAP = '0xf9de0b4ad34fbdd260cb4adcd00f00f3cf37e118e178437eaf2f0a8340226c4f';
 const TEST_ADMIN_CAP = '0xfba01590aa578515e4713f7e92a78e1a5e34ca6d693147597cfd5d6d684af956';
 
+// ─── Package ID ───────────────────────────────────────────────────────────────
+
+const SLUSH_PACKAGE = '0x3dff36585d07f3d7caeb5b2645391310ba090c967f8d483e7ede6e28c37a0e30';
+
+// ─── Pool ID maps ─────────────────────────────────────────────────────────────
+
+export const SLUSH_LENDING_POOL_IDS: Record<string, string> = {
+  SUI: '0x18db5470cc2da4f74b1b957891f274d896764d08c56c3941788cef84d2a1362e',
+  USDC: '0x15a537db45889267354a2576e1cf24e84ea7674a4e5691e71dd4c4592c9a8ce9',
+  WAL: '0xcb8b3311b50c89edc2a0e51a0ffc591a651f8c8819ad000aa46f5974a619378d',
+  DEEP: '0xed4302b0db5a1eabc2f8404222572892c0bf7c81004935b23e4f22808b52a0af',
+};
+
+export const SLUSH_LOCKED_LOOP_POOL_IDS: Record<string, string> = {
+  WAL: '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
+  USDSUI: '0x0e1399fe66eca3147766bb113ae7b52b31243874c9e4a64a48e6d8cb91aa3c04',
+};
+
 // ─── Alphalend market IDs ─────────────────────────────────────────────────────
 // Source: alphalendMarketIdMap in alphafi-sdk
 
@@ -50,18 +68,17 @@ async function resolveCoinType(symbol: string, provider: CoinInfoProvider): Prom
  *
  * Move target: alphalend_slush_pool::admin_set_coin_swap_info<T>
  *
- * packageId and T are derived from the pool label fetched via StrategyContext.
- * swapCoinType is resolved from swapCoinSymbol via CoinInfoProvider.
- *
  * @param poolId         - Object ID of the slush pool (SlushLending strategy type)
  * @param swapCoinSymbol - Symbol of the reward coin to configure swap for (e.g. 'DEEP')
  * @param adminCapId     - AdminCap object ID (defaults to prod ADMIN_CAP)
+ * @param tx             - Optional Transaction to chain onto; if omitted a new one is created and dry-run
  */
 async function adminSetCoinSwapInfoSlushPool(
   poolId: string,
   swapCoinSymbol: string,
   adminCapId: string = ADMIN_CAP,
-) {
+  tx?: Transaction,
+): Promise<Transaction> {
   const marketId = ALPHALEND_MARKET_IDS[swapCoinSymbol];
   if (marketId === undefined) {
     throw new Error(`No Alphalend market ID found for symbol: ${swapCoinSymbol}`);
@@ -79,11 +96,11 @@ async function adminSetCoinSwapInfoSlushPool(
     );
   }
 
-  const { packageId, asset } = label;
-  const txb = new Transaction();
+  const { asset } = label;
+  const txb = tx ?? new Transaction();
 
   txb.moveCall({
-    target: `${'0x3dff36585d07f3d7caeb5b2645391310ba090c967f8d483e7ede6e28c37a0e30'}::alphalend_slush_pool::admin_set_coin_swap_info`,
+    target: `${SLUSH_PACKAGE}::alphalend_slush_pool::admin_set_coin_swap_info`,
     typeArguments: [asset.type],
     arguments: [
       txb.object(adminCapId),
@@ -97,8 +114,10 @@ async function adminSetCoinSwapInfoSlushPool(
     ],
   });
 
-  dryRunTransactionBlock(txb);
-  // executeTransactionBlock(txb);
+  if (!tx) {
+    dryRunTransactionBlock(txb);
+  }
+  return txb;
 }
 
 /**
@@ -106,18 +125,17 @@ async function adminSetCoinSwapInfoSlushPool(
  *
  * Move target: alphalend_slush_locked_loop_pool::admin_set_coin_swap_info<T>
  *
- * packageId and T are derived from the pool label fetched via StrategyContext.
- * swapCoinType is resolved from swapCoinSymbol via CoinInfoProvider.
- *
  * @param poolId         - Object ID of the locked-loop pool (SlushSingleAssetLooping strategy type)
  * @param swapCoinSymbol - Symbol of the reward coin to configure swap for (e.g. 'stSUI')
  * @param adminCapId     - AdminCap object ID (defaults to prod ADMIN_CAP)
+ * @param tx             - Optional Transaction to chain onto; if omitted a new one is created and dry-run
  */
 async function adminSetCoinSwapInfoLockedLoopPool(
   poolId: string,
   swapCoinSymbol: string,
   adminCapId: string = ADMIN_CAP,
-) {
+  tx?: Transaction,
+): Promise<Transaction> {
   const marketId = ALPHALEND_MARKET_IDS[swapCoinSymbol];
   if (marketId === undefined) {
     throw new Error(`No Alphalend market ID found for symbol: ${swapCoinSymbol}`);
@@ -135,11 +153,11 @@ async function adminSetCoinSwapInfoLockedLoopPool(
     );
   }
 
-  const { packageId, asset } = label;
-  const txb = new Transaction();
+  const { asset } = label;
+  const txb = tx ?? new Transaction();
 
   txb.moveCall({
-    target: `${'0x3dff36585d07f3d7caeb5b2645391310ba090c967f8d483e7ede6e28c37a0e30'}::alphalend_slush_locked_loop_pool::admin_set_coin_swap_info`,
+    target: `${SLUSH_PACKAGE}::alphalend_slush_locked_loop_pool::admin_set_coin_swap_info`,
     typeArguments: [asset.type],
     arguments: [
       txb.object(adminCapId),
@@ -153,25 +171,23 @@ async function adminSetCoinSwapInfoLockedLoopPool(
     ],
   });
 
-  dryRunTransactionBlock(txb);
-  // executeTransactionBlock(txb);
+  if (!tx) {
+    dryRunTransactionBlock(txb);
+  }
+  return txb;
 }
 
 /**
  * Adds an allowed Bluefin pool for reward swapping on a normal alphalend_slush_pool.
  *
  * Move target: alphalend_slush_pool::admin_add_allowed_bluefin_pool<T, R, S>
- *   T = pool coin type (derived from pool label)
- *   R = first coin type of the Bluefin pool (resolved from coinRSymbol)
- *   S = second coin type of the Bluefin pool (resolved from coinSSymbol)
- *
- * The Bluefin pool object ID is resolved from POOL_REGISTRY via the resolved R + S types.
  *
  * @param poolId        - Object ID of the slush pool (SlushLending strategy type)
  * @param coinRSymbol   - Symbol of R coin in BluefinPool<R, S> (e.g. 'WAL')
  * @param coinSSymbol   - Symbol of S coin in BluefinPool<R, S> (e.g. 'SUI')
  * @param slippageBps   - Allowed slippage in basis points (max 500 per pool)
  * @param adminCapId    - AdminCap object ID (defaults to prod ADMIN_CAP)
+ * @param tx            - Optional Transaction to chain onto; if omitted a new one is created and dry-run
  */
 async function adminAddAllowedBluefinPoolSlushPool(
   poolId: string,
@@ -179,7 +195,8 @@ async function adminAddAllowedBluefinPoolSlushPool(
   coinSSymbol: string,
   slippageBps: number,
   adminCapId: string = ADMIN_CAP,
-) {
+  tx?: Transaction,
+): Promise<Transaction> {
   const context = new StrategyContext('mainnet');
   const [label, coinRType, coinSType] = await Promise.all([
     context.getPoolLabel(poolId),
@@ -193,17 +210,17 @@ async function adminAddAllowedBluefinPoolSlushPool(
     );
   }
 
-  const { packageId, asset } = label;
-  const bluefinPoolIds = context.getPoolIdsByTypes(coinRType, coinSType, true);
+  const { asset } = label;
+  const bluefinPoolIds = context.getPoolIdsByTypes(coinRType, coinSType);
 
   if (!bluefinPoolIds.bluefin) {
     throw new Error(`No Bluefin pool found for coin pair: ${coinRSymbol} / ${coinSSymbol}`);
   }
 
-  const txb = new Transaction();
+  const txb = tx ?? new Transaction();
 
   txb.moveCall({
-    target: `${'0x3dff36585d07f3d7caeb5b2645391310ba090c967f8d483e7ede6e28c37a0e30'}::alphalend_slush_pool::admin_add_allowed_bluefin_pool`,
+    target: `${SLUSH_PACKAGE}::alphalend_slush_pool::admin_add_allowed_bluefin_pool`,
     typeArguments: [asset.type, coinRType, coinSType],
     arguments: [
       txb.object(adminCapId),
@@ -214,25 +231,23 @@ async function adminAddAllowedBluefinPoolSlushPool(
     ],
   });
 
-  dryRunTransactionBlock(txb);
-  // executeTransactionBlock(txb);
+  if (!tx) {
+    dryRunTransactionBlock(txb);
+  }
+  return txb;
 }
 
 /**
  * Adds an allowed Bluefin pool for reward swapping on an alphalend_slush_locked_loop_pool.
  *
  * Move target: alphalend_slush_locked_loop_pool::admin_add_allowed_bluefin_pool<T, R, S>
- *   T = pool coin type (derived from pool label)
- *   R = first coin type of the Bluefin pool (resolved from coinRSymbol)
- *   S = second coin type of the Bluefin pool (resolved from coinSSymbol)
- *
- * The Bluefin pool object ID is resolved from POOL_REGISTRY via the resolved R + S types.
  *
  * @param poolId        - Object ID of the locked-loop pool (SlushSingleAssetLooping strategy type)
  * @param coinRSymbol   - Symbol of R coin in BluefinPool<R, S> (e.g. 'stSUI')
  * @param coinSSymbol   - Symbol of S coin in BluefinPool<R, S> (e.g. 'SUI')
  * @param slippageBps   - Allowed slippage in basis points (max 500 per pool)
  * @param adminCapId    - AdminCap object ID (defaults to prod ADMIN_CAP)
+ * @param tx            - Optional Transaction to chain onto; if omitted a new one is created and dry-run
  */
 async function adminAddAllowedBluefinPoolLockedLoopPool(
   poolId: string,
@@ -240,7 +255,8 @@ async function adminAddAllowedBluefinPoolLockedLoopPool(
   coinSSymbol: string,
   slippageBps: number,
   adminCapId: string = ADMIN_CAP,
-) {
+  tx?: Transaction,
+): Promise<Transaction> {
   const context = new StrategyContext('mainnet');
   const [label, coinRType, coinSType] = await Promise.all([
     context.getPoolLabel(poolId),
@@ -254,17 +270,17 @@ async function adminAddAllowedBluefinPoolLockedLoopPool(
     );
   }
 
-  const { packageId, asset } = label;
+  const { asset } = label;
   const bluefinPoolIds = context.getPoolIdsByTypes(coinRType, coinSType, true);
 
   if (!bluefinPoolIds.bluefin) {
     throw new Error(`No Bluefin pool found for coin pair: ${coinRSymbol} / ${coinSSymbol}`);
   }
 
-  const txb = new Transaction();
+  const txb = tx ?? new Transaction();
 
   txb.moveCall({
-    target: `${'0x3dff36585d07f3d7caeb5b2645391310ba090c967f8d483e7ede6e28c37a0e30'}::alphalend_slush_locked_loop_pool::admin_add_allowed_bluefin_pool`,
+    target: `${SLUSH_PACKAGE}::alphalend_slush_locked_loop_pool::admin_add_allowed_bluefin_pool`,
     typeArguments: [asset.type, coinRType, coinSType],
     arguments: [
       txb.object(adminCapId),
@@ -275,44 +291,64 @@ async function adminAddAllowedBluefinPoolLockedLoopPool(
     ],
   });
 
-  dryRunTransactionBlock(txb);
-  // executeTransactionBlock(txb);
+  if (!tx) {
+    dryRunTransactionBlock(txb);
+  }
+  return txb;
+}
+
+/**
+ * Fully initialises a SlushLending pool in one transaction by chaining:
+ *   - admin_set_coin_swap_info for stSUI, SUI, DEEP, WAL, USDC
+ *   - admin_add_allowed_bluefin_pool for stSUI-SUI, DEEP-SUI, WAL-SUI, SUI-USDC (100 bps each)
+ *
+ * Use SLUSH_LENDING_POOL_IDS[symbol] to get the poolId, e.g.:
+ *   adminInitSlushLendingPool(SLUSH_LENDING_POOL_IDS['SUI'])
+ *
+ * @param poolId     - Object ID of the SlushLending pool
+ * @param adminCapId - AdminCap object ID (defaults to prod ADMIN_CAP)
+ * @param tx         - Optional Transaction to chain onto; if omitted a new one is created and dry-run
+ */
+async function adminInitSlushLendingPool(
+  poolId: string,
+  adminCapId: string = ADMIN_CAP,
+  tx?: Transaction,
+): Promise<Transaction> {
+  const txb = tx ?? new Transaction();
+
+  await adminSetCoinSwapInfoSlushPool(poolId, 'stSUI', adminCapId, txb);
+  await adminSetCoinSwapInfoSlushPool(poolId, 'SUI', adminCapId, txb);
+  await adminSetCoinSwapInfoSlushPool(poolId, 'DEEP', adminCapId, txb);
+  await adminSetCoinSwapInfoSlushPool(poolId, 'WAL', adminCapId, txb);
+  await adminSetCoinSwapInfoSlushPool(poolId, 'USDC', adminCapId, txb);
+
+  await adminAddAllowedBluefinPoolSlushPool(poolId, 'stSUI', 'SUI', 100, adminCapId, txb);
+  await adminAddAllowedBluefinPoolSlushPool(poolId, 'DEEP', 'SUI', 100, adminCapId, txb);
+  await adminAddAllowedBluefinPoolSlushPool(poolId, 'WAL', 'SUI', 100, adminCapId, txb);
+  await adminAddAllowedBluefinPoolSlushPool(poolId, 'SUI', 'USDC', 100, adminCapId, txb);
+
+  if (!tx) {
+    dryRunTransactionBlock(txb);
+  }
+  return txb;
 }
 
 // ─── Example calls (uncomment to run) ─────────────────────────────────────────
 
-// Pool IDs (for reference):
-//   SUI slush pool:          0x18db5470cc2da4f74b1b957891f274d896764d08c56c3941788cef84d2a1362e
-//   USDC slush pool:         0x15a537db45889267354a2576e1cf24e84ea7674a4e5691e71dd4c4592c9a8ce9
-//   WAL slush pool:          0xcb8b3311b50c89edc2a0e51a0ffc591a651f8c8819ad000aa46f5974a619378d
-//   DEEP slush pool:         0xed4302b0db5a1eabc2f8404222572892c0bf7c81004935b23e4f22808b52a0af
-//   WAL single-loop pool:    0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9
-//   USDSUI single-loop pool: 0x0e1399fe66eca3147766bb113ae7b52b31243874c9e4a64a48e6d8cb91aa3c04
+// --- adminInitSlushLendingPool: initialise all coin infos + Bluefin pools in one tx ---
+// adminInitSlushLendingPool(SLUSH_LENDING_POOL_IDS['SUI']);
+adminInitSlushLendingPool(SLUSH_LENDING_POOL_IDS['USDC']);
+adminInitSlushLendingPool(SLUSH_LENDING_POOL_IDS['WAL']);
+adminInitSlushLendingPool(SLUSH_LENDING_POOL_IDS['DEEP']);
 
 // --- admin_set_coin_swap_info: normal pool ---
-// adminSetCoinSwapInfoSlushPool(
-//   '0x18db5470cc2da4f74b1b957891f274d896764d08c56c3941788cef84d2a1362e', // SUI slush pool
-//   'stSUI',
-// );
+// adminSetCoinSwapInfoSlushPool(SLUSH_LENDING_POOL_IDS['SUI'], 'stSUI');
 
 // --- admin_set_coin_swap_info: locked-loop pool ---
-// adminSetCoinSwapInfoLockedLoopPool(
-//   '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9', // WAL single-loop
-//   'stSUI',
-// );
+// adminSetCoinSwapInfoLockedLoopPool(SLUSH_LOCKED_LOOP_POOL_IDS['WAL'], 'stSUI');
 
 // --- admin_add_allowed_bluefin_pool: normal pool ---
-// adminAddAllowedBluefinPoolSlushPool(
-//   '0x18db5470cc2da4f74b1b957891f274d896764d08c56c3941788cef84d2a1362e', // SUI slush pool
-//   'stSUI', // R
-//   'SUI', // S
-//   300, // 300 bps slippage
-// );
+// adminAddAllowedBluefinPoolSlushPool(SLUSH_LENDING_POOL_IDS['SUI'], 'stSUI', 'SUI', 300);
 
 // --- admin_add_allowed_bluefin_pool: locked-loop pool ---
-// adminAddAllowedBluefinPoolLockedLoopPool(
-//   '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9', // WAL single-loop
-//   'stSUI', // R
-//   'SUI', // S
-//   300,
-// );
+// adminAddAllowedBluefinPoolLockedLoopPool(SLUSH_LOCKED_LOOP_POOL_IDS['WAL'], 'stSUI', 'SUI', 300);

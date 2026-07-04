@@ -611,7 +611,7 @@ export class LoopingStrategy extends BaseStrategy<
 
   private async updateSingleTokenPrice(tx: Transaction, pythPriceInfo: string, feedId: string) {
     const pythClient = new SuiPythClient(
-      this.context.blockchain.txBuildClient,
+      this.context.blockchain.pythSuiClient,
       PYTH_STATE_ID,
       WORMHOLE_STATE_ID,
     );
@@ -638,7 +638,7 @@ export class LoopingStrategy extends BaseStrategy<
 
   async deposit(tx: Transaction, options: DepositOptions) {
     // get Coin Object
-    const depositCoin = await this.context.blockchain.getCoinObject(
+    const depositCoin = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.userDepositAsset.type,
       options.address,
@@ -647,11 +647,14 @@ export class LoopingStrategy extends BaseStrategy<
 
     const receiptOption = this.context.blockchain.getOptionReceipt(
       tx,
-      this.poolLabel.poolId,
-      options.address,
+      this.poolLabel.receipt.type,
+      this.receiptObjects.length > 0 ? this.receiptObjects[0].id : undefined,
     );
 
     if (this.poolLabel.parentProtocol === 'Alphalend') {
+      const [stsuiCoin, suiCoin] = await this.context.getCoinsBySymbols(['stSUI', 'SUI']);
+      const alphalendClient = this.context.alphalendClient;
+      await alphalendClient.updatePrices(tx, [stsuiCoin.coinType, suiCoin.coinType]);
       await this.collectAlphalendSuiStsuiRewards(tx);
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::user_deposit_v3`,
@@ -892,11 +895,12 @@ export class LoopingStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
-      tx.moveCall({
-        target: `0x2::transfer::public_transfer`,
-        typeArguments: [`0x2::coin::Coin<${suiCoin.coinType}>`],
-        arguments: [stsui_coin, tx.pure.address(options.address)],
-      });
+      this.context.blockchain.sendCoinToAddressBalance(
+        tx,
+        suiCoin.coinType,
+        options.address,
+        stsui_coin,
+      );
       return;
     }
 
@@ -945,11 +949,12 @@ export class LoopingStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
-      tx.moveCall({
-        target: `0x2::transfer::public_transfer`,
-        typeArguments: [`0x2::coin::Coin<${this.poolLabel.supplyAsset.type}>`],
-        arguments: [vsui_coin, tx.pure.address(options.address)],
-      });
+      this.context.blockchain.sendCoinToAddressBalance(
+        tx,
+        this.poolLabel.supplyAsset.type,
+        options.address,
+        vsui_coin,
+      );
     } else if (this.poolLabel.supplyAsset.name === 'HASUI') {
       const [hasuiCoin] = tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_navi_hasui_sui_pool::user_withdraw_v2`, // change package id for testing
@@ -976,11 +981,12 @@ export class LoopingStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
-      tx.moveCall({
-        target: `0x2::transfer::public_transfer`,
-        typeArguments: [`0x2::coin::Coin<${this.poolLabel.supplyAsset.type}>`],
-        arguments: [hasuiCoin, tx.pure.address(options.address)],
-      });
+      this.context.blockchain.sendCoinToAddressBalance(
+        tx,
+        this.poolLabel.supplyAsset.type,
+        options.address,
+        hasuiCoin,
+      );
     } else if (this.poolLabel.supplyAsset.name === 'USDC') {
       const [usdcCoin] = tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_navi_native_usdc_usdt_pool::user_withdraw_v4`,
@@ -1009,11 +1015,12 @@ export class LoopingStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
-      tx.moveCall({
-        target: `0x2::transfer::public_transfer`,
-        typeArguments: [`0x2::coin::Coin<${this.poolLabel.supplyAsset.type}>`],
-        arguments: [usdcCoin, tx.pure.address(options.address)],
-      });
+      this.context.blockchain.sendCoinToAddressBalance(
+        tx,
+        this.poolLabel.supplyAsset.type,
+        options.address,
+        usdcCoin,
+      );
     } else if (this.poolLabel.supplyAsset.name === 'USDT') {
       const [usdtCoin] = tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_navi_usdt_usdc_pool::user_withdraw_v3`,
@@ -1039,11 +1046,12 @@ export class LoopingStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
-      tx.moveCall({
-        target: `0x2::transfer::public_transfer`,
-        typeArguments: [`0x2::coin::Coin<${this.poolLabel.supplyAsset.type}>`],
-        arguments: [usdtCoin, tx.pure.address(options.address)],
-      });
+      this.context.blockchain.sendCoinToAddressBalance(
+        tx,
+        this.poolLabel.supplyAsset.type,
+        options.address,
+        usdtCoin,
+      );
     }
   }
 

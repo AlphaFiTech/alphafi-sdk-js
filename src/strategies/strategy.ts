@@ -47,7 +47,8 @@ export type StrategyType =
   | 'SingleAssetLooping'
   | 'Lyf'
   | 'FungibleLending'
-  | 'SlushSingleAssetLooping';
+  | 'SlushSingleAssetLooping'
+  | 'SlushLooping';
 
 export type ProtocolType =
   | 'AlphaFi'
@@ -72,6 +73,7 @@ export type LyfPoolLabel = import('./lyf.js').LyfPoolLabel;
 export type FungibleLendingPoolLabel = import('./fungibleLending.js').FungibleLendingPoolLabel;
 export type SlushSingleAssetLoopingPoolLabel =
   import('./slushSingleAssetLooping.js').SlushSingleAssetLoopingPoolLabel;
+export type SlushLoopingPoolLabel = import('./slushLooping.js').SlushLoopingPoolLabel;
 
 /**
  * Union of all strategy-specific pool label types.
@@ -87,7 +89,8 @@ export type PoolLabel =
   | SingleAssetLoopingPoolLabel
   | LyfPoolLabel
   | FungibleLendingPoolLabel
-  | SlushSingleAssetLoopingPoolLabel;
+  | SlushSingleAssetLoopingPoolLabel
+  | SlushLoopingPoolLabel;
 
 /**
  * Common strategy surface used by the SDK.
@@ -203,9 +206,12 @@ export interface Strategy<TPool = any, TInvestor = any, TParentPool = any, TRece
  * Base class shared by all strategies.
  * Provides parsing helpers and common reward calculation logic.
  */
-export abstract class BaseStrategy<TPool = any, TInvestor = any, TParentPool = any, TReceipt = any>
-  implements Strategy<TPool, TInvestor, TParentPool, TReceipt>
-{
+export abstract class BaseStrategy<
+  TPool = any,
+  TInvestor = any,
+  TParentPool = any,
+  TReceipt = any,
+> implements Strategy<TPool, TInvestor, TParentPool, TReceipt> {
   abstract parsePoolObject(response: any): TPool;
   abstract parseInvestorObject(response: any): TInvestor;
   abstract parseParentPoolObject(response: any): TParentPool;

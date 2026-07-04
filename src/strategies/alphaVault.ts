@@ -694,7 +694,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
   }
 
   async deposit(tx: Transaction, options: DepositOptions) {
-    const depositCoin = await this.context.blockchain.getCoinObject(
+    const depositCoin = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.asset.type,
       options.address,
@@ -913,7 +913,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
-    tx.transferObjects([coin], address);
+    this.context.blockchain.sendCoinToAddressBalance(tx, this.poolLabel.asset.type, address, coin);
   }
 
   async claimAirdrop(tx: Transaction, address: string, transferToWallet: boolean) {
@@ -1044,7 +1044,12 @@ export class AlphaVaultStrategy extends BaseStrategy<
               tx.object(alphalendConstants.SUI_CLOCK_OBJECT_ID), // Clock object
             ],
           });
-          tx.transferObjects([airdropCoin], address);
+          this.context.blockchain.sendCoinToAddressBalance(
+            tx,
+            airdropCoinType,
+            address,
+            airdropCoin,
+          );
         } else {
           tx.moveCall({
             target: `${alphalendConstants.ALPHALEND_LATEST_PACKAGE_ID}::alpha_lending::add_collateral`,
@@ -1060,7 +1065,7 @@ export class AlphaVaultStrategy extends BaseStrategy<
         }
       }
     } else {
-      tx.transferObjects([airdropCoin], address);
+      this.context.blockchain.sendCoinToAddressBalance(tx, airdropCoinType, address, airdropCoin);
     }
 
     return tx;
