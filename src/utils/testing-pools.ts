@@ -90,7 +90,7 @@ export const TEST_POOLS: PoolLabel[] = [
         '0x2bcf16ac9570eb384bc65f9e74acb9abbfb6716fea0cfef5e1fd1ab301a08069::alphafi_slush_stsui_sui_loop_pool::XtokenRatioChangeEvent',
     },
     isActive: true,
-    poolName: 'ALPHALEND-SLUSH-STSUI-LOOP',
+    poolName: 'ALPHALEND-SLUSH-STSUI-SUI-LOOP',
     isNative: true,
   },
 ];
