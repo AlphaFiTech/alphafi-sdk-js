@@ -1,9 +1,19 @@
 import { Transaction } from '@mysten/sui/transactions';
-import { addAirdropCoinTxb, AlphaFiSDK, collectUnsuppliedBalance, collectUnsuppliedBalanceTxb, getCurrentTick, getManualRebalanceUsingTicksTxb, getTickSpacing, getWithdrawRequestsAndUnsuppliedAmount, processWithdrawRequestsManualTxb, StrategyContext } from '../src/index.js';
+import {
+  addAirdropCoinTxb,
+  AlphaFiSDK,
+  collectUnsuppliedBalance,
+  collectUnsuppliedBalanceTxb,
+  getCurrentTick,
+  getManualRebalanceUsingTicksTxb,
+  getTickSpacing,
+  getWithdrawRequestsAndUnsuppliedAmount,
+  processWithdrawRequestsManualTxb,
+  StrategyContext,
+} from '../src/index.js';
 import { AlphaVaultPoolLabel } from '../src/strategies/alphaVault.js';
 import { dryRunTransactionBlock, executeTransactionBlock, getExecStuff } from './utils.js';
 import fs from 'fs';
-
 
 // async function test() {
 //   const { address, keypair, suiClient } = getExecStuff();
@@ -192,11 +202,7 @@ async function poolsData() {
     network: 'mainnet',
   });
   const data = await sdk.getSinglePoolData(
-<<<<<<< HEAD
-    '0x594f13b8f287003fd48e4264e7056e274b84709ada31e3657f00eeedc1547e37',
-=======
     '0xccda433a3324dc743478c7f79cce584628f6303501281167a3f4b386187c8c63',
->>>>>>> 1d71364aa1bb039bcc2644c09f465bf7dfa28f7d
   );
   console.log('data', data);
 }
@@ -330,17 +336,17 @@ async function updatePool() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ network: 'mainnet' });
   const tx = await sdk.updatePool(
-    '0x18db5470cc2da4f74b1b957891f274d896764d08c56c3941788cef84d2a1362e',
+    '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
   );
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx, address);
   // executeTransactionBlock(tx);
 }
-// updatePool();
+updatePool();
 // claimAirdrop();
 // withdraw();
-poolsData();
-portfolioData();
+// poolsData();
+// portfolioData();
 // claimSlushWithdraw();
 // deposit();
 // cancelSlushWithdraw();
