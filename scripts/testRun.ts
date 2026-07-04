@@ -355,7 +355,7 @@ async function updatePool() {
   const { address, keypair, suiClient } = getExecStuff();
   const sdk = new AlphaFiSDK({ network: 'mainnet' });
   const tx = await sdk.updatePool(
-    '0x1124c5e7b1fb1f3cfa02cad5934dc27785e083f2b4a49bde3cc41ba66ff9113c',
+    '0xccda433a3324dc743478c7f79cce584628f6303501281167a3f4b386187c8c63',
   );
   tx.setGasBudget(2e8);
   dryRunTransactionBlock(tx, address);
@@ -370,6 +370,6 @@ updatePool();
 // deposit();
 // cancelSlushWithdraw();
 // rebalance();
-addExternalRewardsWalLocked();
+// addExternalRewardsWalLocked();
 // dryRunAllAlphaVaultAdminFunctions();
 // createTransferRequestAlphaFiReceipt();

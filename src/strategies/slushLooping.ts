@@ -511,28 +511,6 @@ export class SlushLoopingStrategy extends BaseStrategy<
   async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {
     return;
   }
-
-  async updatePool(tx: Transaction): Promise<Transaction> {
-    const alphalendClient = this.context.alphalendClient;
-    const [suiCoin] = await this.context.getCoinsBySymbols(['SUI']);
-    await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type, suiCoin.coinType]);
-
-    await this.collectAndSwapRewards(tx);
-
-    tx.moveCall({
-      target: `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::update_pool`,
-      arguments: [
-        tx.object(VERSIONS.SLUSH_LOOP),
-        tx.object(this.poolLabel.poolId),
-        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-        tx.object(STSUI.LST_INFO),
-        tx.object(SUI_SYSTEM_STATE),
-        tx.object(CLOCK_PACKAGE_ID),
-      ],
-    });
-
-    return tx;
-  }
 }
 
 /**
