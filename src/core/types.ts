@@ -32,6 +32,8 @@ export interface DepositOptions {
   amount: bigint;
   /** For LP pools: true to deposit token A, false for token B */
   isAmountA?: boolean;
+  /** Optional coin type to deposit instead of the default base token */
+  coinType?: string;
   /** Optional existing transaction to append to (for PTB composition) */
   tx?: Transaction;
 }
@@ -63,6 +65,8 @@ export interface WithdrawOptions {
   isAmountA?: boolean;
   /** If true, withdraw entire position regardless of amount */
   withdrawMax: boolean;
+  /** Optional coin type to receive instead of the default base token */
+  coinType?: string;
   /** Optional existing transaction to append to (for PTB composition) */
   tx?: Transaction;
 }
