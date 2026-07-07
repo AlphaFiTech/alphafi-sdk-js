@@ -148,7 +148,7 @@ export class LoopingStrategy extends BaseStrategy<
     const userDepositPrice = await this.context.getCoinPrice(userDepositType);
 
     const tokenAmount = tokensInvested.mul(supplyPrice).div(userDepositPrice);
-    const usdValue = tokensInvested.mul(userDepositPrice);
+    const usdValue = tokensInvested.mul(supplyPrice);
     return { tokenAmount, usdValue };
   }
 
@@ -499,7 +499,7 @@ export class LoopingStrategy extends BaseStrategy<
             });
           }
         }
-        rewardCoinSet.add(reward.reward_coin_type);
+        rewardCoinSet.add(reward.rewardCoinType);
       }
     }
   }
@@ -846,7 +846,7 @@ export class LoopingStrategy extends BaseStrategy<
     const exchangeRate = this.exchangeRate();
     if (this.poolLabel.poolName === 'NAVI-LOOP-SUI-VSUI') {
       const voloExchRate = await this.fetchVoloExchangeRate();
-      amount = amount.div(parseFloat(voloExchRate.data.exchangeRate));
+      amount = amount.div(new Decimal(voloExchRate.data.exchangeRate));
     } else if (this.poolLabel.poolName === 'ALPHALEND-LOOP-SUI-STSUI') {
       const suiTostSuiExchangeRate = await stSuiExchangeRate(getStSuiConf().LST_INFO, true);
       amount = amount.div(suiTostSuiExchangeRate);
