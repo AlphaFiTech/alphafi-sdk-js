@@ -186,7 +186,7 @@ export const POOL_REGISTRY: Record<string, ProtocolPoolIds> = {
     '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
     '0xe1b45a0e641b9955a20aa0ad1c1f4ad86aad8afb07296d4085e349a50e90bdca::blue::BLUE',
   )]: {
-    bluefin: '0xde705d4f3ded922b729d9b923be08e1391dd4caeff8496326123934d0fb1c312',
+    bluefin: '0xd0d64d266b6a55e3972677f6cfd6854c50ae94e76750c56a3e7c3050d641a760',
     cetus: '0xde016b9e743142fa66783611434d6bc35b78b51ceb9fe574d0d00e71e41d01d7',
   },
   [getCanonicalPairKey(

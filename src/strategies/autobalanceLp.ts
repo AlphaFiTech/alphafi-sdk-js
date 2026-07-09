@@ -958,7 +958,6 @@ export class AutobalanceLpStrategy extends BaseStrategy<
       });
       addUpdatePool('alphafi_bluefin_type_1_pool', 'update_pool_v3');
     } else if (poolName === 'BLUEFIN-AUTOBALANCE-SUIUSDT-USDC-ZERO-ZERO') {
-      // Uses the dedicated autocompound BLUE-SUI pool (different fee tier) instead of the standard one
       // cetus_pool = CetusPool<USDC, SUIUSDT>, _cetus_sui_pool = CetusPool<USDC, SUI>
       const cetusUsdcSuiusdt = await context.getPoolIdBySymbolsAndProtocol(
         'USDC',
