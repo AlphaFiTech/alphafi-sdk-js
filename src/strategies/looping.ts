@@ -537,6 +537,11 @@ export class LoopingStrategy extends BaseStrategy<
         tx.object(STSUI.LST_INFO),
         tx.object(SUI_SYSTEM_STATE),
         tx.object(await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'cetus')),
+        // `collect_v3_rewards_with_two_swaps_v2` is the Cetus variant, so the Cetus
+        // BLUE/SUI pool must be paired with the Cetus global config. The withdraw and
+        // updatePool paths already used GLOBAL_CONFIGS.CETUS here; the old inline deposit
+        // copy incorrectly used GLOBAL_CONFIGS.BLUEFIN with this Cetus pool (which would
+        // abort on-chain). Unifying on CETUS in this shared helper fixes that deposit bug.
         tx.object(GLOBAL_CONFIGS.CETUS),
         tx.object(CLOCK_PACKAGE_ID),
       ],
