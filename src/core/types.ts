@@ -220,6 +220,4 @@ export type { AlphaFiReceipt, TransferRequest } from '../models/types.js';
 export interface AutocompoundOptions {
   /** Unique identifier of the target pool */
   poolId: string;
-  /** Optional existing transaction to append to (for PTB composition) */
-  tx?: Transaction;
 }

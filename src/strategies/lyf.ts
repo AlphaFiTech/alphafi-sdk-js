@@ -19,7 +19,6 @@ import {
   SUI_SYSTEM_STATE,
   VERSIONS,
 } from '../utils/constants.js';
-import { toTwosComplementU32 } from '../utils/math.js';
 import { getConf as getStsuiConf } from '@alphafi/stsui-sdk';
 
 /**
@@ -801,74 +800,8 @@ export class LyfStrategy extends BaseStrategy<
     });
   }
 
-  async updatePool(tx: Transaction): Promise<Transaction> {
-    const coinAType = this.poolLabel.assetA.type;
-    const coinBType = this.poolLabel.assetB.type;
-
-    // Update Alphalend prices
-    const alphalendClient = this.context.alphalendClient;
-    await alphalendClient.updatePrices(tx, [coinAType, coinBType]);
-
-    // Collect rewards
-    await this.collectAndSwapRewards(tx);
-
-    // Update pool
-    tx.moveCall({
-      target: `${this.poolLabel.packageId}::alphafi_lyf_pool::update_pool`,
-      typeArguments: [coinAType, coinBType],
-      arguments: [
-        tx.object(VERSIONS.LYF_LP),
-        tx.object(this.poolLabel.poolId),
-        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-        tx.object(GLOBAL_CONFIGS.BLUEFIN),
-        tx.object(this.poolLabel.parentPoolId),
-        tx.object(SUI_SYSTEM_STATE),
-        tx.object(CLOCK_PACKAGE_ID),
-      ],
-    });
-
-    return tx;
-  }
-
   async getCurrentTickIndex(): Promise<number> {
     return this.parentPoolObject.currentTickIndex;
-  }
-  async rebalanceLyf(
-    tx: Transaction,
-    label: LyfPoolLabel,
-    rebalanceCap: string,
-    lowerTick: string,
-    upperTick: string,
-    loops: number,
-    context: StrategyContext,
-  ): Promise<void> {
-    const coinAType = label.assetA.type;
-    const coinBType = label.assetB.type;
-    const lo = toTwosComplementU32(Number(lowerTick));
-    const hi = toTwosComplementU32(Number(upperTick));
-
-    const alphalendClient = context.alphalendClient;
-    await alphalendClient.updatePrices(tx, [coinAType, coinBType]);
-
-    await this.collectAndSwapRewards(tx);
-
-    tx.moveCall({
-      target: `${label.packageId}::alphafi_lyf_pool::rebalance_bluefin`,
-      typeArguments: [coinAType, coinBType],
-      arguments: [
-        tx.object(rebalanceCap),
-        tx.object(VERSIONS.LYF_LP),
-        tx.object(label.poolId),
-        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-        tx.object(GLOBAL_CONFIGS.BLUEFIN),
-        tx.pure.u32(lo),
-        tx.pure.u32(hi),
-        tx.pure.u32(loops),
-        tx.object(label.parentPoolId),
-        tx.object(SUI_SYSTEM_STATE),
-        tx.object(CLOCK_PACKAGE_ID),
-      ],
-    });
   }
 }
 
