@@ -448,32 +448,6 @@ export class SlushLendingStrategy extends BaseStrategy<
   async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {
     return;
   }
-
-  async updatePool(tx: Transaction): Promise<Transaction> {
-    const coinType = this.poolLabel.asset.type;
-
-    // Update Alphalend prices
-    const alphalendClient = this.context.alphalendClient;
-    await alphalendClient.updatePrices(tx, [coinType]);
-
-    // Collect rewards
-    await this.collectAndSwapRewards(tx);
-
-    // Update pool
-    tx.moveCall({
-      target: `${this.poolLabel.packageId}::alphalend_slush_pool::update_pool`,
-      typeArguments: [coinType],
-      arguments: [
-        tx.object(VERSIONS.SLUSH),
-        tx.object(this.poolLabel.poolId),
-        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-        tx.object(SUI_SYSTEM_STATE),
-        tx.object(CLOCK_PACKAGE_ID),
-      ],
-    });
-
-    return tx;
-  }
 }
 
 /**

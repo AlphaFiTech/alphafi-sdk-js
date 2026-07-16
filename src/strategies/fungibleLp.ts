@@ -18,7 +18,6 @@ import {
   SUI_SYSTEM_STATE,
   VERSIONS,
 } from '../utils/constants.js';
-import { toTwosComplementU32 } from '../utils/math.js';
 
 /**
  * FungibleLp Strategy for dual-asset liquidity pools with fungible tokens
@@ -510,96 +509,6 @@ export class FungibleLpStrategy extends BaseStrategy<
 
   async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {
     return;
-  }
-
-  async updatePool(tx: Transaction): Promise<Transaction> {
-    // FungibleLp autocompound for stSUI-SUI
-    if (this.poolLabel.poolName === 'BLUEFIN-FUNGIBLE-STSUI-SUI') {
-      const blueSuiPool = await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin');
-      const [blueInfo] = await this.context.getCoinsBySymbols(['BLUE']);
-      const bluefinStsuiSuiPool = await this.context.getPoolIdBySymbolsAndProtocol('STSUI', 'SUI', 'bluefin');
-
-      tx.moveCall({
-        target: `${this.poolLabel.packageId}::alphafi_bluefin_stsui_sui_ft_pool::update_pool`,
-        typeArguments: [
-          this.poolLabel.assetA.type,
-          this.poolLabel.assetB.type,
-          this.poolLabel.fungibleCoin.type,
-          blueInfo.coinType,
-        ],
-        arguments: [
-          tx.object(VERSIONS.FUNGIBLE_LP),
-          tx.object(this.poolLabel.poolId),
-          tx.object(this.poolLabel.investorId),
-          tx.object(DISTRIBUTOR_OBJECT_ID),
-          tx.object(GLOBAL_CONFIGS.BLUEFIN),
-          tx.object(bluefinStsuiSuiPool),
-          tx.object(blueSuiPool),
-          tx.object(STSUI.LST_INFO),
-          tx.object(SUI_SYSTEM_STATE),
-          tx.object(CLOCK_PACKAGE_ID),
-        ],
-      });
-    }
-
-    return tx;
-  }
-
-  async rebalanceFungibleLp(
-    tx: Transaction,
-    label: FungibleLpPoolLabel,
-    rebalanceCap: string,
-    lowerTick: string,
-    upperTick: string,
-    context: StrategyContext,
-  ): Promise<void> {
-    const coinAType = label.assetA.type;
-    const coinBType = label.assetB.type;
-    const lo = toTwosComplementU32(Number(lowerTick));
-    const hi = toTwosComplementU32(Number(upperTick));
-
-    const [blueInfo] = await context.getCoinsBySymbols(['BLUE']);
-    const blueType = blueInfo.coinType;
-
-    const bluefinStsuiSuiPool = await context.getPoolIdBySymbolsAndProtocol('STSUI', 'SUI', 'bluefin');
-    const blueSuiPool = await context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'bluefin');
-
-    if (label.poolName === 'BLUEFIN-FUNGIBLE-STSUI-SUI') {
-      tx.moveCall({
-        target: `${label.packageId}::alphafi_bluefin_stsui_sui_ft_investor::rebalance`,
-        typeArguments: [coinAType, coinBType, blueType],
-        arguments: [
-          tx.object(label.investorId),
-          tx.object(rebalanceCap),
-          tx.object(VERSIONS.FUNGIBLE_LP),
-          tx.object(DISTRIBUTOR_OBJECT_ID),
-          tx.object(GLOBAL_CONFIGS.BLUEFIN),
-          tx.pure.u32(lo),
-          tx.pure.u32(hi),
-          tx.object(bluefinStsuiSuiPool),
-          tx.object(blueSuiPool),
-          tx.object(STSUI.LST_INFO),
-          tx.object(SUI_SYSTEM_STATE),
-          tx.object(CLOCK_PACKAGE_ID),
-        ],
-      });
-      tx.moveCall({
-        target: `${label.packageId}::alphafi_bluefin_stsui_sui_ft_pool::update_pool`,
-        typeArguments: [coinAType, coinBType, label.fungibleCoin.type, blueType],
-        arguments: [
-          tx.object(VERSIONS.FUNGIBLE_LP),
-          tx.object(label.poolId),
-          tx.object(label.investorId),
-          tx.object(DISTRIBUTOR_OBJECT_ID),
-          tx.object(GLOBAL_CONFIGS.BLUEFIN),
-          tx.object(label.parentPoolId),
-          tx.object(blueSuiPool),
-          tx.object(STSUI.LST_INFO),
-          tx.object(SUI_SYSTEM_STATE),
-          tx.object(CLOCK_PACKAGE_ID),
-        ],
-      });
-    }
   }
 }
 

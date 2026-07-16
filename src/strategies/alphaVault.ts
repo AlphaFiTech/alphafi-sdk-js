@@ -1074,11 +1074,6 @@ export class AlphaVaultStrategy extends BaseStrategy<
   async claimRewards(_tx: Transaction, _alphaReceipt: TransactionResult) {
     return;
   }
-
-  async updatePool(tx: Transaction): Promise<Transaction> {
-    // AlphaVault has no autocompound operation
-    return tx;
-  }
 }
 
 // ===== Types =====

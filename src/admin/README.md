@@ -24,16 +24,18 @@ The migration goal was:
 
 ## File overview
 
-| File              | What it contains                                      |
-| ----------------- | ----------------------------------------------------- |
-| `tickPrice.ts`    | Tick ↔ price math for LP pool CLMM positions          |
-| `patrol.ts`       | Pool patrol — detect out-of-range LP positions        |
-| `rebalanceCap.ts` | Look up the `RebalanceCap` object for a wallet        |
-| `alphaVault.ts`   | Alpha Ember vault admin operations                    |
-| `slushAdmin.ts`   | Slush WAL locked-loop pool admin operations           |
-| `autocompound.ts` | Autocompound transaction builder (all strategy types) |
-| `rebalance.ts`    | Manual rebalance transaction builder (LP + LYF)       |
-| `index.ts`        | Barrel — re-exports everything above                  |
+| File              | What it contains                                            |
+| ----------------- | ----------------------------------------------------------- |
+| `tickPrice.ts`    | Tick ↔ price math for LP pool CLMM positions                |
+| `patrol.ts`       | Pool patrol — detect out-of-range LP positions              |
+| `rebalanceCap.ts` | Look up the `RebalanceCap` object for a wallet              |
+| `alphaVault.ts`   | Alpha Ember vault admin operations                          |
+| `slushAdmin.ts`   | Slush WAL locked-loop pool admin operations                 |
+| `rebalance.ts`    | Manual rebalance — fetches the transaction from alphafi-api |
+| `index.ts`        | Barrel — re-exports everything above                        |
+
+Autocompound lives on the `AlphaFiSDK` class (`sdk.autocompound({ poolId })`),
+not in this module — see "Autocompound & rebalance are server-built" below.
 
 ---
 
@@ -44,13 +46,27 @@ Every function follows the same three rules:
 1. **Dependency injection** — `StrategyContext` is the primary dependency. On-chain reads use
    `context.blockchain` (GraphQL for bulk objects, `txBuildClient` for JSON-RPC when needed).
    There are no global `getSuiClient()` or `poolInfo` lookups.
-2. **Caller-owned transactions** — functions that build PTBs accept an existing
-   `Transaction` and mutate it. They do not create or return a transaction.
-   The UI creates the `tx`, passes it to the SDK function, then calls
-   `signAndExecuteTransaction`.
-3. **Private helpers use `_` prefix** — `_autocompoundLp`, `_rebalanceLp`, etc.
-   are module-private implementation details. Only the public dispatchers are
-   exported.
+2. **Caller-owned transactions** — functions that build PTBs client-side accept
+   an existing `Transaction` and mutate it. The UI creates the `tx`, passes it
+   to the SDK function, then calls `signAndExecuteTransaction`. (Exception:
+   autocompound/rebalance return a server-built `Transaction` — see below.)
+
+## Autocompound & rebalance are server-built
+
+`sdk.autocompound({ poolId })` and `getManualRebalanceUsingTicksTxb(...)` do
+not build PTBs in TypeScript. They POST to alphafi-api
+(`/public/transactions/autocompound` and `/public/transactions/rebalance`),
+which builds the PTB with the Rust SDK's builders — the same code
+`alphafi-crons` runs in production — and returns base64 BCS `TransactionKind`
+bytes. The SDK restores them via `Transaction.fromKind`, sets the gas budget
+(crons parity: 300M autocompound / 500M rebalance; wallet estimation
+under-budgets these), and returns a normal unbuilt `Transaction` with no
+sender — the wallet supplies the sender and gas coins at signing.
+
+This keeps the per-pool move-call matrix (Cetus/Bluefin variants, `update_pool`
+vs `update_pool_v2`, `rebalance` vs `rebalance_v3`, …) in one place: contract
+upgrades land only in `alphafi-sdk-rust`. The API base URL comes from the SDK
+config (`apiBaseUrl`, default `https://api.alphafi.xyz`).
 
 ---
 
@@ -153,16 +169,12 @@ addExternalRewardsWalLockedTxb(
 
 ---
 
-### `autocompound.ts`
+### Autocompound (on `AlphaFiSDK`)
 
 ```ts
-// Build an autocompound transaction for a single pool.
-// Returns undefined if pool not found.
-getAutoCompoundSingleTxb(
-  poolName: string,
-  context: StrategyContext,
-  tx?: Transaction,
-): Promise<Transaction | undefined>
+// Build an autocompound transaction for a single pool (server-built).
+// Throws with the server's message when the pool is unknown or the build fails.
+sdk.autocompound({ poolId: string }): Promise<Transaction>
 ```
 
 **How it works:**
@@ -189,19 +201,19 @@ getAutoCompoundSingleTxb(
 | `SlushLending`            | AlphaLend Slush lending pools     |
 | `SlushSingleAssetLooping` | AlphaLend Slush looping pools     |
 | `FungibleLending`         | No-op (returns empty transaction) |
+Supported pools are whatever `alphafi-sdk-rust`'s `build_autocompound_for_pool`
+covers (all 12 strategy families). Unsupported pools (e.g. the Alpha ember
+vault) return a 400 from the API, surfaced as a thrown `Error`.
 
 **Example usage:**
 
 ```ts
-import { getAutoCompoundSingleTxb } from '@alphafi/alphafi-sdk/admin';
-import { StrategyContext } from '@alphafi/alphafi-sdk';
-import { Transaction } from '@mysten/sui/transactions';
-import { useMemo } from 'react';
+import { AlphaFiSDK } from '@alphafi/alphafi-sdk';
 
-const context = useMemo(() => new StrategyContext('mainnet'), []);
+const sdk = new AlphaFiSDK({ network: 'mainnet' });
 
-const tx = await getAutoCompoundSingleTxb(poolName, context);
-if (tx) signAndExecuteTransaction({ transaction: tx });
+const tx = await sdk.autocompound({ poolId });
+signAndExecuteTransaction({ transaction: tx });
 ```
 
 ---
@@ -209,41 +221,39 @@ if (tx) signAndExecuteTransaction({ transaction: tx });
 ### `rebalance.ts`
 
 ```ts
-// Build a manual rebalance transaction for a single LP or LYF pool.
-// Returns undefined for non-rebalanceable strategy types.
+// Build a manual rebalance transaction for a single pool (server-built).
+// Resolves the caller's RebalanceCap and the pool id, then fetches the
+// transaction from alphafi-api.
+// Returns undefined for non-rebalanceable strategy types or unknown pools.
 getManualRebalanceUsingTicksTxb(
   poolName: string,
-  rebalanceCap: string,
+  address: string, // wallet that owns the RebalanceCap
   lowerTick: string,
   upperTick: string,
+  loops: number,
   context: StrategyContext,
-  loops?: number,            // default 15; old SDK auto-computed from TVL
   swap_using_bluefin?: boolean,
   rebalance_using_base_pool?: boolean,
 ): Promise<Transaction | undefined>
 ```
-
-**Migration difference:** Old signature computed `loops` from an internal TVL fetch.
-New signature accepts it as an optional parameter (default 15). The admin UI can pass
-the TVL-derived value or accept the default.
 
 ---
 
 ## Usage example (UI component pattern)
 
 ```ts
-import { StrategyContext } from '@alphafi/alphafi-sdk';
-import { getAutoCompoundSingleTxb } from '@alphafi/alphafi-sdk/admin';
+import { AlphaFiSDK, StrategyContext } from '@alphafi/alphafi-sdk';
 import { Transaction } from '@mysten/sui/transactions';
 import { useMemo } from 'react';
 
+const sdk = useMemo(() => new AlphaFiSDK({ network: 'mainnet' }), []);
 const context = useMemo(() => new StrategyContext('mainnet'), []);
 
-// Autocompound
-const tx = await getAutoCompoundSingleTxb(poolName, context);
-if (tx) signAndExecuteTransaction({ transaction: tx });
+// Autocompound (server-built)
+const tx = await sdk.autocompound({ poolId });
+signAndExecuteTransaction({ transaction: tx });
 
-// Alpha Vault withdraw
+// Alpha Vault withdraw (client-built)
 const tx = new Transaction();
 await processWithdrawRequestsManualTxb(tx, amount, address, context);
 signAndExecuteTransaction({ transaction: tx });
