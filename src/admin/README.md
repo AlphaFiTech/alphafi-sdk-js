@@ -24,16 +24,16 @@ The migration goal was:
 
 ## File overview
 
-| File | What it contains |
-|---|---|
-| `tickPrice.ts` | Tick ↔ price math for LP pool CLMM positions |
-| `patrol.ts` | Pool patrol — detect out-of-range LP positions |
-| `rebalanceCap.ts` | Look up the `RebalanceCap` object for a wallet |
-| `alphaVault.ts` | Alpha Ember vault admin operations |
-| `slushAdmin.ts` | Slush WAL locked-loop pool admin operations |
+| File              | What it contains                                      |
+| ----------------- | ----------------------------------------------------- |
+| `tickPrice.ts`    | Tick ↔ price math for LP pool CLMM positions          |
+| `patrol.ts`       | Pool patrol — detect out-of-range LP positions        |
+| `rebalanceCap.ts` | Look up the `RebalanceCap` object for a wallet        |
+| `alphaVault.ts`   | Alpha Ember vault admin operations                    |
+| `slushAdmin.ts`   | Slush WAL locked-loop pool admin operations           |
 | `autocompound.ts` | Autocompound transaction builder (all strategy types) |
-| `rebalance.ts` | Manual rebalance transaction builder (LP + LYF) |
-| `index.ts` | Barrel — re-exports everything above |
+| `rebalance.ts`    | Manual rebalance transaction builder (LP + LYF)       |
+| `index.ts`        | Barrel — re-exports everything above                  |
 
 ---
 
@@ -176,19 +176,19 @@ getAutoCompoundSingleTxb(
 
 **Strategy implementations:**
 
-| Strategy type | Implementation |
-|---|---|
-| `AlphaVault` | No-op (returns empty transaction) |
-| `Lp` | Bluefin, Cetus, Bucket LP pools |
-| `AutobalanceLp` | Bluefin autobalance pools |
-| `FungibleLp` | Bluefin fungible LP pools |
-| `Lyf` | Leverage yield farming pools |
-| `Lending` | NAVI single-asset lending pools |
-| `Looping` | NAVI looping pools |
-| `SingleAssetLooping` | AlphaLend single-asset loops |
-| `SlushLending` | AlphaLend Slush lending pools |
-| `SlushSingleAssetLooping` | AlphaLend Slush looping pools |
-| `FungibleLending` | No-op (returns empty transaction) |
+| Strategy type             | Implementation                    |
+| ------------------------- | --------------------------------- |
+| `AlphaVault`              | No-op (returns empty transaction) |
+| `Lp`                      | Bluefin, Cetus, Bucket LP pools   |
+| `AutobalanceLp`           | Bluefin autobalance pools         |
+| `FungibleLp`              | Bluefin fungible LP pools         |
+| `Lyf`                     | Leverage yield farming pools      |
+| `Lending`                 | NAVI single-asset lending pools   |
+| `Looping`                 | NAVI looping pools                |
+| `SingleAssetLooping`      | AlphaLend single-asset loops      |
+| `SlushLending`            | AlphaLend Slush lending pools     |
+| `SlushSingleAssetLooping` | AlphaLend Slush looping pools     |
+| `FungibleLending`         | No-op (returns empty transaction) |
 
 **Example usage:**
 
@@ -255,19 +255,18 @@ signAndExecuteTransaction({ transaction: tx });
 
 New constants added to `src/utils/constants.ts` under the `ADMIN` block:
 
-| Constant | Description |
-|---|---|
-| `ADMIN.ALPHA_FIRST_PACKAGE_ID` | First-ever AlphaFi package (for RebalanceCap type) |
-| `ADMIN.ALPHA_SLUSH_FIRST_PACKAGE_ID` | First Slush package (for AdminCap filter) |
-| `ADMIN.ALPHA_SLUSH_LATEST_PACKAGE_ID` | Current Slush package for Move calls |
-| `ADMIN.ALPHA_SLUSH_VERSION` | Slush version object ID |
-| `ADMIN.ALPHA_SLUSH_WAL_LOOP_POOL_ID` | WAL locked-loop pool object ID |
-| `ADMIN.BLUEFIN_SUI_USDC_175_POOL` | Bluefin SUI-USDC 1.75% pool (autocompound swap route) |
-| `ADMIN.BLUEFIN_BLUE_SUI_POOL_AUTOCOMPOUND` | Bluefin BLUE-SUI pool for autocompound |
-| `ADMIN.BLUEFIN_ALPHA_STSUI_POOL` | Bluefin ALPHA-stSUI pool |
-| `ADMIN.BLUEFIN_STSUI_SUI_ZERO_ZERO_POOL` | Bluefin stSUI-SUI 0.00% pool |
-| `ADMIN.BLUEFIN_LBTC_SUIBTC_POOL` | Bluefin LBTC-SUIBTC pool |
-| `ADMIN.BLUEFIN_SUIBTC_USDC_POOL` | Bluefin SUIBTC-USDC pool |
+| Constant                              | Description                                        |
+| ------------------------------------- | -------------------------------------------------- |
+| `ADMIN.ALPHA_FIRST_PACKAGE_ID`        | First-ever AlphaFi package (for RebalanceCap type) |
+| `ADMIN.ALPHA_SLUSH_FIRST_PACKAGE_ID`  | First Slush package (for AdminCap filter)          |
+| `ADMIN.ALPHA_SLUSH_LATEST_PACKAGE_ID` | Current Slush package for Move calls               |
+| `ADMIN.ALPHA_SLUSH_WAL_LOOP_POOL_ID`  | WAL locked-loop pool object ID                     |
+
+> **Note:** Bluefin/Cetus swap pool IDs are no longer hardcoded under `ADMIN`.
+> They are resolved from the pool registry via
+> `StrategyContext.getPoolIdBySymbolsAndProtocol(symbolA, symbolB, protocol)`
+> (see `src/utils/poolMap.ts`), so autocompound/rebalance paths always use the
+> registry's canonical pool for a given pair.
 
 ---
 
