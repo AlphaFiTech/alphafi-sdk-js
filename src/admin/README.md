@@ -2,8 +2,8 @@
 
 This module contains all administration functions previously spread across
 `alphafi-sdk/src/adminFunctions.ts` and `sui-alpha-sdk/src/crons/`. It is
-exposed as a subpath export (`@alphafi/alphafi-sdk/admin`) so consumer code
-never needs to import from the legacy packages.
+re-exported from the package's main entry (`import { ... } from '@alphafi/alphafi-sdk'`)
+so consumer code never needs to import from the legacy packages.
 
 ---
 

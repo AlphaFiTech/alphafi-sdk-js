@@ -25,10 +25,8 @@ export async function getManualRebalanceUsingTicksTxb(
   swap_using_bluefin?: boolean,
   rebalance_using_base_pool?: boolean,
 ): Promise<Transaction | undefined> {
+  // Throws when `address` owns no RebalanceCap.
   const rebalanceCap = await getRebalanceCap(address, context);
-  if (!rebalanceCap) {
-    throw new Error('No rebalance cap found for address');
-  }
 
   const lower = Number.parseInt(lowerTick, 10);
   const upper = Number.parseInt(upperTick, 10);
