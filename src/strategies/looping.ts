@@ -23,6 +23,7 @@ import {
 } from '../utils/constants.js';
 import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
 import { SuiPriceServiceConnection, SuiPythClient } from '@pythnetwork/pyth-sui-js';
+import { getUserAvailableLendingRewards } from '@naviprotocol/lending';
 
 /**
  * Looping Strategy for leveraged positions with automated compounding
@@ -289,34 +290,20 @@ export class LoopingStrategy extends BaseStrategy<
 
   private async getAvailableRewards(address: string): Promise<Record<string, any[]>> {
     try {
-      // Call the integration API
-      const apiUrl = this.context.apiBaseUrl;
-      const response = await fetch(
-        `${apiUrl}/navi-params/rewards?address=${encodeURIComponent(address)}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.error ||
-            errorData.message ||
-            `Failed to fetch rewards: ${response.status} ${response.statusText}`,
-        );
+      const rewards = await getUserAvailableLendingRewards(address, {
+        client: this.context.blockchain.suiGrpcClient,
+      });
+      // Group by asset coin type (same shape the integration API returned).
+      const rewardsByAsset: Record<string, any[]> = {};
+      for (const reward of rewards) {
+        const assetKey = reward.assetCoinType;
+        if (!assetKey) continue;
+        if (!rewardsByAsset[assetKey]) rewardsByAsset[assetKey] = [];
+        rewardsByAsset[assetKey].push(reward);
       }
-
-      const data = await response.json();
-
-      // The API returns { address, rewards, timestamp }
-      // We just need the rewards object
-      return data.rewards || {};
+      return rewardsByAsset;
     } catch (error: any) {
-      console.error('Error fetching Navi rewards from API:', error);
+      console.error('Error fetching Navi rewards:', error);
       throw new Error(`Failed to fetch Navi rewards: ${error.message}`);
     }
   }
