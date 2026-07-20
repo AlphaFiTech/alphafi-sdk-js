@@ -9,7 +9,6 @@ import { Blockchain } from './blockchain.js';
 import { CoinInfoProvider } from './coinInfoProvider.js';
 import { PoolLabel, StrategyType } from '../strategies/strategy.js';
 import { Decimal } from 'decimal.js';
-import { SuiObjectData } from '@mysten/sui/client/index.js';
 import { AlphalendClient, Network } from '@alphafi/alphalend-sdk';
 import {
   AlphaFiReceipt,
@@ -25,6 +24,7 @@ import {
   ALPHAFI_TRANSFER_REQUEST_KEY_TYPE,
   CACHE_TTL,
   DISTRIBUTOR_OBJECT_ID,
+  SLUSH_LOOP_POSITION_CAP_TYPE,
   SLUSH_POSITION_CAP_TYPE,
 } from '../utils/constants.js';
 import { getCanonicalPairKey, POOL_REGISTRY, ProtocolPoolIds } from '../utils/poolMap.js';
@@ -275,6 +275,22 @@ export class StrategyContext {
         asset: d.asset,
         events: {
           autocompoundEventType: d.events?.xtoken_ratio_change_event_type,
+        },
+        isActive: d.is_active,
+        poolName: d.pool_name,
+        isNative: d.is_native,
+      } as PoolLabel;
+    } else if (strategyType === 'SlushLooping') {
+      return {
+        poolId: d.pool_id,
+        packageId: d.package_id,
+        packageNumber: d.package_number,
+        versionId: d.version_object_id,
+        strategyType: strategyType,
+        parentProtocol: d.parent_protocol,
+        asset: d.asset,
+        events: {
+          autocompoundEventType: d.events?.autocompound_event_type,
         },
         isActive: d.is_active,
         poolName: d.pool_name,
@@ -714,7 +730,13 @@ export class StrategyContext {
    */
   async getAllSlushPositions(userAddress: string): Promise<Map<string, any[]>> {
     return this.slushPositionsCache.getOrFetch(userAddress, async () => {
-      const caps = await this.getSlushPositionCaps(userAddress);
+      // Slush positions can be held under two distinct position-cap types: the
+      // standard slush cap and the separate SlushLooping cap. Fetch both.
+      const [defaultCaps, loopCaps] = await Promise.all([
+        this.getSlushPositionCaps(userAddress),
+        this.getSlushPositionCaps(userAddress, SLUSH_LOOP_POSITION_CAP_TYPE),
+      ]);
+      const caps = [...defaultCaps, ...loopCaps];
       if (!caps.length) {
         return new Map();
       }
@@ -758,9 +780,14 @@ export class StrategyContext {
   /**
    * Fetch and cache slush position caps for a user.
    */
-  async getSlushPositionCaps(userAddress: string): Promise<SlushPositionCap[]> {
-    return this.slushPositionCapsCache.getOrFetch(userAddress, async () => {
-      const caps = await this.blockchain.getReceipt(userAddress, SLUSH_POSITION_CAP_TYPE);
+  async getSlushPositionCaps(
+    userAddress: string,
+    capType: string = SLUSH_POSITION_CAP_TYPE,
+  ): Promise<SlushPositionCap[]> {
+    const cacheKey =
+      capType === SLUSH_POSITION_CAP_TYPE ? userAddress : `${userAddress}:${capType}`;
+    return this.slushPositionCapsCache.getOrFetch(cacheKey, async () => {
+      const caps = await this.blockchain.getReceipt(userAddress, capType);
       if (!caps || caps.length === 0) {
         return [];
       }
@@ -888,18 +915,17 @@ export class StrategyContext {
   }
 
   /**
-   * Parses the raw Field<TransferRequestKey, TransferRequest> wrapper returned by
-   * `getDynamicFields` into a typed `TransferRequest`. The actual data lives at
-   * `content.fields.value.fields`, one level deeper than the field wrapper itself.
+   * Parses the value of the `Field<TransferRequestKey, TransferRequest>` dynamic
+   * field (returned by `getDynamicFieldByKeyType`) into a typed `TransferRequest`.
+   * The GraphQL value JSON already carries the unwrapped `TransferRequest` struct
+   * fields, so no `Field<K, V>` wrapper drilling is needed.
    */
-  private parseTransferRequestField(raw: SuiObjectData | null): TransferRequest | null {
-    if (!raw || raw.content?.dataType !== 'moveObject') return null;
+  private parseTransferRequestField(
+    raw: { fieldAddress: string; valueJson: Record<string, unknown> } | null,
+  ): TransferRequest | null {
+    if (!raw) return null;
 
-    // Drill through the Field<Key,Value> wrapper to reach TransferRequest fields.
-    const fieldWrapperFields = raw.content.fields as Record<string, unknown>;
-    const transferRequestFields = (fieldWrapperFields.value as Record<string, unknown> | undefined)
-      ?.fields as Record<string, unknown> | undefined;
-    const transferRequest = transferRequestFields ?? fieldWrapperFields;
+    const transferRequest = raw.valueJson;
 
     const objectIdField = transferRequest.id;
     const id =
@@ -907,7 +933,7 @@ export class StrategyContext {
         ? objectIdField
         : typeof (objectIdField as Record<string, unknown> | undefined)?.id === 'string'
           ? ((objectIdField as Record<string, unknown>).id as string)
-          : (raw.objectId ?? '');
+          : raw.fieldAddress;
     const receiver = typeof transferRequest.receiver === 'string' ? transferRequest.receiver : '';
     const receiptId =
       typeof transferRequest.receipt_id === 'string' ? transferRequest.receipt_id : '';
@@ -1019,6 +1045,7 @@ export class StrategyContext {
    */
   clearUserCaches(userAddress: string): void {
     this.slushPositionCapsCache.delete(userAddress);
+    this.slushPositionCapsCache.delete(`${userAddress}:${SLUSH_LOOP_POSITION_CAP_TYPE}`);
     this.alphaFiReceiptsCache.delete(userAddress);
     this.slushPositionsCache.delete(userAddress);
     this.alphaFiPositionsCache.delete(userAddress);

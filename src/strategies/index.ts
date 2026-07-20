@@ -14,6 +14,7 @@ export * from './fungibleLp.js';
 export * from './lending.js';
 export * from './slushLending.js';
 export * from './slushSingleAssetLooping.js';
+export * from './slushLooping.js';
 export * from './looping.js';
 export * from './singleAssetLooping.js';
 export * from './lyf.js';
@@ -50,3 +51,4 @@ export type {
 } from './zapDeposit.js';
 export type { FungibleLendingPoolLabel } from './fungibleLending.js';
 export type { SlushSingleAssetLoopingPoolLabel } from './slushSingleAssetLooping.js';
+export type { SlushLoopingPoolLabel } from './slushLooping.js';

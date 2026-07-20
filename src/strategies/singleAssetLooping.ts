@@ -393,7 +393,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
       }
     }
 
-    if (this.poolLabel.asset.name in ['tBTC', 'USDSUI', 'XAUm', 'WBTC']) {
+    if (['tBTC', 'USDSUI', 'XAUm', 'WBTC'].includes(this.poolLabel.asset.name)) {
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_bluefin`,
         typeArguments: [this.poolLabel.asset.type, suiCoin.coinType, usdcCoin.coinType],
@@ -408,44 +408,26 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
-      if (this.poolLabel.asset.name in ['XAUm']) {
-        tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_mmt`,
-          typeArguments: [xaumCoin.coinType, xaumCoin.coinType, usdcCoin.coinType],
-          arguments: [
-            tx.object(VERSIONS.ALPHALEND_VERSION),
-            tx.object(this.poolLabel.investorId),
-            tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-            tx.object(await this.context.getPoolIdBySymbolsAndProtocol('XAUm', 'USDC', 'mmt')),
-            tx.object(VERSIONS.MMT),
-            tx.pure.bool(false),
-            tx.pure.bool(true),
-            tx.pure.u64(10),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-      } else {
-        tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_bluefin`,
-          typeArguments: [this.poolLabel.asset.type, this.poolLabel.asset.type, usdcCoin.coinType],
-          arguments: [
-            tx.object(VERSIONS.ALPHALEND_VERSION),
-            tx.object(this.poolLabel.investorId),
-            tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-            tx.object(
-              await this.context.getPoolIdBySymbolsAndProtocol(
-                this.poolLabel.asset.name,
-                'USDC',
-                'bluefin',
-              ),
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_bluefin`,
+        typeArguments: [this.poolLabel.asset.type, this.poolLabel.asset.type, usdcCoin.coinType],
+        arguments: [
+          tx.object(VERSIONS.ALPHALEND_VERSION),
+          tx.object(this.poolLabel.investorId),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(
+            await this.context.getPoolIdBySymbolsAndProtocol(
+              this.poolLabel.asset.name,
+              'USDC',
+              'bluefin',
             ),
-            tx.object(GLOBAL_CONFIGS.BLUEFIN),
-            tx.pure.bool(false),
-            tx.pure.bool(true),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-      }
+          ),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.pure.bool(false),
+          tx.pure.bool(true),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
     } else if (this.poolLabel.asset.name === 'wBTC') {
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_bluefin`,
@@ -461,7 +443,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
-    } else if (this.poolLabel.asset.name in ['DEEP', 'WAL']) {
+    } else if (['DEEP', 'WAL'].includes(this.poolLabel.asset.name)) {
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_alphalend_single_loop_pool::collect_reward_and_swap_bluefin`,
         typeArguments: [this.poolLabel.asset.type, this.poolLabel.asset.type, suiCoin.coinType],
@@ -489,7 +471,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
     const alphalendClient = this.context.alphalendClient;
 
     // get Coin Object
-    const depositCoin = await this.context.blockchain.getCoinObject(
+    const depositCoin = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.asset.type,
       options.address,
@@ -560,7 +542,12 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
         tx.object(CLOCK_PACKAGE_ID),
       ],
     });
-    tx.transferObjects([coin], options.address);
+    this.context.blockchain.sendCoinToAddressBalance(
+      tx,
+      this.poolLabel.asset.type,
+      options.address,
+      coin,
+    );
   }
 
   async claimRewards(tx: Transaction, alphaReceipt: TransactionResult) {

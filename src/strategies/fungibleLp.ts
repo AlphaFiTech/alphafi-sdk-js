@@ -7,7 +7,7 @@ import { AlphaMiningData, BaseStrategy, ProtocolType, StringMap } from './strate
 import { PoolData, DoubleTvl, PoolBalance } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import BN from 'bn.js';
-import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/cetus-sui-clmm-sdk';
+import { ClmmPoolUtil, LiquidityInput, TickMath } from '@cetusprotocol/common-sdk';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import {
@@ -190,8 +190,8 @@ export class FungibleLpStrategy extends BaseStrategy<
       false,
     );
 
-    const amountA = new Decimal(amounts.coinA.toString()).div(scalingA);
-    const amountB = new Decimal(amounts.coinB.toString()).div(scalingB);
+    const amountA = new Decimal(amounts.coin_amount_a.toString()).div(scalingA);
+    const amountB = new Decimal(amounts.coin_amount_b.toString()).div(scalingB);
     return { amountA, amountB };
   }
 
@@ -315,7 +315,7 @@ export class FungibleLpStrategy extends BaseStrategy<
     }
     const currentSqrtPriceBN = new BN(this.parentPoolObject.currentSqrtPrice);
 
-    return ClmmPoolUtil.estLiquidityAndcoinAmountFromOneAmounts(
+    return ClmmPoolUtil.estLiquidityAndCoinAmountFromOneAmounts(
       lowerTick,
       upperTick,
       new BN(`${Math.floor(parseFloat(amount))}`),
@@ -328,11 +328,11 @@ export class FungibleLpStrategy extends BaseStrategy<
 
   getOtherAmount(amount: string, isAmountA: boolean): [string, string] {
     const liquidity = this.getLiquidity(amount, isAmountA);
-    return [liquidity.coinAmountA.toString(), liquidity.coinAmountB.toString()];
+    return [liquidity.coin_amount_a.toString(), liquidity.coin_amount_b.toString()];
   }
 
   private coinAmountToXToken(amount: string, isAmountA: boolean): string {
-    const liquidity = new Decimal(this.getLiquidity(amount, isAmountA).liquidityAmount.toString());
+    const liquidity = new Decimal(this.getLiquidity(amount, isAmountA).liquidity_amount.toString());
     const exchangeRate = this.exchangeRate();
     return liquidity.div(exchangeRate).floor().toString();
   }
@@ -420,14 +420,14 @@ export class FungibleLpStrategy extends BaseStrategy<
     const [amountA, amountB] = this.getOtherAmount(options.amount.toString(), options.isAmountA);
 
     // get Coin Objects
-    const depositCoinA = await this.context.blockchain.getCoinObject(
+    const depositCoinA = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.assetA.type,
       options.address,
       BigInt(amountA),
     );
 
-    const depositCoinB = await this.context.blockchain.getCoinObject(
+    const depositCoinB = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.assetB.type,
       options.address,
@@ -475,7 +475,7 @@ export class FungibleLpStrategy extends BaseStrategy<
       xTokenAmount = this.coinAmountToXToken(options.amount.toString(), options.isAmountA);
     }
 
-    const withdrawFungibleCoin = await this.context.blockchain.getCoinObject(
+    const withdrawFungibleCoin = this.context.blockchain.getCoinObject(
       tx,
       this.poolLabel.fungibleCoin.type,
       options.address,

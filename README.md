@@ -21,6 +21,17 @@ LP farming, leveraged yield farming, and more.
 npm install @alphafi/alphafi-sdk
 ```
 
+## v2.0.0 — Mysten Sui v2 / ESM-only (breaking)
+
+- **`@mysten/sui` v2 peer dependency** (`^2.17.0`). Your app must provide it.
+  Internally `SuiClient`/`getFullnodeUrl` were replaced with v2's
+  `SuiJsonRpcClient`/`getJsonRpcFullnodeUrl` (from `@mysten/sui/jsonRpc`), and the
+  v2 client/GraphQL constructors now take a `network` field.
+- **ESM-only.** The CommonJS build (`dist/cjs`) and the `require` export were
+  dropped — `require('@alphafi/alphafi-sdk')` no longer works. Import it from an
+  ESM context or via a bundler.
+- **Node ≥ 22.14** (required by `@mysten/sui` v2 and `@pythnetwork/pyth-sui-js`).
+
 ## Quick Start
 
 ```typescript
