@@ -533,7 +533,7 @@ export class SingleAssetLoopingStrategy extends BaseStrategy<
         tx.object(VERSIONS.ALPHA_VERSIONS[1]),
         tx.object(this.receiptObjects[0].id),
         noneAlphaReceipt,
-        tx.object('0x6ee8f60226edf48772f81e5986994745dae249c2605a5b12de6602ef1b05b0c1'),
+        tx.object(POOLS.ALPHA_LEGACY),
         tx.object(this.poolLabel.poolId),
         tx.pure.u64(xTokens),
         tx.object(this.poolLabel.investorId),

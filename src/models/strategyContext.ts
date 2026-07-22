@@ -95,6 +95,19 @@ export class StrategyContext {
   }
 
   /**
+   * Get a pool ID from a pool name.
+   * Searches the full labels map (cached) for the first entry whose poolName matches.
+   * Returns undefined when no pool with that name exists.
+   */
+  async getPoolIdByPoolName(poolName: string): Promise<string | undefined> {
+    const labels = await this.getPoolLabels();
+    for (const [poolId, label] of labels) {
+      if (label.poolName === poolName) return poolId;
+    }
+    return undefined;
+  }
+
+  /**
    * Get a specific pool label by ID.
    * Uses per-pool cache and fetches only the requested pool if not cached.
    */
@@ -193,7 +206,6 @@ export class StrategyContext {
         poolLabels.set(label.poolId, label);
       }
     }
-
     return poolLabels;
   }
 
@@ -618,11 +630,12 @@ export class StrategyContext {
   // ============================================================
 
   /**
-   * Get coin decimals (defaults to 9 if unknown).
+   * Get coin decimals from the AlphaLend API. Throws if the coin type is unknown.
    */
   async getCoinDecimals(coinType: string): Promise<number> {
     const info = await this.coinInfoProvider.getCoinByType(coinType);
-    return info?.decimals ?? 9;
+    if (!info) throw new Error(`Coin decimals not found for type: ${coinType}`);
+    return info.decimals;
   }
 
   /**

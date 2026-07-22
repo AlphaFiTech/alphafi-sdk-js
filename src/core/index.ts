@@ -12,6 +12,7 @@ import { CetusSwap } from '../models/swap.js';
 import type { AlphaFiReceipt, PoolBalance, PoolData, UserPortfolioData } from '../models/types.js';
 import {
   AlphaFiSDKConfig,
+  AutocompoundOptions,
   CancelTransferRequestOptions,
   CancelWithdrawSlushOptions,
   CetusSwapOptions,
@@ -33,6 +34,7 @@ import {
   buildCreateTransferRequestTx,
   buildFulfillTransferRequestTx,
 } from '../services/transferReceipt.js';
+import { AUTOCOMPOUND_GAS_BUDGET, fetchServerBuiltTx } from '../services/transactionsApi.js';
 import { RouterDataV3 } from '@cetusprotocol/aggregator-sdk';
 import { Strategy, StrategyType } from '../strategies/strategy.js';
 import { LEGACY_ALPHA_POOL_RECEIPT, PACKAGE_IDS, VERSIONS } from '../utils/constants.js';
@@ -534,5 +536,20 @@ export class AlphaFiSDK {
     const zapDeposit = new ZapDepositStrategy(lpStrategy, this.strategyContext, cetusSwap);
     const tx = options.tx ?? new Transaction();
     return await zapDeposit.zapDepositTxb(tx, options);
+  }
+  /**
+   * Build an autocompound transaction for a pool.
+   *
+   * The transaction is built server-side by alphafi-api (the Rust SDK owns the
+   * per-pool move-call matrix). The returned Transaction has no sender set —
+   * the wallet supplies it and resolves gas coins at signing.
+   */
+  async autocompound(options: AutocompoundOptions): Promise<Transaction> {
+    return fetchServerBuiltTx(
+      this.strategyContext.apiBaseUrl,
+      'autocompound',
+      { poolId: options.poolId },
+      AUTOCOMPOUND_GAS_BUDGET,
+    );
   }
 }
