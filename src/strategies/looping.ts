@@ -491,6 +491,50 @@ export class LoopingStrategy extends BaseStrategy<
     }
   }
 
+  private async collectAlphalendSuiStsuiRewards(tx: Transaction) {
+    const [alphaCoin, blueCoin] = await this.context.getCoinsBySymbols(['ALPHA', 'BLUE']);
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_one_swap`,
+      typeArguments: [alphaCoin.coinType],
+      arguments: [
+        tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+        tx.object(this.poolLabel.investorId),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('ALPHA', 'STSUI', 'bluefin')),
+        tx.object(GLOBAL_CONFIGS.BLUEFIN),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_no_swap_v2`,
+      arguments: [
+        tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+        tx.object(this.poolLabel.investorId),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+    tx.moveCall({
+      target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_two_swaps_v2`,
+      typeArguments: [blueCoin.coinType],
+      arguments: [
+        tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+        tx.object(this.poolLabel.investorId),
+        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+        tx.object(STSUI.LST_INFO),
+        tx.object(SUI_SYSTEM_STATE),
+        tx.object(await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'cetus')),
+        // `collect_v3_rewards_with_two_swaps_v2` is the Cetus variant, so the Cetus
+        // BLUE/SUI pool must be paired with the Cetus global config. The withdraw and
+        // updatePool paths already used GLOBAL_CONFIGS.CETUS here; the old inline deposit
+        // copy incorrectly used GLOBAL_CONFIGS.BLUEFIN with this Cetus pool (which would
+        // abort on-chain). Unifying on CETUS in this shared helper fixes that deposit bug.
+        tx.object(GLOBAL_CONFIGS.CETUS),
+        tx.object(CLOCK_PACKAGE_ID),
+      ],
+    });
+  }
+
   private async collectAndSwapRewards(tx: Transaction) {
     const rewardCoinSet = new Set<string>();
 
@@ -600,49 +644,10 @@ export class LoopingStrategy extends BaseStrategy<
     );
 
     if (this.poolLabel.parentProtocol === 'Alphalend') {
-      const [alphaCoin, blueCoin, stsuiCoin, suiCoin] = await this.context.getCoinsBySymbols([
-        'ALPHA',
-        'BLUE',
-        'stSUI',
-        'SUI',
-      ]);
+      const [stsuiCoin, suiCoin] = await this.context.getCoinsBySymbols(['stSUI', 'SUI']);
       const alphalendClient = this.context.alphalendClient;
       await alphalendClient.updatePrices(tx, [stsuiCoin.coinType, suiCoin.coinType]);
-      tx.moveCall({
-        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_one_swap`,
-        typeArguments: [alphaCoin.coinType],
-        arguments: [
-          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
-          tx.object(this.poolLabel.investorId),
-          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('ALPHA', 'STSUI', 'bluefin')),
-          tx.object(GLOBAL_CONFIGS.BLUEFIN),
-          tx.object(CLOCK_PACKAGE_ID),
-        ],
-      });
-      tx.moveCall({
-        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_no_swap_v2`,
-        arguments: [
-          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
-          tx.object(this.poolLabel.investorId),
-          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-          tx.object(CLOCK_PACKAGE_ID),
-        ],
-      });
-      tx.moveCall({
-        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_two_swaps_v2`,
-        typeArguments: [blueCoin.coinType],
-        arguments: [
-          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
-          tx.object(this.poolLabel.investorId),
-          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-          tx.object(STSUI.LST_INFO),
-          tx.object(SUI_SYSTEM_STATE),
-          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'cetus')),
-          tx.object(GLOBAL_CONFIGS.CETUS),
-          tx.object(CLOCK_PACKAGE_ID),
-        ],
-      });
+      await this.collectAlphalendSuiStsuiRewards(tx);
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::user_deposit_v3`,
         arguments: [
@@ -860,50 +865,10 @@ export class LoopingStrategy extends BaseStrategy<
     });
 
     if (this.poolLabel.parentProtocol === 'Alphalend') {
-      const [stsuiCoin, suiCoin, alphaCoin, blueCoin] = await this.context.getCoinsBySymbols([
-        'stSUI',
-        'SUI',
-        'ALPHA',
-        'BLUE',
-      ]);
+      const [stsuiCoin, suiCoin] = await this.context.getCoinsBySymbols(['stSUI', 'SUI']);
       const alphalendClient = this.context.alphalendClient;
       await alphalendClient.updatePrices(tx, [stsuiCoin.coinType, suiCoin.coinType]);
-
-      tx.moveCall({
-        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_one_swap`,
-        typeArguments: [alphaCoin.coinType],
-        arguments: [
-          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
-          tx.object(this.poolLabel.investorId),
-          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('ALPHA', 'STSUI', 'bluefin')),
-          tx.object(GLOBAL_CONFIGS.BLUEFIN),
-          tx.object(CLOCK_PACKAGE_ID),
-        ],
-      });
-      tx.moveCall({
-        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_no_swap_v2`,
-        arguments: [
-          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
-          tx.object(this.poolLabel.investorId),
-          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-          tx.object(CLOCK_PACKAGE_ID),
-        ],
-      });
-      tx.moveCall({
-        target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::collect_v3_rewards_with_two_swaps_v2`,
-        typeArguments: [blueCoin.coinType],
-        arguments: [
-          tx.object(VERSIONS.ALPHA_VERSIONS[5]),
-          tx.object(this.poolLabel.investorId),
-          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-          tx.object(STSUI.LST_INFO),
-          tx.object(SUI_SYSTEM_STATE),
-          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('BLUE', 'SUI', 'cetus')),
-          tx.object(GLOBAL_CONFIGS.CETUS),
-          tx.object(CLOCK_PACKAGE_ID),
-        ],
-      });
+      await this.collectAlphalendSuiStsuiRewards(tx);
       const [stsui_coin] = tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_navi_sui_stsui_pool::user_withdraw_v3`,
         arguments: [
