@@ -60,7 +60,7 @@ export async function dryRunTransactionBlock(txb: Transaction, add?: string) {
       })
       .then((res) => {
         // console.log(JSON.stringify(res, null, 2));
-        console.log(res.effects.status, res.balanceChanges);
+        console.log(res.effects.status, res.balanceChanges, res.events.length);
       })
       .catch((error) => {
         console.error(error);

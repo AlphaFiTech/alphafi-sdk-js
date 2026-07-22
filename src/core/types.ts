@@ -216,3 +216,8 @@ export interface FulfillTransferRequestOptions {
 
 // Re-export domain types for external consumers
 export type { AlphaFiReceipt, TransferRequest } from '../models/types.js';
+
+export interface AutocompoundOptions {
+  /** Unique identifier of the target pool */
+  poolId: string;
+}
