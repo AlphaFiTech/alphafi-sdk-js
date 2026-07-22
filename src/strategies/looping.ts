@@ -8,6 +8,7 @@ import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
+import { normalizeStructTag } from '@mysten/sui/utils';
 import {
   ALPHALEND_LENDING_PROTOCOL_ID,
   CLOCK_PACKAGE_ID,
@@ -545,14 +546,12 @@ export class LoopingStrategy extends BaseStrategy<
       await this.collectAndSwapRewardsTxb(
         tx,
         rewardCoinSet,
-        claimableRewards[this.poolLabel.supplyAsset.type],
+        claimableRewards[normalizeStructTag(this.poolLabel.supplyAsset.type)],
       );
       await this.collectAndSwapRewardsTxb(
         tx,
         rewardCoinSet,
-        claimableRewards[
-          '0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'
-        ],
+        claimableRewards[normalizeStructTag('0x2::sui::SUI')],
       );
     } else if (this.poolLabel.supplyAsset.name === 'HASUI') {
       const claimableRewards = await this.getAvailableRewards(
@@ -561,28 +560,24 @@ export class LoopingStrategy extends BaseStrategy<
       await this.collectAndSwapRewardsTxb(
         tx,
         rewardCoinSet,
-        claimableRewards[this.poolLabel.supplyAsset.type],
+        claimableRewards[normalizeStructTag(this.poolLabel.supplyAsset.type)],
       );
       await this.collectAndSwapRewardsTxb(
         tx,
         rewardCoinSet,
-        claimableRewards[
-          '0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'
-        ],
+        claimableRewards[normalizeStructTag('0x2::sui::SUI')],
       );
     } else if (this.poolLabel.supplyAsset.name === 'stSUI') {
       const claimableRewards = await this.getAvailableRewards('');
       await this.collectAndSwapRewardsTxb(
         tx,
         rewardCoinSet,
-        claimableRewards[this.poolLabel.supplyAsset.type],
+        claimableRewards[normalizeStructTag(this.poolLabel.supplyAsset.type)],
       );
       await this.collectAndSwapRewardsTxb(
         tx,
         rewardCoinSet,
-        claimableRewards[
-          '0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'
-        ],
+        claimableRewards[normalizeStructTag('0x2::sui::SUI')],
       );
     } else if (this.poolLabel.supplyAsset.name === 'USDC') {
       const claimableRewards = await this.getAvailableRewards(
@@ -591,12 +586,12 @@ export class LoopingStrategy extends BaseStrategy<
       await this.collectAndSwapRewardsTxb(
         tx,
         rewardCoinSet,
-        claimableRewards[this.poolLabel.supplyAsset.type],
+        claimableRewards[normalizeStructTag(this.poolLabel.supplyAsset.type)],
       );
       await this.collectAndSwapRewardsTxb(
         tx,
         rewardCoinSet,
-        claimableRewards[this.poolLabel.borrowAsset.type],
+        claimableRewards[normalizeStructTag(this.poolLabel.borrowAsset.type)],
       );
     }
   }

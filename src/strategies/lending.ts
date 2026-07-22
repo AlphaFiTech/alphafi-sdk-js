@@ -14,6 +14,7 @@ import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
+import { normalizeStructTag } from '@mysten/sui/utils';
 import {
   BUCKET_CONFIG,
   CLOCK_PACKAGE_ID,
@@ -301,8 +302,8 @@ export class LendingStrategy extends BaseStrategy<
       await this.context.getCoinsBySymbols(['NAVX', 'SUI', 'vSUI', 'DEEP', 'USDC', 'wUSDC']);
 
     if (claimableRewards) {
-      for (const reward of claimableRewards[this.poolLabel.asset.type]
-        ? claimableRewards[this.poolLabel.asset.type]
+      for (const reward of claimableRewards[normalizeStructTag(this.poolLabel.asset.type)]
+        ? claimableRewards[normalizeStructTag(this.poolLabel.asset.type)]
         : []) {
         if (this.poolLabel.asset.name === 'wBTC') {
           if (reward.rewardCoinType === navxCoin.coinType) {
