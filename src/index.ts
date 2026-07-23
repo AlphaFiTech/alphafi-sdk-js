@@ -13,3 +13,6 @@ export { StrategyContext } from './models/strategyContext.js';
 
 // Export all admin utilities directly
 export * from './admin/index.js';
+
+// Cetus hack compensation claims (standalone, legacy incident scope)
+export * from './services/cetusCompensation.js';
