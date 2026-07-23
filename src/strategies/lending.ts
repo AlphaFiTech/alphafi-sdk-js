@@ -280,8 +280,10 @@ export class LendingStrategy extends BaseStrategy<
       // Group by asset coin type (same shape the integration API returned).
       const rewardsByAsset: Record<string, any[]> = {};
       for (const reward of rewards) {
-        const assetKey = reward.assetCoinType;
-        if (!assetKey) continue;
+        if (!reward.assetCoinType) continue;
+        // Normalize the group key so it matches the normalizeStructTag(...) lookups below;
+        // otherwise a NAVI format change silently drops rewards.
+        const assetKey = normalizeStructTag(reward.assetCoinType);
         if (!rewardsByAsset[assetKey]) rewardsByAsset[assetKey] = [];
         rewardsByAsset[assetKey].push(reward);
       }
