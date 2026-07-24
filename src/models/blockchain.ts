@@ -4,11 +4,14 @@
  * Reads and transaction simulation go through GraphQL (`gqlClient`), using
  * `gqlClient.core.simulateTransaction` for simulation (server-side build + gas
  * resolution). A JSON-RPC client (`pythSuiClient`) is retained only for the
- * Pyth `SuiPythClient` integration, which still requires it.
+ * Pyth `SuiPythClient` integration, which still requires it. A gRPC (v2 Core)
+ * client (`suiGrpcClient`) is used where a Core-capable client is required
+ * (e.g. the Navi reward `devInspect`).
  */
 
 import { SuiJsonRpcClient } from '@mysten/sui/jsonRpc';
 import { SuiGraphQLClient } from '@mysten/sui/graphql';
+import { SuiGrpcClient } from '@mysten/sui/grpc';
 import { graphql } from '@mysten/sui/graphql/schema';
 import { Transaction, TransactionObjectArgument } from '@mysten/sui/transactions';
 import { Network } from '@alphafi/alphalend-sdk';
@@ -17,6 +20,7 @@ export type BlockchainOptions = {
   network: Network;
   pythSuiClient?: SuiJsonRpcClient;
   graphqlUrl?: string;
+  grpcUrl?: string;
 };
 
 export class Blockchain {
@@ -25,6 +29,8 @@ export class Blockchain {
   gqlClient: SuiGraphQLClient;
   /** Retained only for the Pyth `SuiPythClient` integration (needs JSON-RPC). */
   pythSuiClient: SuiJsonRpcClient;
+  /** gRPC (v2 Core) client for reads needing a Core-capable client (e.g. Navi reward `devInspect`). */
+  suiGrpcClient: SuiGrpcClient;
 
   constructor(options: BlockchainOptions) {
     this.network = options.network;
@@ -45,6 +51,14 @@ export class Blockchain {
     this.gqlClient = new SuiGraphQLClient({
       url: this.graphqlUrl,
       network: options.network === 'testnet' ? 'testnet' : 'mainnet',
+    });
+    this.suiGrpcClient = new SuiGrpcClient({
+      network: options.network === 'testnet' ? 'testnet' : 'mainnet',
+      baseUrl:
+        options.grpcUrl ??
+        (options.network === 'testnet'
+          ? 'https://fullnode.testnet.sui.io'
+          : 'https://fullnode.mainnet.sui.io'),
     });
   }
 

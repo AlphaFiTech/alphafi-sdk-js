@@ -14,6 +14,7 @@ import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
+import { normalizeStructTag } from '@mysten/sui/utils';
 import {
   BUCKET_CONFIG,
   CLOCK_PACKAGE_ID,
@@ -27,6 +28,7 @@ import {
   WORMHOLE_STATE_ID,
 } from '../utils/constants.js';
 import { SuiPriceServiceConnection, SuiPythClient } from '@pythnetwork/pyth-sui-js';
+import { getUserAvailableLendingRewards } from '@naviprotocol/lending';
 
 /**
  * Lending Strategy for single-asset pools with lending protocol integration
@@ -272,34 +274,22 @@ export class LendingStrategy extends BaseStrategy<
 
   private async getAvailableRewards(address: string): Promise<Record<string, any[]>> {
     try {
-      // Call the integration API
-      const apiUrl = this.context.apiBaseUrl;
-      const response = await fetch(
-        `${apiUrl}/navi-params/rewards?address=${encodeURIComponent(address)}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.error ||
-            errorData.message ||
-            `Failed to fetch rewards: ${response.status} ${response.statusText}`,
-        );
+      const rewards = await getUserAvailableLendingRewards(address, {
+        client: this.context.blockchain.suiGrpcClient,
+      });
+      // Group by asset coin type (same shape the integration API returned).
+      const rewardsByAsset: Record<string, any[]> = {};
+      for (const reward of rewards) {
+        if (!reward.assetCoinType) continue;
+        // Normalize the group key so it matches the normalizeStructTag(...) lookups below;
+        // otherwise a NAVI format change silently drops rewards.
+        const assetKey = normalizeStructTag(reward.assetCoinType);
+        if (!rewardsByAsset[assetKey]) rewardsByAsset[assetKey] = [];
+        rewardsByAsset[assetKey].push(reward);
       }
-
-      const data = await response.json();
-
-      // The API returns { address, rewards, timestamp }
-      // We just need the rewards object
-      return data.rewards || {};
+      return rewardsByAsset;
     } catch (error: any) {
-      console.error('Error fetching Navi rewards from API:', error);
+      console.error('Error fetching Navi rewards:', error);
       throw new Error(`Failed to fetch Navi rewards: ${error.message}`);
     }
   }
@@ -314,8 +304,8 @@ export class LendingStrategy extends BaseStrategy<
       await this.context.getCoinsBySymbols(['NAVX', 'SUI', 'vSUI', 'DEEP', 'USDC', 'wUSDC']);
 
     if (claimableRewards) {
-      for (const reward of claimableRewards[this.poolLabel.asset.type]
-        ? claimableRewards[this.poolLabel.asset.type]
+      for (const reward of claimableRewards[normalizeStructTag(this.poolLabel.asset.type)]
+        ? claimableRewards[normalizeStructTag(this.poolLabel.asset.type)]
         : []) {
         if (this.poolLabel.asset.name === 'wBTC') {
           if (reward.rewardCoinType === navxCoin.coinType) {
