@@ -45,7 +45,7 @@ export class Blockchain {
         url:
           options.network === 'testnet'
             ? 'https://fullnode.testnet.sui.io/'
-            : 'https://fullnode.mainnet.sui.io/',
+            : 'https://alphalen-suimain-ef6f.mainnet.sui.rpcpool.com/',
         network: options.network === 'testnet' ? 'testnet' : 'mainnet',
       });
     this.gqlClient = new SuiGraphQLClient({
