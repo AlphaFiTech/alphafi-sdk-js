@@ -600,14 +600,29 @@ export class LoopingStrategy extends BaseStrategy<
     }
   }
 
+  /**
+   * Overrides this tx's NAVI `lending_core` linkage by calling the latest package directly.
+   *
+   * Our pool packages reach `lending_core` through linkage tables frozen at publish time. Sui
+   * resolves one version per original package per tx, so this direct call pulls those transitive
+   * calls forward to LENDING_CORE_PACKAGE_ID. `version_verification` asserts
+   * `storage.version == constants::version()`, so a wrong pin fails loudly.
+   */
+  private overrideNaviLendingCoreLinkage(tx: Transaction) {
+    tx.moveCall({
+      target: `${NAVI_CONFIG.LENDING_CORE_PACKAGE_ID}::storage::version_verification`,
+      arguments: [tx.object(NAVI_CONFIG.NAVI_STORAGE_ID)],
+    });
+  }
+
   private async updateSingleTokenPrice(tx: Transaction, feedId: string) {
     const feed = (await getPriceFeeds()).find((f) => f.feedId === feedId);
     if (!feed) {
       throw new Error(`NAVI oracle config has no price feed for feedId ${feedId}`);
     }
-    // Post the Pyth VAA unconditionally, as the pre-migration code did.
-    // `updateOraclePricesPTB`'s own `updatePythPriceFeeds` flag gates on a stale
-    // check that misreads the on-chain price struct, so it never actually posts.
+    this.overrideNaviLendingCoreLinkage(tx);
+    // Post unconditionally: updateOraclePricesPTB's own flag gates on a stale check that
+    // misparses the on-chain price struct, so it never posts.
     await updatePythPriceFeeds(tx, [feed.pythPriceFeedId]);
     await updateOraclePricesPTB(tx, [feed]);
   }

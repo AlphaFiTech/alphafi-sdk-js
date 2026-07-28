@@ -108,6 +108,13 @@ export const DEEPBOOK_CONFIG = {
   } as Record<string, string>,
 };
 export const NAVI_CONFIG = {
+  /**
+   * Latest `lending_core` published-at (v24). Called directly so Sui pins one version for the
+   * whole tx, lifting our pool packages' frozen transitive links forward when NAVI upgrades.
+   * Not NAVI config's `data.package` — that is v22 and collides as InvalidLinkage with their
+   * own SDK helpers. Update alongside the oracle package at NAVI's upgrade.
+   */
+  LENDING_CORE_PACKAGE_ID: '0x1e4a13a0494d5facdbe8473e74127b838c2d446ecec0ce262e2eddafa77259cb',
   NAVI_AGGREGATOR: '0x1fa7566f40f93cdbafd5a029a231e06664219444debb59beec2fe3f19ca08b7e',
   ORACLE_CONFIG: '0x1afe1cb83634f581606cc73c4487ddd8cc39a944b951283af23f7d69d5589478',
   PRICE_ORACLE_ID: '0x1568865ed9a0b5ec414220e8f79b3d04c77acc82358f6e5ae4635687392ffbef',
