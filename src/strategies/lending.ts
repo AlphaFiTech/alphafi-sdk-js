@@ -22,13 +22,15 @@ import {
   GLOBAL_CONFIGS,
   NAVI_CONFIG,
   POOLS,
-  PYTH_STATE_ID,
   SUI_SYSTEM_STATE,
   VERSIONS,
-  WORMHOLE_STATE_ID,
 } from '../utils/constants.js';
-import { SuiPriceServiceConnection, SuiPythClient } from '@pythnetwork/pyth-sui-js';
-import { getUserAvailableLendingRewards } from '@naviprotocol/lending';
+import {
+  getPriceFeeds,
+  getUserAvailableLendingRewards,
+  updateOraclePricesPTB,
+  updatePythPriceFeeds,
+} from '@naviprotocol/lending';
 
 /**
  * Lending Strategy for single-asset pools with lending protocol integration
@@ -793,7 +795,6 @@ export class LendingStrategy extends BaseStrategy<
     } else if (this.poolLabel.asset.name === 'wBTC') {
       await this.updateSingleTokenPrice(
         tx,
-        NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name].pythPriceInfo,
         NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name].feedId,
       );
 
@@ -829,8 +830,6 @@ export class LendingStrategy extends BaseStrategy<
       await this.updateSingleTokenPrice(
         tx,
         NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
-          .pythPriceInfo,
-        NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
           .feedId,
       );
 
@@ -864,31 +863,16 @@ export class LendingStrategy extends BaseStrategy<
     }
   }
 
-  private async updateSingleTokenPrice(tx: Transaction, pythPriceInfo: string, feedId: string) {
-    const pythClient = new SuiPythClient(
-      this.context.blockchain.pythSuiClient,
-      PYTH_STATE_ID,
-      WORMHOLE_STATE_ID,
-    );
-    const pythConnection = new SuiPriceServiceConnection('https://hermes.pyth.network');
-
-    const priceFeedUpdateData = await pythConnection.getPriceFeedsUpdateData([pythPriceInfo]);
-    const priceInfoObjectIds = await pythClient.updatePriceFeeds(tx, priceFeedUpdateData, [
-      pythPriceInfo,
-    ]);
-
-    tx.moveCall({
-      target: `${NAVI_CONFIG.ORACLE_PRO_PACKAGE_ID}::oracle_pro::update_single_price_v2`,
-      arguments: [
-        tx.object(CLOCK_PACKAGE_ID),
-        tx.object(NAVI_CONFIG.ORACLE_CONFIG),
-        tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
-        tx.object(NAVI_CONFIG.SUPRA_ORACLE_HOLDER),
-        tx.object(priceInfoObjectIds[0]),
-        tx.object(NAVI_CONFIG.NAVI_AGGREGATOR),
-        tx.pure.address(feedId),
-      ],
-    });
+  private async updateSingleTokenPrice(tx: Transaction, feedId: string) {
+    const feed = (await getPriceFeeds()).find((f) => f.feedId === feedId);
+    if (!feed) {
+      throw new Error(`NAVI oracle config has no price feed for feedId ${feedId}`);
+    }
+    // Post the Pyth VAA unconditionally, as the pre-migration code did.
+    // `updateOraclePricesPTB`'s own `updatePythPriceFeeds` flag gates on a stale
+    // check that misreads the on-chain price struct, so it never actually posts.
+    await updatePythPriceFeeds(tx, [feed.pythPriceFeedId]);
+    await updateOraclePricesPTB(tx, [feed]);
   }
 
   async withdraw(tx: Transaction, options: WithdrawOptions) {
@@ -985,7 +969,6 @@ export class LendingStrategy extends BaseStrategy<
     } else if (this.poolLabel.asset.name === 'wBTC') {
       await this.updateSingleTokenPrice(
         tx,
-        NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name].pythPriceInfo,
         NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name].feedId,
       );
 
@@ -1022,8 +1005,6 @@ export class LendingStrategy extends BaseStrategy<
     } else {
       await this.updateSingleTokenPrice(
         tx,
-        NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
-          .pythPriceInfo,
         NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
           .feedId,
       );

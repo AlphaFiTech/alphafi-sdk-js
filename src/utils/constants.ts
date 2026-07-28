@@ -108,7 +108,6 @@ export const DEEPBOOK_CONFIG = {
   } as Record<string, string>,
 };
 export const NAVI_CONFIG = {
-  ORACLE_PRO_PACKAGE_ID: '0x203728f46eb10d19f8f8081db849c86aa8f2a19341b7fd84d7a0e74f053f6242',
   NAVI_AGGREGATOR: '0x1fa7566f40f93cdbafd5a029a231e06664219444debb59beec2fe3f19ca08b7e',
   ORACLE_CONFIG: '0x1afe1cb83634f581606cc73c4487ddd8cc39a944b951283af23f7d69d5589478',
   PRICE_ORACLE_ID: '0x1568865ed9a0b5ec414220e8f79b3d04c77acc82358f6e5ae4635687392ffbef',
@@ -189,94 +188,70 @@ export const NAVI_CONFIG = {
   PRICE_FEED: {
     SUI: {
       feedId: '0x2cab9b151ca1721624b09b421cc57d0bb26a1feb5da1f821492204b098ec35c9',
-      pythPriceInfo: '0x23d7315113f5b1d3ba7a83604c44b94d79f4fd69af77f804fc7f920a6dc65744',
     },
     wUSDC: {
       feedId: '0x70a79226dda5c080378b639d1bb540ddea64761629aa4ad7355d79266d55af61',
-      pythPriceInfo: '0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a',
     },
     USDC: {
       feedId: '0xe120611435395f144b4bcc4466a00b6b26d7a27318f96e148648852a9dd6b31c',
-      pythPriceInfo: '0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a',
     },
     USDT: {
       feedId: '0xf72d8933873bb4e5bfa1edbfa9ff6443ec5fac25c1d99ba2ef37f50a125826f3',
-      pythPriceInfo: '0x2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b',
     },
     WETH: {
       feedId: '0x44d92366eba1f1652ec81f34585406726bef267565a2db1664ffd5ef18e21693',
-      pythPriceInfo: '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
     },
     CETUS: {
       feedId: '0x5ac98fc1e6723af2a6d9a68a5d771654a6043f9c4d2b836b2d5fb4832a3be4f2',
-      pythPriceInfo: '0xe5b274b2611143df055d6e7cd8d93fe1961716bcd4dca1cad87a83bc1e78c1ef',
     },
     NAVX: {
       feedId: '0x4324c797d2f19eff517c24adec8b92aa2d282e44f3a5cafb36d6c4b30d7f2dca',
-      pythPriceInfo: '0x88250f854c019ef4f88a5c073d52a18bb1c6ac437033f5932cd017d24917ab46',
     },
     WBTC: {
       feedId: '0x1bf4727242a61d892feef6616d3e40a3bd24b64b5deb884054e86cb9360556c4',
-      pythPriceInfo: '0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43',
     },
     AUSD: {
       feedId: '0x9a0656e1e10a0cdf3f03dce9db9ad931f51dc6eac2e52ebfbf535dfbcf8100ef',
-      pythPriceInfo: '0xd9912df360b5b7f21a122f15bdd5e27f62ce5e72bd316c291f7c86620e07fb2a',
     },
     ETH: {
       feedId: '0x9a6ffc707270286e98e8d0f654ce38f69efbc302ac98e2deb11fbad2211600f0',
-      pythPriceInfo: '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
     },
     USDY: {
       feedId: '0x11ddf2ac1868d493e2487deeb2a0c2791bb7ca69632c8c5fefe85e09390be093',
-      pythPriceInfo: '0xe393449f6aff8a4b6d3e1165a7c9ebec103685f3b41e60db4277b5b6d10e7326',
     },
     NS: {
       feedId: '0xc771ec0ca245857f30195ce05197a7b3ab41c58c1e8abe0661919d90675ad63d',
-      pythPriceInfo: '0xbb5ff26e47a3a6cc7ec2fce1db996c2a145300edc5acaabe43bf9ff7c5dd5d32',
     },
     DEEP: {
       feedId: '0x4558092b08ad1b33b0eb536f91a4655693c2390ac568f06de6f6fad827888600',
-      pythPriceInfo: '0x29bdd5248234e33bd93d3b81100b5fa32eaa5997843847e2c2cb16d7c6d9f7ff',
     },
     BLUE: {
       feedId: '0xd8286c11df7e49496ee75622ae4132c56385c30b4bedb392e36c0699a52a1d52',
-      pythPriceInfo: '0x04cfeb7b143eb9c48e9b074125c1a3447b85f59c31164dc20c1beaa6f21f2b6b',
     },
     BUCK: {
       feedId: '0x93c1b815f64ef7c4311d74ff7c0ca1e47739c3ac31fdee0068c30887633ba2fb',
-      pythPriceInfo: '0xfdf28a46570252b25fd31cb257973f865afc5ca2f320439e45d95e0394bc7382',
     },
     suiUSDT: {
       feedId: '0xdeba21105ff41300f8829aaeba45fdec25d1533a64d504ef0348ff005da3fbe5',
-      pythPriceInfo: '0x2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b',
     },
     stSUI: {
       feedId: '0xd7a8c920db9f8b5c3c300307d88fca53684fd15b760977dbf8f0adc6e55783bd',
-      pythPriceInfo: '0x23d7315113f5b1d3ba7a83604c44b94d79f4fd69af77f804fc7f920a6dc65744',
     },
     wBTC: {
       feedId: '0x4e4666c82c476f0b51b27c5ed8c77ab960aa5e4c3a48796e179d721b471e3b7e',
-      pythPriceInfo: '0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43',
     },
     vSUI: {
       feedId: '0x086bb5540047b3c77ae5e2f9b811c7ef085517a73510f776753c8ee83d19e62c',
-      pythPriceInfo: '0x23d7315113f5b1d3ba7a83604c44b94d79f4fd69af77f804fc7f920a6dc65744',
     },
     HASUI: {
       feedId: '0xac934a2a2d406085e7f73b460221fe1b11935864605ba58cdbb8e21c15f12acd',
-      pythPriceInfo: '0x23d7315113f5b1d3ba7a83604c44b94d79f4fd69af77f804fc7f920a6dc65744',
     },
     DMC: {
       feedId: '0x8abfa63ae82ca2fbc271861375e497166d8792580fb7c2ffcf014d2a131433f0',
-      pythPriceInfo: '0x5c0be5cc32bdf53fd3b5a567744dd1145c4f82b269906ceda03dbb6f06d9371b',
     },
   },
 };
 
-export const PYTH_STATE_ID = '0x1f9310238ee9298fb703c3419030b35b22bb1cc37113e3bb5007c99aec79e5b8';
-export const WORMHOLE_STATE_ID =
-  '0xaeab97f96cf9877fee2883315d459552b2b921edc16d7ceac6eab944dd88919c';
 
 export const BLUEFIN_STRATEGY_PACKAGE_ID =
   '0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c';
