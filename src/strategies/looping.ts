@@ -8,6 +8,7 @@ import { PoolBalance, PoolData, SingleTvl } from '../models/types.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
+import { normalizeStructTag } from '@mysten/sui/utils';
 import {
   ALPHALEND_LENDING_PROTOCOL_ID,
   CLOCK_PACKAGE_ID,
@@ -23,6 +24,7 @@ import {
 } from '../utils/constants.js';
 import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
 import { SuiPriceServiceConnection, SuiPythClient } from '@pythnetwork/pyth-sui-js';
+import { getUserAvailableLendingRewards } from '@naviprotocol/lending';
 
 /**
  * Looping Strategy for leveraged positions with automated compounding
@@ -289,34 +291,22 @@ export class LoopingStrategy extends BaseStrategy<
 
   private async getAvailableRewards(address: string): Promise<Record<string, any[]>> {
     try {
-      // Call the integration API
-      const apiUrl = this.context.apiBaseUrl;
-      const response = await fetch(
-        `${apiUrl}/navi-params/rewards?address=${encodeURIComponent(address)}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.error ||
-            errorData.message ||
-            `Failed to fetch rewards: ${response.status} ${response.statusText}`,
-        );
+      const rewards = await getUserAvailableLendingRewards(address, {
+        client: this.context.blockchain.suiGrpcClient,
+      });
+      // Group by asset coin type (same shape the integration API returned).
+      const rewardsByAsset: Record<string, any[]> = {};
+      for (const reward of rewards) {
+        if (!reward.assetCoinType) continue;
+        // Normalize the group key so it matches the normalizeStructTag(...) lookups below;
+        // otherwise a NAVI format change silently drops rewards.
+        const assetKey = normalizeStructTag(reward.assetCoinType);
+        if (!rewardsByAsset[assetKey]) rewardsByAsset[assetKey] = [];
+        rewardsByAsset[assetKey].push(reward);
       }
-
-      const data = await response.json();
-
-      // The API returns { address, rewards, timestamp }
-      // We just need the rewards object
-      return data.rewards || {};
+      return rewardsByAsset;
     } catch (error: any) {
-      console.error('Error fetching Navi rewards from API:', error);
+      console.error('Error fetching Navi rewards:', error);
       throw new Error(`Failed to fetch Navi rewards: ${error.message}`);
     }
   }
@@ -499,7 +489,7 @@ export class LoopingStrategy extends BaseStrategy<
             });
           }
         }
-        rewardCoinSet.add(reward.reward_coin_type);
+        rewardCoinSet.add(reward.rewardCoinType);
       }
     }
   }
@@ -558,14 +548,12 @@ export class LoopingStrategy extends BaseStrategy<
       await this.collectAndSwapRewardsTxb(
         tx,
         rewardCoinSet,
-        claimableRewards[this.poolLabel.supplyAsset.type],
+        claimableRewards[normalizeStructTag(this.poolLabel.supplyAsset.type)],
       );
       await this.collectAndSwapRewardsTxb(
         tx,
         rewardCoinSet,
-        claimableRewards[
-          '0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'
-        ],
+        claimableRewards[normalizeStructTag('0x2::sui::SUI')],
       );
     } else if (this.poolLabel.supplyAsset.name === 'HASUI') {
       const claimableRewards = await this.getAvailableRewards(
@@ -574,28 +562,24 @@ export class LoopingStrategy extends BaseStrategy<
       await this.collectAndSwapRewardsTxb(
         tx,
         rewardCoinSet,
-        claimableRewards[this.poolLabel.supplyAsset.type],
+        claimableRewards[normalizeStructTag(this.poolLabel.supplyAsset.type)],
       );
       await this.collectAndSwapRewardsTxb(
         tx,
         rewardCoinSet,
-        claimableRewards[
-          '0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'
-        ],
+        claimableRewards[normalizeStructTag('0x2::sui::SUI')],
       );
     } else if (this.poolLabel.supplyAsset.name === 'stSUI') {
       const claimableRewards = await this.getAvailableRewards('');
       await this.collectAndSwapRewardsTxb(
         tx,
         rewardCoinSet,
-        claimableRewards[this.poolLabel.supplyAsset.type],
+        claimableRewards[normalizeStructTag(this.poolLabel.supplyAsset.type)],
       );
       await this.collectAndSwapRewardsTxb(
         tx,
         rewardCoinSet,
-        claimableRewards[
-          '0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'
-        ],
+        claimableRewards[normalizeStructTag('0x2::sui::SUI')],
       );
     } else if (this.poolLabel.supplyAsset.name === 'USDC') {
       const claimableRewards = await this.getAvailableRewards(
@@ -604,12 +588,12 @@ export class LoopingStrategy extends BaseStrategy<
       await this.collectAndSwapRewardsTxb(
         tx,
         rewardCoinSet,
-        claimableRewards[this.poolLabel.supplyAsset.type],
+        claimableRewards[normalizeStructTag(this.poolLabel.supplyAsset.type)],
       );
       await this.collectAndSwapRewardsTxb(
         tx,
         rewardCoinSet,
-        claimableRewards[this.poolLabel.borrowAsset.type],
+        claimableRewards[normalizeStructTag(this.poolLabel.borrowAsset.type)],
       );
     }
   }
