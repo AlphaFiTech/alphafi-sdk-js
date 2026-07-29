@@ -13,7 +13,12 @@ import {
   StrategyContext,
 } from '../src/index.js';
 import { AlphaVaultPoolLabel } from '../src/strategies/alphaVault.js';
-import { dryRunTransactionBlock, executeTransactionBlock, getExecStuff } from './utils.js';
+import {
+  dryRunTransactionBlock,
+  executeTransactionBlock,
+  getExecStuff,
+  getSuiClient,
+} from './utils.js';
 import fs from 'fs';
 
 // async function test() {
@@ -241,15 +246,15 @@ async function withdraw() {
     network: 'mainnet',
   });
   const tx = await sdk.withdraw({
-    poolId: '0xccda433a3324dc743478c7f79cce584628f6303501281167a3f4b386187c8c63',
-    withdrawMax: false,
+    poolId: '0x17743a10e89b108fd7c048e7737ce09082e3ef91f416ee93c2566c5dd3f438db',
+    withdrawMax: true,
     amount: '5_000_00',
     address,
     // coinType: '0xd1b72982e40348d069bb1ff701e634c117bb5f741f44dff91e472d3b01461e55::stsui::STSUI',
   });
   tx.setGasBudget(2e8);
-  // dryRunTransactionBlock(tx);
-  executeTransactionBlock(tx);
+  dryRunTransactionBlock(tx);
+  // executeTransactionBlock(tx);
 }
 async function claimSlushWithdraw() {
   const { address, keypair, suiClient } = getExecStuff();
@@ -361,9 +366,9 @@ async function updatePool() {
   dryRunTransactionBlock(tx, address);
   // executeTransactionBlock(tx);
 }
-updatePool();
+// updatePool();
 // claimAirdrop();
-// withdraw();
+withdraw();
 // poolsData();
 // portfolioData();
 // claimSlushWithdraw();
