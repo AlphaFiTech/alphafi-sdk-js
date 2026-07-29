@@ -246,7 +246,7 @@ async function withdraw() {
     network: 'mainnet',
   });
   const tx = await sdk.withdraw({
-    poolId: '0x04378cf67d21b41399dc0b6653a5f73f8d3a03cc7643463e47e8d378f8b0bdfa',
+    poolId: '0x17743a10e89b108fd7c048e7737ce09082e3ef91f416ee93c2566c5dd3f438db',
     withdrawMax: true,
     amount: '5_000_00',
     address,
@@ -368,7 +368,7 @@ async function updatePool() {
 }
 // updatePool();
 // claimAirdrop();
-// withdraw();
+withdraw();
 // poolsData();
 // portfolioData();
 // claimSlushWithdraw();

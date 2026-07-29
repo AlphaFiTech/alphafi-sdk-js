@@ -26,6 +26,7 @@ import {
   VERSIONS,
 } from '../utils/constants.js';
 import {
+  getConfig,
   getPriceFeeds,
   getUserAvailableLendingRewards,
   updateOraclePricesPTB,
@@ -297,11 +298,17 @@ export class LendingStrategy extends BaseStrategy<
   }
 
   private async collectAndClaimRewards(tx: Transaction) {
-    const claimableRewards = await this.getAvailableRewards(
+    const naviAccount =
       NAVI_CONFIG.ACCOUNT_ADDRESSES[
         this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.ACCOUNT_ADDRESSES
-      ],
-    );
+      ];
+    if (!naviAccount) {
+      // Otherwise this reaches NAVI's SDK as tx.pure.address(undefined) and fails as a BCS error.
+      throw new Error(
+        `NAVI_CONFIG.ACCOUNT_ADDRESSES has no entry for asset '${this.poolLabel.asset.name}'`,
+      );
+    }
+    const claimableRewards = await this.getAvailableRewards(naviAccount);
     const [navxCoin, suiCoin, vsuiCoin, deepCoin, usdcCoin, wusdcCoin] =
       await this.context.getCoinsBySymbols(['NAVX', 'SUI', 'vSUI', 'DEEP', 'USDC', 'wUSDC']);
 
@@ -868,12 +875,14 @@ export class LendingStrategy extends BaseStrategy<
    *
    * Our pool packages reach `lending_core` through linkage tables frozen at publish time. Sui
    * resolves one version per original package per tx, so this direct call pulls those transitive
-   * calls forward to LENDING_CORE_PACKAGE_ID. `version_verification` asserts
-   * `storage.version == constants::version()`, so a wrong pin fails loudly.
+   * calls forward. The package comes from NAVI's config — the same value their own SDK helpers
+   * use — so it tracks their upgrades and can't drift or collide. `version_verification` asserts
+   * `storage.version == constants::version()`, so a wrong version fails loudly.
    */
-  private overrideNaviLendingCoreLinkage(tx: Transaction) {
+  private async overrideNaviLendingCoreLinkage(tx: Transaction) {
+    const { package: lendingCore } = await getConfig();
     tx.moveCall({
-      target: `${NAVI_CONFIG.LENDING_CORE_PACKAGE_ID}::storage::version_verification`,
+      target: `${lendingCore}::storage::version_verification`,
       arguments: [tx.object(NAVI_CONFIG.NAVI_STORAGE_ID)],
     });
   }
@@ -883,7 +892,7 @@ export class LendingStrategy extends BaseStrategy<
     if (!feed) {
       throw new Error(`NAVI oracle config has no price feed for feedId ${feedId}`);
     }
-    this.overrideNaviLendingCoreLinkage(tx);
+    await this.overrideNaviLendingCoreLinkage(tx);
     // Post unconditionally: updateOraclePricesPTB's own flag gates on a stale check that
     // misparses the on-chain price struct, so it never posts.
     await updatePythPriceFeeds(tx, [feed.pythPriceFeedId]);
@@ -976,7 +985,9 @@ export class LendingStrategy extends BaseStrategy<
         );
         this.context.blockchain.sendCoinToAddressBalance(
           tx,
-          ALPHA_COIN_TYPE,
+          // ALPHA_COIN_TYPE is stored bare to match on-chain `type_name::get` VecMap keys;
+          // a type argument needs the 0x prefix or the tx fails to parse.
+          `0x${ALPHA_COIN_TYPE}`,
           options.address,
           alphaCoin,
         );

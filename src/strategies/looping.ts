@@ -22,6 +22,7 @@ import {
 } from '../utils/constants.js';
 import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
 import {
+  getConfig,
   getPriceFeeds,
   getUserAvailableLendingRewards,
   updateOraclePricesPTB,
@@ -605,12 +606,14 @@ export class LoopingStrategy extends BaseStrategy<
    *
    * Our pool packages reach `lending_core` through linkage tables frozen at publish time. Sui
    * resolves one version per original package per tx, so this direct call pulls those transitive
-   * calls forward to LENDING_CORE_PACKAGE_ID. `version_verification` asserts
-   * `storage.version == constants::version()`, so a wrong pin fails loudly.
+   * calls forward. The package comes from NAVI's config — the same value their own SDK helpers
+   * use — so it tracks their upgrades and can't drift or collide. `version_verification` asserts
+   * `storage.version == constants::version()`, so a wrong version fails loudly.
    */
-  private overrideNaviLendingCoreLinkage(tx: Transaction) {
+  private async overrideNaviLendingCoreLinkage(tx: Transaction) {
+    const { package: lendingCore } = await getConfig();
     tx.moveCall({
-      target: `${NAVI_CONFIG.LENDING_CORE_PACKAGE_ID}::storage::version_verification`,
+      target: `${lendingCore}::storage::version_verification`,
       arguments: [tx.object(NAVI_CONFIG.NAVI_STORAGE_ID)],
     });
   }
@@ -620,7 +623,7 @@ export class LoopingStrategy extends BaseStrategy<
     if (!feed) {
       throw new Error(`NAVI oracle config has no price feed for feedId ${feedId}`);
     }
-    this.overrideNaviLendingCoreLinkage(tx);
+    await this.overrideNaviLendingCoreLinkage(tx);
     // Post unconditionally: updateOraclePricesPTB's own flag gates on a stale check that
     // misparses the on-chain price struct, so it never posts.
     await updatePythPriceFeeds(tx, [feed.pythPriceFeedId]);

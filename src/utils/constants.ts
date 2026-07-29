@@ -108,13 +108,6 @@ export const DEEPBOOK_CONFIG = {
   } as Record<string, string>,
 };
 export const NAVI_CONFIG = {
-  /**
-   * Latest `lending_core` published-at (v24). Called directly so Sui pins one version for the
-   * whole tx, lifting our pool packages' frozen transitive links forward when NAVI upgrades.
-   * Not NAVI config's `data.package` — that is v22 and collides as InvalidLinkage with their
-   * own SDK helpers. Update alongside the oracle package at NAVI's upgrade.
-   */
-  LENDING_CORE_PACKAGE_ID: '0x1e4a13a0494d5facdbe8473e74127b838c2d446ecec0ce262e2eddafa77259cb',
   NAVI_AGGREGATOR: '0x1fa7566f40f93cdbafd5a029a231e06664219444debb59beec2fe3f19ca08b7e',
   ORACLE_CONFIG: '0x1afe1cb83634f581606cc73c4487ddd8cc39a944b951283af23f7d69d5589478',
   PRICE_ORACLE_ID: '0x1568865ed9a0b5ec414220e8f79b3d04c77acc82358f6e5ae4635687392ffbef',
@@ -167,7 +160,9 @@ export const NAVI_CONFIG = {
     USDC: '0x02bf11dd1e42865a977b219c031483b3c1eda9b862736953443efe30bfda65bd',
     vSUI: '0xe8be7259aaa1ec87c72c77098a271508dcfffb2e0b02abe514928d49a276ba9e',
     WETH: '0xd7565045f34c17890679e28032c5139e09e3a2883a8edb2c45b6ac92e5aabae4',
-    WUSDC: '0x57b3a18b87a74fbf26ebda9a5670de6740d587b8009d5d9a31ef589c61b050f0',
+    // Key must match `poolLabel.asset.name`, which is 'wUSDC' — a 'WUSDC' key silently
+    // resolves to undefined and surfaces as a BCS error inside NAVI's SDK.
+    wUSDC: '0x57b3a18b87a74fbf26ebda9a5670de6740d587b8009d5d9a31ef589c61b050f0',
     USDT: '0xa7bcc625ed51fd190b87d945f8399f8b28a728a082d9d80d783075d992397746',
     DEEP: '0x6cca5232e4e6a6d34c52ed633215b83cad7445720e76620822bf9287c3f0c708',
     WAL: '0x13bdd7177faa8868bf26090fb67b5f0b1aa4dbd9a021dee9ea20421b496511f9',
