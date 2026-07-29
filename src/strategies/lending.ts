@@ -892,11 +892,19 @@ export class LendingStrategy extends BaseStrategy<
     if (!feed) {
       throw new Error(`NAVI oracle config has no price feed for feedId ${feedId}`);
     }
+    // NAVI treats both as optional; a supra/switchboard-only feed would otherwise surface as
+    // an opaque Hermes error or `tx.object('')` inside updateOraclePricesPTB.
+    if (!feed.pythPriceFeedId || !feed.pythPriceInfoObject) {
+      throw new Error(`NAVI price feed ${feedId} has no Pyth feed configured`);
+    }
     await this.overrideNaviLendingCoreLinkage(tx);
+    // Pass our client so the SuiPythClient object reads use the configured endpoint rather
+    // than NAVI's module-level default (the public mainnet fullnode).
+    const naviOptions = { client: this.context.blockchain.suiGrpcClient };
     // Post unconditionally: updateOraclePricesPTB's own flag gates on a stale check that
     // misparses the on-chain price struct, so it never posts.
-    await updatePythPriceFeeds(tx, [feed.pythPriceFeedId]);
-    await updateOraclePricesPTB(tx, [feed]);
+    await updatePythPriceFeeds(tx, [feed.pythPriceFeedId], naviOptions);
+    await updateOraclePricesPTB(tx, [feed], naviOptions);
   }
 
   async withdraw(tx: Transaction, options: WithdrawOptions) {

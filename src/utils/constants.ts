@@ -248,9 +248,6 @@ export const NAVI_CONFIG = {
     HASUI: {
       feedId: '0xac934a2a2d406085e7f73b460221fe1b11935864605ba58cdbb8e21c15f12acd',
     },
-    DMC: {
-      feedId: '0x8abfa63ae82ca2fbc271861375e497166d8792580fb7c2ffcf014d2a131433f0',
-    },
   },
 };
 
