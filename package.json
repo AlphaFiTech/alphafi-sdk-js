@@ -42,7 +42,7 @@
   },
   "dependencies": {
     "@alphafi/alphalend-sdk": "^3.0.2",
-    "@alphafi/stsui-sdk": "^2.0.2",
+    "@alphafi/stsui-sdk": "^2.0.3",
     "@cetusprotocol/aggregator-sdk": "^1.5.5",
     "@cetusprotocol/common-sdk": "^1.3.7",
     "@naviprotocol/lending": "2.0.3",
