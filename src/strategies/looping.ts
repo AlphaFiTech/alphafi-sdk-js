@@ -16,15 +16,18 @@ import {
   GLOBAL_CONFIGS,
   NAVI_CONFIG,
   POOLS,
-  PYTH_STATE_ID,
   STSUI,
   SUI_SYSTEM_STATE,
   VERSIONS,
-  WORMHOLE_STATE_ID,
 } from '../utils/constants.js';
 import { stSuiExchangeRate, getConf as getStSuiConf } from '@alphafi/stsui-sdk';
-import { SuiPriceServiceConnection, SuiPythClient } from '@pythnetwork/pyth-sui-js';
-import { getUserAvailableLendingRewards } from '@naviprotocol/lending';
+import {
+  getConfig,
+  getPriceFeeds,
+  getUserAvailableLendingRewards,
+  updateOraclePricesPTB,
+  updatePythPriceFeeds,
+} from '@naviprotocol/lending';
 
 /**
  * Looping Strategy for leveraged positions with automated compounding
@@ -598,31 +601,41 @@ export class LoopingStrategy extends BaseStrategy<
     }
   }
 
-  private async updateSingleTokenPrice(tx: Transaction, pythPriceInfo: string, feedId: string) {
-    const pythClient = new SuiPythClient(
-      this.context.blockchain.pythSuiClient,
-      PYTH_STATE_ID,
-      WORMHOLE_STATE_ID,
-    );
-    const pythConnection = new SuiPriceServiceConnection('https://hermes.pyth.network');
-
-    const priceFeedUpdateData = await pythConnection.getPriceFeedsUpdateData([pythPriceInfo]);
-    const priceInfoObjectIds = await pythClient.updatePriceFeeds(tx, priceFeedUpdateData, [
-      pythPriceInfo,
-    ]);
-
+  /**
+   * Overrides this tx's NAVI `lending_core` linkage by calling the latest package directly.
+   *
+   * Our pool packages reach `lending_core` through linkage tables frozen at publish time. Sui
+   * resolves one version per original package per tx, so this direct call pulls those transitive
+   * calls forward. The package comes from NAVI's config — the same value their own SDK helpers
+   * use — so it tracks their upgrades and can't drift or collide. `version_verification` asserts
+   * `storage.version == constants::version()`, so a wrong version fails loudly.
+   */
+  private async overrideNaviLendingCoreLinkage(tx: Transaction) {
+    const { package: lendingCore } = await getConfig();
     tx.moveCall({
-      target: `${NAVI_CONFIG.ORACLE_PRO_PACKAGE_ID}::oracle_pro::update_single_price_v2`,
-      arguments: [
-        tx.object(CLOCK_PACKAGE_ID),
-        tx.object(NAVI_CONFIG.ORACLE_CONFIG),
-        tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
-        tx.object(NAVI_CONFIG.SUPRA_ORACLE_HOLDER),
-        tx.object(priceInfoObjectIds[0]),
-        tx.object(NAVI_CONFIG.NAVI_AGGREGATOR),
-        tx.pure.address(feedId),
-      ],
+      target: `${lendingCore}::storage::version_verification`,
+      arguments: [tx.object(NAVI_CONFIG.NAVI_STORAGE_ID)],
     });
+  }
+
+  private async updateSingleTokenPrice(tx: Transaction, feedId: string) {
+    const feed = (await getPriceFeeds()).find((f) => f.feedId === feedId);
+    if (!feed) {
+      throw new Error(`NAVI oracle config has no price feed for feedId ${feedId}`);
+    }
+    // NAVI treats both as optional; a supra/switchboard-only feed would otherwise surface as
+    // an opaque Hermes error or `tx.object('')` inside updateOraclePricesPTB.
+    if (!feed.pythPriceFeedId || !feed.pythPriceInfoObject) {
+      throw new Error(`NAVI price feed ${feedId} has no Pyth feed configured`);
+    }
+    await this.overrideNaviLendingCoreLinkage(tx);
+    // Pass our client so the SuiPythClient object reads use the configured endpoint rather
+    // than NAVI's module-level default (the public mainnet fullnode).
+    const naviOptions = { client: this.context.blockchain.suiGrpcClient };
+    // Post unconditionally: updateOraclePricesPTB's own flag gates on a stale check that
+    // misparses the on-chain price struct, so it never posts.
+    await updatePythPriceFeeds(tx, [feed.pythPriceFeedId], naviOptions);
+    await updateOraclePricesPTB(tx, [feed], naviOptions);
   }
 
   async deposit(tx: Transaction, options: DepositOptions) {
@@ -667,14 +680,10 @@ export class LoopingStrategy extends BaseStrategy<
     await this.updateSingleTokenPrice(
       tx,
       NAVI_CONFIG.PRICE_FEED[this.poolLabel.supplyAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
-        .pythPriceInfo,
-      NAVI_CONFIG.PRICE_FEED[this.poolLabel.supplyAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
         .feedId,
     );
     await this.updateSingleTokenPrice(
       tx,
-      NAVI_CONFIG.PRICE_FEED[this.poolLabel.borrowAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
-        .pythPriceInfo,
       NAVI_CONFIG.PRICE_FEED[this.poolLabel.borrowAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
         .feedId,
     );
@@ -896,14 +905,10 @@ export class LoopingStrategy extends BaseStrategy<
     await this.updateSingleTokenPrice(
       tx,
       NAVI_CONFIG.PRICE_FEED[this.poolLabel.supplyAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
-        .pythPriceInfo,
-      NAVI_CONFIG.PRICE_FEED[this.poolLabel.supplyAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
         .feedId,
     );
     await this.updateSingleTokenPrice(
       tx,
-      NAVI_CONFIG.PRICE_FEED[this.poolLabel.borrowAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
-        .pythPriceInfo,
       NAVI_CONFIG.PRICE_FEED[this.poolLabel.borrowAsset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
         .feedId,
     );

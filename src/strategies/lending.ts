@@ -22,13 +22,16 @@ import {
   GLOBAL_CONFIGS,
   NAVI_CONFIG,
   POOLS,
-  PYTH_STATE_ID,
   SUI_SYSTEM_STATE,
   VERSIONS,
-  WORMHOLE_STATE_ID,
 } from '../utils/constants.js';
-import { SuiPriceServiceConnection, SuiPythClient } from '@pythnetwork/pyth-sui-js';
-import { getUserAvailableLendingRewards } from '@naviprotocol/lending';
+import {
+  getConfig,
+  getPriceFeeds,
+  getUserAvailableLendingRewards,
+  updateOraclePricesPTB,
+  updatePythPriceFeeds,
+} from '@naviprotocol/lending';
 
 /**
  * Lending Strategy for single-asset pools with lending protocol integration
@@ -295,11 +298,17 @@ export class LendingStrategy extends BaseStrategy<
   }
 
   private async collectAndClaimRewards(tx: Transaction) {
-    const claimableRewards = await this.getAvailableRewards(
+    const naviAccount =
       NAVI_CONFIG.ACCOUNT_ADDRESSES[
         this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.ACCOUNT_ADDRESSES
-      ],
-    );
+      ];
+    if (!naviAccount) {
+      // Otherwise this reaches NAVI's SDK as tx.pure.address(undefined) and fails as a BCS error.
+      throw new Error(
+        `NAVI_CONFIG.ACCOUNT_ADDRESSES has no entry for asset '${this.poolLabel.asset.name}'`,
+      );
+    }
+    const claimableRewards = await this.getAvailableRewards(naviAccount);
     const [navxCoin, suiCoin, vsuiCoin, deepCoin, usdcCoin, wusdcCoin] =
       await this.context.getCoinsBySymbols(['NAVX', 'SUI', 'vSUI', 'DEEP', 'USDC', 'wUSDC']);
 
@@ -793,7 +802,6 @@ export class LendingStrategy extends BaseStrategy<
     } else if (this.poolLabel.asset.name === 'wBTC') {
       await this.updateSingleTokenPrice(
         tx,
-        NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name].pythPriceInfo,
         NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name].feedId,
       );
 
@@ -829,8 +837,6 @@ export class LendingStrategy extends BaseStrategy<
       await this.updateSingleTokenPrice(
         tx,
         NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
-          .pythPriceInfo,
-        NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
           .feedId,
       );
 
@@ -864,31 +870,41 @@ export class LendingStrategy extends BaseStrategy<
     }
   }
 
-  private async updateSingleTokenPrice(tx: Transaction, pythPriceInfo: string, feedId: string) {
-    const pythClient = new SuiPythClient(
-      this.context.blockchain.pythSuiClient,
-      PYTH_STATE_ID,
-      WORMHOLE_STATE_ID,
-    );
-    const pythConnection = new SuiPriceServiceConnection('https://hermes.pyth.network');
-
-    const priceFeedUpdateData = await pythConnection.getPriceFeedsUpdateData([pythPriceInfo]);
-    const priceInfoObjectIds = await pythClient.updatePriceFeeds(tx, priceFeedUpdateData, [
-      pythPriceInfo,
-    ]);
-
+  /**
+   * Overrides this tx's NAVI `lending_core` linkage by calling the latest package directly.
+   *
+   * Our pool packages reach `lending_core` through linkage tables frozen at publish time. Sui
+   * resolves one version per original package per tx, so this direct call pulls those transitive
+   * calls forward. The package comes from NAVI's config — the same value their own SDK helpers
+   * use — so it tracks their upgrades and can't drift or collide. `version_verification` asserts
+   * `storage.version == constants::version()`, so a wrong version fails loudly.
+   */
+  private async overrideNaviLendingCoreLinkage(tx: Transaction) {
+    const { package: lendingCore } = await getConfig();
     tx.moveCall({
-      target: `${NAVI_CONFIG.ORACLE_PRO_PACKAGE_ID}::oracle_pro::update_single_price_v2`,
-      arguments: [
-        tx.object(CLOCK_PACKAGE_ID),
-        tx.object(NAVI_CONFIG.ORACLE_CONFIG),
-        tx.object(NAVI_CONFIG.PRICE_ORACLE_ID),
-        tx.object(NAVI_CONFIG.SUPRA_ORACLE_HOLDER),
-        tx.object(priceInfoObjectIds[0]),
-        tx.object(NAVI_CONFIG.NAVI_AGGREGATOR),
-        tx.pure.address(feedId),
-      ],
+      target: `${lendingCore}::storage::version_verification`,
+      arguments: [tx.object(NAVI_CONFIG.NAVI_STORAGE_ID)],
     });
+  }
+
+  private async updateSingleTokenPrice(tx: Transaction, feedId: string) {
+    const feed = (await getPriceFeeds()).find((f) => f.feedId === feedId);
+    if (!feed) {
+      throw new Error(`NAVI oracle config has no price feed for feedId ${feedId}`);
+    }
+    // NAVI treats both as optional; a supra/switchboard-only feed would otherwise surface as
+    // an opaque Hermes error or `tx.object('')` inside updateOraclePricesPTB.
+    if (!feed.pythPriceFeedId || !feed.pythPriceInfoObject) {
+      throw new Error(`NAVI price feed ${feedId} has no Pyth feed configured`);
+    }
+    await this.overrideNaviLendingCoreLinkage(tx);
+    // Pass our client so the SuiPythClient object reads use the configured endpoint rather
+    // than NAVI's module-level default (the public mainnet fullnode).
+    const naviOptions = { client: this.context.blockchain.suiGrpcClient };
+    // Post unconditionally: updateOraclePricesPTB's own flag gates on a stale check that
+    // misparses the on-chain price struct, so it never posts.
+    await updatePythPriceFeeds(tx, [feed.pythPriceFeedId], naviOptions);
+    await updateOraclePricesPTB(tx, [feed], naviOptions);
   }
 
   async withdraw(tx: Transaction, options: WithdrawOptions) {
@@ -977,7 +993,9 @@ export class LendingStrategy extends BaseStrategy<
         );
         this.context.blockchain.sendCoinToAddressBalance(
           tx,
-          ALPHA_COIN_TYPE,
+          // ALPHA_COIN_TYPE is stored bare to match on-chain `type_name::get` VecMap keys;
+          // a type argument needs the 0x prefix or the tx fails to parse.
+          `0x${ALPHA_COIN_TYPE}`,
           options.address,
           alphaCoin,
         );
@@ -985,7 +1003,6 @@ export class LendingStrategy extends BaseStrategy<
     } else if (this.poolLabel.asset.name === 'wBTC') {
       await this.updateSingleTokenPrice(
         tx,
-        NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name].pythPriceInfo,
         NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name].feedId,
       );
 
@@ -1022,8 +1039,6 @@ export class LendingStrategy extends BaseStrategy<
     } else {
       await this.updateSingleTokenPrice(
         tx,
-        NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
-          .pythPriceInfo,
         NAVI_CONFIG.PRICE_FEED[this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.PRICE_FEED]
           .feedId,
       );

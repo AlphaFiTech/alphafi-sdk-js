@@ -3,10 +3,10 @@
  *
  * Reads and transaction simulation go through GraphQL (`gqlClient`), using
  * `gqlClient.core.simulateTransaction` for simulation (server-side build + gas
- * resolution). A JSON-RPC client (`pythSuiClient`) is retained only for the
- * Pyth `SuiPythClient` integration, which still requires it. A gRPC (v2 Core)
- * client (`suiGrpcClient`) is used where a Core-capable client is required
- * (e.g. the Navi reward `devInspect`).
+ * resolution). A JSON-RPC client (`pythSuiClient`) is retained for the admin
+ * helpers that still need JSON-RPC object reads. A gRPC (v2 Core) client
+ * (`suiGrpcClient`) is used where a Core-capable client is required (e.g. the
+ * Navi reward `devInspect`).
  */
 
 import { SuiJsonRpcClient } from '@mysten/sui/jsonRpc';
@@ -27,7 +27,7 @@ export class Blockchain {
   network: Network;
   graphqlUrl: string;
   gqlClient: SuiGraphQLClient;
-  /** Retained only for the Pyth `SuiPythClient` integration (needs JSON-RPC). */
+  /** Retained for admin helpers that still need JSON-RPC object reads. */
   pythSuiClient: SuiJsonRpcClient;
   /** gRPC (v2 Core) client for reads needing a Core-capable client (e.g. Navi reward `devInspect`). */
   suiGrpcClient: SuiGrpcClient;
