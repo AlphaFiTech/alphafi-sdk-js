@@ -229,7 +229,7 @@ async function deposit() {
     network: 'mainnet',
   });
   const tx = await sdk.deposit({
-    poolId: '0xccda433a3324dc743478c7f79cce584628f6303501281167a3f4b386187c8c63',
+    poolId: '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
     amount: 1000000n,
     address: address,
     // coinType: '0xd1b72982e40348d069bb1ff701e634c117bb5f741f44dff91e472d3b01461e55::stsui::STSUI',
@@ -246,7 +246,7 @@ async function withdraw() {
     network: 'mainnet',
   });
   const tx = await sdk.withdraw({
-    poolId: '0x17743a10e89b108fd7c048e7737ce09082e3ef91f416ee93c2566c5dd3f438db',
+    poolId: '0x643f84e0a33b19e2b511be46232610c6eb38e772931f582f019b8bbfb893ddb3',
     withdrawMax: true,
     amount: '5_000_00',
     address,
@@ -366,13 +366,85 @@ async function updatePool() {
   dryRunTransactionBlock(tx, address);
   // executeTransactionBlock(tx);
 }
+interface WithdrawRequest {
+  type: string;
+  positionId: string;
+  senderAddress: string;
+  principal: {
+    coinType: string;
+    amount: string;
+  };
+  mode: string;
+}
+interface DepositRequest {
+  type: string;
+  strategyId: string;
+  senderAddress: string;
+  coinType: string;
+  nativeAmount: string;
+}
+async function withdrawApi(req: WithdrawRequest) {
+  try {
+    const resp = await fetch('https://api.alphalend.xyz/slush/v1/withdraw', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(req),
+    });
+    if (!resp.ok) {
+      const errBody = await resp.text();
+      throw new Error(`Withdraw API error: ${errBody}`);
+    }
+    let res = await resp.json();
+    const txb = Transaction.fromKind(res.bytes);
+    dryRunTransactionBlock(txb);
+    // executeTransactionBlock(txb)
+  } catch (e) {
+    console.error(e);
+  }
+}
+async function depositApi(req: DepositRequest) {
+  try {
+    const resp = await fetch('https://api-staging.alphalend.xyz/slush/v1/deposit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(req),
+    });
+
+    if (!resp.ok) {
+      const errBody = await resp.text();
+      throw new Error(`Deposit API error: ${errBody}`);
+    }
+
+    const res = await resp.json();
+    const txb = Transaction.from(res.bytes);
+
+    dryRunTransactionBlock(txb);
+    // executeTransactionBlock(txb)
+  } catch (e) {
+    console.error('Deposit failed:', e);
+  }
+}
+// withdrawApi({
+//   type: 'PositionV1',
+//   positionId: '0x4513c9f00d6e091c96e8f0000f2d0b63f9c497a24e4064ee7d302b0ef5dbd9e7',
+//   senderAddress: '0xa511088cc13a632a5e8f9937028a77ae271832465e067360dd13f548fe934d1a',
+//   principal: {
+//     coinType: '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
+//     amount: '10000',
+//   },
+//   mode: 'usdc',
+// });
 // updatePool();
 // claimAirdrop();
-withdraw();
+// withdraw();
 // poolsData();
 // portfolioData();
 // claimSlushWithdraw();
-// deposit();
+deposit();
 // cancelSlushWithdraw();
 // rebalance();
 // addExternalRewardsWalLocked();

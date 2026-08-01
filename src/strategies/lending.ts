@@ -687,6 +687,55 @@ export class LendingStrategy extends BaseStrategy<
               ],
             });
           }
+        } else if (this.poolLabel.asset.name === 'SUI') {
+          // SUI is the target asset, so each reward needs one swap, not two.
+          if (reward.rewardCoinType === navxCoin.coinType) {
+            tx.moveCall({
+              target: `${this.poolLabel.packageId}::alphafi_navi_investor::collect_v3_rewards_with_one_swap_bluefin`,
+              typeArguments: [this.poolLabel.asset.type, navxCoin.coinType],
+              arguments: [
+                tx.object(this.poolLabel.investorId),
+                tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+                tx.object(CLOCK_PACKAGE_ID),
+                tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+                tx.pure.u8(
+                  Number(
+                    NAVI_CONFIG.ASSET_MAP[
+                      this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.ASSET_MAP
+                    ],
+                  ),
+                ),
+                tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+                tx.object(NAVI_CONFIG.REWARDS_POOL.NAVX),
+                tx.object(
+                  await this.context.getPoolIdBySymbolsAndProtocol('NAVX', 'SUI', 'bluefin'),
+                ),
+                tx.object(GLOBAL_CONFIGS.BLUEFIN),
+              ],
+            });
+          } else if (reward.rewardCoinType === vsuiCoin.coinType) {
+            tx.moveCall({
+              target: `${this.poolLabel.packageId}::alphafi_navi_investor::collect_v3_rewards_with_one_swap`,
+              typeArguments: [this.poolLabel.asset.type, vsuiCoin.coinType],
+              arguments: [
+                tx.object(this.poolLabel.investorId),
+                tx.object(VERSIONS.ALPHA_VERSIONS[1]),
+                tx.object(CLOCK_PACKAGE_ID),
+                tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+                tx.pure.u8(
+                  Number(
+                    NAVI_CONFIG.ASSET_MAP[
+                      this.poolLabel.asset.name as keyof typeof NAVI_CONFIG.ASSET_MAP
+                    ],
+                  ),
+                ),
+                tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+                tx.object(NAVI_CONFIG.REWARDS_POOL.vSUI),
+                tx.object(await this.context.getPoolIdBySymbolsAndProtocol('vSUI', 'SUI', 'cetus')),
+                tx.object(GLOBAL_CONFIGS.CETUS),
+              ],
+            });
+          }
         } else if (this.poolLabel.asset.name === 'vSUI') {
           if (reward.rewardCoinType === navxCoin.coinType) {
             tx.moveCall({
