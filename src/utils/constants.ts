@@ -73,8 +73,12 @@ export const ADMIN = {
   ALPHA_FIRST_PACKAGE_ID: '0x9bbd650b8442abb082c20f3bc95a9434a8d47b4bef98b0832dab57c1a8ba7123',
   ALPHA_SLUSH_FIRST_PACKAGE_ID:
     '0x41b1def47b6259cd7306e049d6500eabb1a984e25558b56eefa9b6c000a038c3',
+  // Must track the newest published `alphalend_slush` upgrade: every entry point asserts
+  // `version.assert_current_version()` against the calling package's own CURRENT_VERSION, so an
+  // older package id aborts once the shared Version object (VERSIONS.SLUSH) is bumped past it.
+  // v20 = CURRENT_VERSION 15, matching VERSIONS.SLUSH. Bump this on every slush upgrade.
   ALPHA_SLUSH_LATEST_PACKAGE_ID:
-    '0x42daebe3e20da69d12d1269e74726b8a8c7697cb4e2369c6cbba2185fa808aa5',
+    '0x8b7c85f8f15ea5e88bd0d867852996b60c40728ffa7f0851b7cfadede365a409',
   ALPHA_SLUSH_WAL_LOOP_POOL_ID:
     '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
   // ALPHA_SLUSH_VERSION: '0x1140f0b482f22650ab1c51baa9758e4bacba05e5de66dff7ccb1bc60308dbe17',
@@ -250,7 +254,6 @@ export const NAVI_CONFIG = {
     },
   },
 };
-
 
 export const BLUEFIN_STRATEGY_PACKAGE_ID =
   '0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c';
