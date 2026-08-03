@@ -739,7 +739,8 @@ export class LendingStrategy extends BaseStrategy<
         } else if (this.poolLabel.asset.name === 'vSUI') {
           if (reward.rewardCoinType === navxCoin.coinType) {
             tx.moveCall({
-              target: `${this.poolLabel.packageId}::alphafi_navi_investor::collect_v3_rewards_with_two_swaps_bluefin`,
+              // Routed through Cetus: the Bluefin NAVX-SUI pool is too thin to swap through.
+              target: `${this.poolLabel.packageId}::alphafi_navi_investor::collect_v3_rewards_with_two_swaps`,
               typeArguments: [this.poolLabel.asset.type, suiCoin.coinType, navxCoin.coinType],
               arguments: [
                 tx.object(this.poolLabel.investorId),
@@ -755,17 +756,15 @@ export class LendingStrategy extends BaseStrategy<
                 ),
                 tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
                 tx.object(NAVI_CONFIG.REWARDS_POOL.NAVX),
-                tx.object(
-                  await this.context.getPoolIdBySymbolsAndProtocol('NAVX', 'SUI', 'bluefin'),
-                ),
+                tx.object(await this.context.getPoolIdBySymbolsAndProtocol('NAVX', 'SUI', 'cetus')),
                 tx.object(
                   await this.context.getPoolIdBySymbolsAndProtocol(
                     this.poolLabel.asset.name,
                     'SUI',
-                    'bluefin',
+                    'cetus',
                   ),
                 ),
-                tx.object(GLOBAL_CONFIGS.BLUEFIN),
+                tx.object(GLOBAL_CONFIGS.CETUS),
               ],
             });
           } else if (reward.rewardCoinType === vsuiCoin.coinType) {
