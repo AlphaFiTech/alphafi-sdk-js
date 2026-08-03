@@ -105,17 +105,11 @@ export async function processWithdrawRequestsManualTxb(
 /**
  * Build a transaction that collects unsupplied balance from the ALPHA pool.
  */
-export function collectUnsuppliedBalanceTxb(
-  tx: Transaction,
-  label: AlphaVaultPoolLabel,
-): void {
+export function collectUnsuppliedBalanceTxb(tx: Transaction, label: AlphaVaultPoolLabel): void {
   tx.moveCall({
     target: `${label.packageId}::interface::collect_unsupplied_balance`,
     typeArguments: [label.asset.type],
-    arguments: [
-      tx.object(VERSIONS.ALPHA_EMBER),
-      tx.object(label.poolId),
-    ],
+    arguments: [tx.object(VERSIONS.ALPHA_EMBER), tx.object(label.poolId)],
   });
 }
 

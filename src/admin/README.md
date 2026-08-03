@@ -201,6 +201,7 @@ sdk.autocompound({ poolId: string }): Promise<Transaction>
 | `SlushLending`            | AlphaLend Slush lending pools     |
 | `SlushSingleAssetLooping` | AlphaLend Slush looping pools     |
 | `FungibleLending`         | No-op (returns empty transaction) |
+
 Supported pools are whatever `alphafi-sdk-rust`'s `build_autocompound_for_pool`
 covers (all 12 strategy families). Unsupported pools (e.g. the Alpha ember
 vault) return a 400 from the API, surfaced as a thrown `Error`.

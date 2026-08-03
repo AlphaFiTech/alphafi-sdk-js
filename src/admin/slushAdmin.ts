@@ -64,7 +64,7 @@ export async function getWalLockedRewardInfo(
   const poolFields = content.fields as Record<string, unknown>;
   const externalRewardsInfo = poolFields.external_rewards_info as Record<string, unknown>;
   const rewardsInfo =
-    ((externalRewardsInfo?.fields as Record<string, unknown>) ?? externalRewardsInfo) ?? null;
+    (externalRewardsInfo?.fields as Record<string, unknown>) ?? externalRewardsInfo ?? null;
 
   if (!rewardsInfo) {
     throw new Error('external_rewards_info field not found in pool object.');
