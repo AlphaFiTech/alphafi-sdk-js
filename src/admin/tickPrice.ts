@@ -34,10 +34,7 @@ type LpInvestorTicksGraphqlJson = {
  * Both strategy types expose parentPoolId and investorId which are needed
  * by getCurrentTick, getPositionTicks, and getTickSpacing.
  */
-async function getClmmLabelByName(
-  poolName: string,
-  context: StrategyContext,
-): Promise<ClmmLabel> {
+async function getClmmLabelByName(poolName: string, context: StrategyContext): Promise<ClmmLabel> {
   const labels = await context.getPoolLabels();
   for (const [, label] of labels) {
     if (
@@ -121,11 +118,7 @@ export function getPriceToTick(
   coinBDecimals: number,
   isUpper: boolean = false,
 ): number {
-  let tick = TickMath.priceToTickIndex(
-    new Decimal(price),
-    coinADecimals,
-    coinBDecimals,
-  );
+  let tick = TickMath.priceToTickIndex(new Decimal(price), coinADecimals, coinBDecimals);
   if (tick % tickSpacing) {
     if (isUpper === tick > 0) {
       tick = tick + tickSpacing - (tick % tickSpacing);
@@ -141,10 +134,7 @@ export function getPriceToTick(
  * Cetus pools: `tick_spacing` directly on pool fields.
  * Bluefin pools: nested under `ticks_manager.fields.tick_spacing` when present.
  */
-export async function getTickSpacing(
-  poolName: string,
-  context: StrategyContext,
-): Promise<number> {
+export async function getTickSpacing(poolName: string, context: StrategyContext): Promise<number> {
   const label = await getClmmLabelByName(poolName, context);
   const json = await context.blockchain.getObject(label.parentPoolId);
   if (json == null || typeof json !== 'object') {

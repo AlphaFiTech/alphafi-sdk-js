@@ -396,7 +396,7 @@ async function withdrawApi(req: WithdrawRequest) {
       const errBody = await resp.text();
       throw new Error(`Withdraw API error: ${errBody}`);
     }
-    let res = await resp.json();
+    const res = await resp.json();
     const txb = Transaction.fromKind(res.bytes);
     dryRunTransactionBlock(txb);
     // executeTransactionBlock(txb)
