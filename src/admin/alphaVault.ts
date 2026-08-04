@@ -4,7 +4,6 @@
  */
 
 import { Transaction } from '@mysten/sui/transactions';
-import { SuiMoveObject } from '@mysten/sui/jsonRpc';
 import { StrategyContext } from '../models/strategyContext.js';
 import { AlphaVaultPoolLabel } from '../strategies/alphaVault.js';
 import { VERSIONS } from '../utils/constants.js';
@@ -57,19 +56,21 @@ export async function getWithdrawRequestsAndUnsuppliedAmount(
   context: StrategyContext,
 ): Promise<WithdrawRequestsAndUnsuppliedAmount> {
   const label = await getAlphaLabel(context);
-  const pool = await context.blockchain.pythSuiClient.getObject({
-    id: label.poolId,
-    options: { showContent: true },
+  const { object } = await context.blockchain.suiGrpcClient.core.getObject({
+    objectId: label.poolId,
+    include: { json: true },
   });
-  if (!pool.data?.content) throw new Error('Alpha pool data not found');
+  const fields = object?.json as Record<string, unknown> | undefined;
+  if (!fields) throw new Error('Alpha pool data not found');
 
-  const fields = (pool.data.content as SuiMoveObject).fields as Record<string, unknown>;
   const unsuppliedAmount = String(fields.unsupplied_balance ?? '0');
-  const rawRequests = (fields.withdraw_requests as any)?.fields?.contents ?? [];
+  const withdrawRequestsField = fields.withdraw_requests as
+    | { contents?: { key: string; value: { leftover_amount: string } }[] }
+    | undefined;
 
-  const withdrawRequests = rawRequests.map((entry: any) => ({
-    withdrawRequestAmount: entry.fields.value.fields.leftover_amount.toString(),
-    settleRequestTime: entry.fields.key.toString(),
+  const withdrawRequests = (withdrawRequestsField?.contents ?? []).map((entry) => ({
+    withdrawRequestAmount: String(entry.value.leftover_amount),
+    settleRequestTime: String(entry.key),
   }));
 
   return { unsuppliedAmount, withdrawRequests };

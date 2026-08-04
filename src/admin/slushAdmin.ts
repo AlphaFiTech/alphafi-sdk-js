@@ -3,7 +3,6 @@
  */
 
 import { Transaction } from '@mysten/sui/transactions';
-import { SuiMoveObject, type SuiObjectResponse } from '@mysten/sui/jsonRpc';
 import { Decimal } from 'decimal.js';
 import { StrategyContext } from '../models/strategyContext.js';
 import {
@@ -51,21 +50,17 @@ function numberTypeToHuman(raw: string, tokenDecimals: number): number {
 export async function getWalLockedRewardInfo(
   context: StrategyContext,
 ): Promise<WalLockedRewardInfo | null> {
-  const pool = await context.blockchain.pythSuiClient.getObject({
-    id: ADMIN.ALPHA_SLUSH_WAL_LOOP_POOL_ID,
-    options: { showContent: true },
+  const { object } = await context.blockchain.suiGrpcClient.core.getObject({
+    objectId: ADMIN.ALPHA_SLUSH_WAL_LOOP_POOL_ID,
+    include: { json: true },
   });
 
-  if (!pool.data?.content || pool.data.content.dataType !== 'moveObject') {
+  const poolFields = object?.json as Record<string, unknown> | undefined;
+  if (!poolFields) {
     throw new Error('WAL locked pool object not found on chain.');
   }
 
-  const content = pool.data.content as SuiMoveObject;
-  const poolFields = content.fields as Record<string, unknown>;
-  const externalRewardsInfo = poolFields.external_rewards_info as Record<string, unknown>;
-  const rewardsInfo =
-    (externalRewardsInfo?.fields as Record<string, unknown>) ?? externalRewardsInfo ?? null;
-
+  const rewardsInfo = poolFields.external_rewards_info as Record<string, unknown> | undefined;
   if (!rewardsInfo) {
     throw new Error('external_rewards_info field not found in pool object.');
   }
@@ -73,10 +68,8 @@ export async function getWalLockedRewardInfo(
   const endTimeMs = Number((rewardsInfo.end_time as string | undefined) ?? 0);
   if (endTimeMs === 0) return null;
 
-  const rewardPerMsField = rewardsInfo.reward_per_ms as Record<string, unknown>;
-  const rewardPerMsFields = rewardPerMsField?.fields as Record<string, unknown> | undefined;
-  const rewardPerMsRaw: string =
-    ((rewardPerMsFields?.value ?? rewardPerMsField?.value) as string | undefined) ?? '0';
+  const rewardPerMs = rewardsInfo.reward_per_ms as Record<string, unknown> | undefined;
+  const rewardPerMsRaw: string = (rewardPerMs?.value as string | undefined) ?? '0';
 
   return {
     rewardPerMsHuman: numberTypeToHuman(rewardPerMsRaw, WAL_DECIMALS),
@@ -103,24 +96,13 @@ export async function addExternalRewardsWalLockedTxb(
   endTimeMs: number,
   context: StrategyContext,
 ): Promise<void> {
-  const rpc = context.blockchain.pythSuiClient;
-
   // Find AdminCap owned by this wallet
-  const ownedCaps = await rpc.getOwnedObjects({
+  const { objects: ownedCaps } = await context.blockchain.suiGrpcClient.core.listOwnedObjects({
     owner: address,
-    filter: {
-      MoveModule: {
-        package: ADMIN.ALPHA_SLUSH_FIRST_PACKAGE_ID,
-        module: 'alphalend_slush_pool',
-      },
-    },
-    options: { showType: true },
+    type: `${ADMIN.ALPHA_SLUSH_FIRST_PACKAGE_ID}::alphalend_slush_pool::AdminCap`,
   });
 
-  const adminCapObject = ownedCaps.data.find((obj: SuiObjectResponse) =>
-    obj.data?.type?.includes('::alphalend_slush_pool::AdminCap'),
-  );
-  const adminCapId = adminCapObject?.data?.objectId;
+  const adminCapId = ownedCaps[0]?.objectId;
   if (!adminCapId) {
     throw new Error(
       `No AdminCap found for address ${address}. Ensure this wallet owns the locked loop AdminCap.`,
