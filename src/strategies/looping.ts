@@ -322,10 +322,11 @@ export class LoopingStrategy extends BaseStrategy<
     if (!claimableRewards) {
       return;
     }
-    const [navxCoin, vsuiCoin, stsuiCoin] = await this.context.getCoinsBySymbols([
+    const [navxCoin, vsuiCoin, stsuiCoin, suiCoin] = await this.context.getCoinsBySymbols([
       'NAVX',
       'vSUI',
       'stSUI',
+      'SUI',
     ]);
 
     for (const reward of claimableRewards) {
@@ -491,6 +492,58 @@ export class LoopingStrategy extends BaseStrategy<
               ],
             });
           }
+        } else if (this.poolLabel.supplyAsset.name === 'USDT') {
+          // Rewards route reward -> SUI -> USDC -> USDT; `update_pool_v3` asserts the
+          // investor has no unclaimed incentive-v3 rewards, so skipping this aborts 15151.
+          if (reward.rewardCoinType === vsuiCoin.coinType) {
+            tx.moveCall({
+              target: `${this.poolLabel.packageId}::alphafi_navi_usdt_usdc_investor::collect_v3_rewards_with_three_swaps`,
+              typeArguments: [
+                this.poolLabel.supplyAsset.type,
+                this.poolLabel.borrowAsset.type,
+                suiCoin.coinType,
+                vsuiCoin.coinType,
+              ],
+              arguments: [
+                tx.object(this.poolLabel.investorId),
+                tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+                tx.object(CLOCK_PACKAGE_ID),
+                tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+                tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+                tx.object(NAVI_CONFIG.REWARDS_POOL.vSUI),
+                tx.object(await this.context.getPoolIdBySymbolsAndProtocol('vSUI', 'SUI', 'cetus')),
+                tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus')),
+                tx.object(
+                  await this.context.getPoolIdBySymbolsAndProtocol('USDC', 'USDT', 'cetus'),
+                ),
+                tx.object(GLOBAL_CONFIGS.CETUS),
+              ],
+            });
+          } else if (reward.rewardCoinType === navxCoin.coinType) {
+            tx.moveCall({
+              target: `${this.poolLabel.packageId}::alphafi_navi_usdt_usdc_investor::collect_v3_rewards_with_three_swaps`,
+              typeArguments: [
+                this.poolLabel.supplyAsset.type,
+                this.poolLabel.borrowAsset.type,
+                suiCoin.coinType,
+                navxCoin.coinType,
+              ],
+              arguments: [
+                tx.object(this.poolLabel.investorId),
+                tx.object(VERSIONS.ALPHA_VERSIONS[5]),
+                tx.object(CLOCK_PACKAGE_ID),
+                tx.object(NAVI_CONFIG.NAVI_STORAGE_ID),
+                tx.object(NAVI_CONFIG.INCENTIVE_V3_ID),
+                tx.object(NAVI_CONFIG.REWARDS_POOL.NAVX),
+                tx.object(await this.context.getPoolIdBySymbolsAndProtocol('NAVX', 'SUI', 'cetus')),
+                tx.object(await this.context.getPoolIdBySymbolsAndProtocol('USDC', 'SUI', 'cetus')),
+                tx.object(
+                  await this.context.getPoolIdBySymbolsAndProtocol('USDC', 'USDT', 'cetus'),
+                ),
+                tx.object(GLOBAL_CONFIGS.CETUS),
+              ],
+            });
+          }
         }
         rewardCoinSet.add(reward.rewardCoinType);
       }
@@ -587,6 +640,20 @@ export class LoopingStrategy extends BaseStrategy<
     } else if (this.poolLabel.supplyAsset.name === 'USDC') {
       const claimableRewards = await this.getAvailableRewards(
         NAVI_CONFIG.ACCOUNT_ADDRESSES.USDC_USDT_LOOP,
+      );
+      await this.collectAndSwapRewardsTxb(
+        tx,
+        rewardCoinSet,
+        claimableRewards[normalizeStructTag(this.poolLabel.supplyAsset.type)],
+      );
+      await this.collectAndSwapRewardsTxb(
+        tx,
+        rewardCoinSet,
+        claimableRewards[normalizeStructTag(this.poolLabel.borrowAsset.type)],
+      );
+    } else if (this.poolLabel.supplyAsset.name === 'USDT') {
+      const claimableRewards = await this.getAvailableRewards(
+        NAVI_CONFIG.ACCOUNT_ADDRESSES.USDT_USDC_LOOP,
       );
       await this.collectAndSwapRewardsTxb(
         tx,
