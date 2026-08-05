@@ -3,13 +3,10 @@
  *
  * Reads and transaction simulation go through GraphQL (`gqlClient`), using
  * `gqlClient.core.simulateTransaction` for simulation (server-side build + gas
- * resolution). A JSON-RPC client (`pythSuiClient`) is retained for the admin
- * helpers that still need JSON-RPC object reads. A gRPC (v2 Core) client
- * (`suiGrpcClient`) is used where a Core-capable client is required (e.g. the
- * Navi reward `devInspect`).
+ * resolution). A gRPC (v2 Core) client (`suiGrpcClient`) serves object reads
+ * and anything needing a Core-capable client (e.g. the Navi reward `devInspect`).
  */
 
-import { SuiJsonRpcClient } from '@mysten/sui/jsonRpc';
 import { SuiGraphQLClient } from '@mysten/sui/graphql';
 import { SuiGrpcClient } from '@mysten/sui/grpc';
 import { graphql } from '@mysten/sui/graphql/schema';
@@ -18,7 +15,6 @@ import { Network } from '@alphafi/alphalend-sdk';
 
 export type BlockchainOptions = {
   network: Network;
-  pythSuiClient?: SuiJsonRpcClient;
   graphqlUrl?: string;
   grpcUrl?: string;
 };
@@ -27,9 +23,7 @@ export class Blockchain {
   network: Network;
   graphqlUrl: string;
   gqlClient: SuiGraphQLClient;
-  /** Retained for admin helpers that still need JSON-RPC object reads. */
-  pythSuiClient: SuiJsonRpcClient;
-  /** gRPC (v2 Core) client for reads needing a Core-capable client (e.g. Navi reward `devInspect`). */
+  /** gRPC (v2 Core) client for object reads and anything needing a Core-capable client. */
   suiGrpcClient: SuiGrpcClient;
 
   constructor(options: BlockchainOptions) {
@@ -39,15 +33,6 @@ export class Blockchain {
       (options.network === 'testnet'
         ? 'https://graphql.testnet.sui.io/graphql'
         : 'https://graphql.mainnet.sui.io/graphql');
-    this.pythSuiClient =
-      options.pythSuiClient ??
-      new SuiJsonRpcClient({
-        url:
-          options.network === 'testnet'
-            ? 'https://fullnode.testnet.sui.io/'
-            : 'https://alphalen-suimain-ef6f.mainnet.sui.rpcpool.com/',
-        network: options.network === 'testnet' ? 'testnet' : 'mainnet',
-      });
     this.gqlClient = new SuiGraphQLClient({
       url: this.graphqlUrl,
       network: options.network === 'testnet' ? 'testnet' : 'mainnet',

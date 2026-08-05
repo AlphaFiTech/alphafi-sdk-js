@@ -16,6 +16,8 @@ export interface AlphaFiSDKConfig {
   graphqlUrl?: string;
   /** Base URL for the AlphaFi API (defaults to 'https://api.alphafi.xyz') */
   apiBaseUrl?: string;
+  /** Optional Sui gRPC endpoint override for object reads */
+  grpcUrl?: string;
 }
 
 /**
