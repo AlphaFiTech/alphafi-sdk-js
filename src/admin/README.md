@@ -264,18 +264,39 @@ signAndExecuteTransaction({ transaction: tx });
 
 ## Constants used
 
-New constants added to `src/utils/constants.ts` under the `ADMIN` block:
+Only two ids remain hardcoded in `src/utils/constants.ts` under the `ADMIN` block, and both are
+used to **name a type** in an owned-object lookup, never as a call target:
 
-| Constant                              | Description                                        |
-| ------------------------------------- | -------------------------------------------------- |
-| `ADMIN.ALPHA_FIRST_PACKAGE_ID`        | First-ever AlphaFi package (for RebalanceCap type) |
-| `ADMIN.ALPHA_SLUSH_FIRST_PACKAGE_ID`  | First Slush package (for AdminCap filter)          |
-| `ADMIN.ALPHA_SLUSH_LATEST_PACKAGE_ID` | Current Slush package for Move calls               |
-| `ADMIN.ALPHA_SLUSH_WAL_LOOP_POOL_ID`  | WAL locked-loop pool object ID                     |
+| Constant                             | Names the type                   | Used by           |
+| ------------------------------------ | -------------------------------- | ----------------- |
+| `ADMIN.ALPHA_FIRST_PACKAGE_ID`       | `distributor::RebalanceCap`      | `rebalanceCap.ts` |
+| `ADMIN.ALPHA_SLUSH_FIRST_PACKAGE_ID` | `alphalend_slush_pool::AdminCap` | `slushAdmin.ts`   |
 
-> **Note:** Bluefin/Cetus swap pool IDs are no longer hardcoded under `ADMIN`.
-> They are resolved from the pool registry via
-> `StrategyContext.getPoolIdBySymbolsAndProtocol(symbolA, symbolB, protocol)`
+A Sui type tag carries the id of the package version that first _defined_ the struct, and that id
+never changes on upgrade — so these two need no maintenance and deliberately do **not** come from
+the API. They also cannot be derived by taking the package prefix of some neighbouring type or
+event string: a single package holds types defined across many upgrades (the current slush package
+`0x8b7c85…` spans six defining ids), so the "obvious" neighbour is usually the wrong address, and a
+wrong type makes the owned-object query return nothing — surfacing as a bogus "no cap found"
+permissions error rather than a config error.
+
+Everything that _does_ move on upgrade or redeploy is read from the pool registry
+(`GET {apiBaseUrl}/public/config` → `StrategyContext.getPoolLabels()`):
+
+| Value                          | Registry field    |
+| ------------------------------ | ----------------- |
+| Slush call-target package id   | `label.packageId` |
+| WAL locked-loop pool object id | `label.poolId`    |
+| Shared slush `Version` object  | `label.versionId` |
+
+`slushAdmin.ts` resolves all three from the `ALPHALEND-SLUSH-WAL-SINGLE-LOOP` label, so a slush
+upgrade needs no SDK change. `label.versionId` is optional on
+`SlushSingleAssetLoopingPoolLabel` (the API always sends `version_object_id`; hand-written label
+fixtures may not), and `addExternalRewardsWalLockedTxb` throws if it is missing rather than falling
+back to a possibly stale constant.
+
+> **Note:** Bluefin/Cetus swap pool IDs are likewise not hardcoded. They are resolved from the pool
+> registry via `StrategyContext.getPoolIdBySymbolsAndProtocol(symbolA, symbolB, protocol)`
 > (see `src/utils/poolMap.ts`), so autocompound/rebalance paths always use the
 > registry's canonical pool for a given pair.
 

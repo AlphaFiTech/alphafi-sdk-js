@@ -649,6 +649,12 @@ export interface SlushSingleAssetLoopingReceiptObject {
 export interface SlushSingleAssetLoopingPoolLabel {
   poolId: string;
   packageId: string;
+  /**
+   * Shared `Version` object asserted by every entry point of the slush package.
+   * Served as `version_object_id` by the pool registry; optional only so that
+   * hand-written label fixtures stay valid.
+   */
+  versionId?: string;
   strategyType: 'SlushSingleAssetLooping';
   parentProtocol: ProtocolType;
   asset: StringMap;

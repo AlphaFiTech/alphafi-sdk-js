@@ -282,6 +282,7 @@ export class StrategyContext {
       return {
         poolId: d.pool_id,
         packageId: d.package_id,
+        versionId: d.version_object_id,
         strategyType: strategyType,
         parentProtocol: d.parent_protocol,
         asset: d.asset,
