@@ -14,7 +14,6 @@ import {
   CLOCK_PACKAGE_ID,
   GLOBAL_CONFIGS,
   IMAGE_URLS,
-  VERSIONS,
 } from '../utils/constants.js';
 
 /**
@@ -314,7 +313,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
         target,
         typeArguments: [this.poolLabel.asset.type],
         arguments: [
-          tx.object(VERSIONS.SLUSH),
+          tx.object(this.poolLabel.versionId),
           positionCap,
           tx.object(this.poolLabel.poolId),
           depositCoin,
@@ -328,7 +327,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
         target,
         typeArguments: [this.poolLabel.asset.type],
         arguments: [
-          tx.object(VERSIONS.SLUSH),
+          tx.object(this.poolLabel.versionId),
           tx.object(positionCaps[0].id),
           tx.object(this.poolLabel.poolId),
           depositCoin,
@@ -361,7 +360,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       target,
       typeArguments: [this.poolLabel.asset.type],
       arguments: [
-        tx.object(VERSIONS.SLUSH),
+        tx.object(this.poolLabel.versionId),
         tx.object(positionCaps[0].id),
         tx.object(this.poolLabel.poolId),
         tx.pure.u64(xTokenAmount),
@@ -385,7 +384,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       target,
       typeArguments: [this.poolLabel.asset.type],
       arguments: [
-        tx.object(VERSIONS.SLUSH),
+        tx.object(this.poolLabel.versionId),
         tx.object(positionCaps[0].id),
         tx.object(this.poolLabel.poolId),
         tx.pure.id(withdrawRequestId),
@@ -410,7 +409,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       target,
       typeArguments: [this.poolLabel.asset.type],
       arguments: [
-        tx.object(VERSIONS.SLUSH),
+        tx.object(this.poolLabel.versionId),
         tx.object(positionCaps[0].id),
         tx.object(this.poolLabel.poolId),
         tx.pure.id(withdrawRequestId),
@@ -492,7 +491,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
           target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin_v2`,
           typeArguments: [this.poolLabel.asset.type, alphaCoin.coinType, stsuiCoin.coinType],
           arguments: [
-            tx.object(VERSIONS.SLUSH),
+            tx.object(this.poolLabel.versionId),
             tx.object(this.poolLabel.poolId),
             tx.object(ALPHAFI_ORACLE),
             tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
@@ -510,7 +509,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
           target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin_v2`,
           typeArguments: [this.poolLabel.asset.type, stsuiCoin.coinType, suiCoin.coinType],
           arguments: [
-            tx.object(VERSIONS.SLUSH),
+            tx.object(this.poolLabel.versionId),
             tx.object(this.poolLabel.poolId),
             tx.object(ALPHAFI_ORACLE),
             tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
@@ -529,7 +528,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
           target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin_v2`,
           typeArguments: [this.poolLabel.asset.type, x.coinType, suiCoin.coinType],
           arguments: [
-            tx.object(VERSIONS.SLUSH),
+            tx.object(this.poolLabel.versionId),
             tx.object(this.poolLabel.poolId),
             tx.object(ALPHAFI_ORACLE),
             tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
@@ -563,7 +562,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
         target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin_v2`,
         typeArguments: [this.poolLabel.asset.type, suiCoin.coinType, usdcCoin.coinType],
         arguments: [
-          tx.object(VERSIONS.SLUSH),
+          tx.object(this.poolLabel.versionId),
           tx.object(this.poolLabel.poolId),
           tx.object(ALPHAFI_ORACLE),
           tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
@@ -580,7 +579,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
         target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin_v2`,
         typeArguments: [this.poolLabel.asset.type, this.poolLabel.asset.type, usdcCoin.coinType],
         arguments: [
-          tx.object(VERSIONS.SLUSH),
+          tx.object(this.poolLabel.versionId),
           tx.object(this.poolLabel.poolId),
           tx.object(ALPHAFI_ORACLE),
           tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
@@ -651,10 +650,9 @@ export interface SlushSingleAssetLoopingPoolLabel {
   packageId: string;
   /**
    * Shared `Version` object asserted by every entry point of the slush package.
-   * Served as `version_object_id` by the pool registry; optional only so that
-   * hand-written label fixtures stay valid.
+   * Served as `version_object_id` by the pool registry.
    */
-  versionId?: string;
+  versionId: string;
   strategyType: 'SlushSingleAssetLooping';
   parentProtocol: ProtocolType;
   asset: StringMap;
