@@ -5,12 +5,8 @@
 import { Transaction } from '@mysten/sui/transactions';
 import { Decimal } from 'decimal.js';
 import { StrategyContext } from '../models/strategyContext.js';
-import {
-  ADMIN,
-  ALPHALEND_LENDING_PROTOCOL_ID,
-  CLOCK_PACKAGE_ID,
-  VERSIONS,
-} from '../utils/constants.js';
+import { SlushSingleAssetLoopingPoolLabel } from '../strategies/slushSingleAssetLooping.js';
+import { ADMIN, ALPHALEND_LENDING_PROTOCOL_ID, CLOCK_PACKAGE_ID } from '../utils/constants.js';
 
 // Mainnet WAL coin type
 const WAL_COIN_TYPE =
@@ -18,6 +14,8 @@ const WAL_COIN_TYPE =
 
 // WAL has 9 decimal places on Sui
 const WAL_DECIMALS = 9;
+
+const WAL_LOOP_POOL_NAME = 'ALPHALEND-SLUSH-WAL-SINGLE-LOOP';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
@@ -39,6 +37,23 @@ function numberTypeToHuman(raw: string, tokenDecimals: number): number {
   return new Decimal(raw).div(ten.pow(18)).div(ten.pow(tokenDecimals)).toNumber();
 }
 
+/**
+ * Resolve the WAL locked-loop pool label from the registry (`/public/config`).
+ * The pool id, the call-target package id and the shared `Version` object all move on
+ * redeploys/upgrades, so they are read from the registry instead of being hardcoded.
+ */
+async function getWalLoopLabel(
+  context: StrategyContext,
+): Promise<SlushSingleAssetLoopingPoolLabel> {
+  const labels = await context.getPoolLabels();
+  for (const [, label] of labels) {
+    if (label.strategyType === 'SlushSingleAssetLooping' && label.poolName === WAL_LOOP_POOL_NAME) {
+      return label as SlushSingleAssetLoopingPoolLabel;
+    }
+  }
+  throw new Error(`${WAL_LOOP_POOL_NAME} pool label not found in registry`);
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Exported admin functions
 // ──────────────────────────────────────────────────────────────────────────────
@@ -50,8 +65,9 @@ function numberTypeToHuman(raw: string, tokenDecimals: number): number {
 export async function getWalLockedRewardInfo(
   context: StrategyContext,
 ): Promise<WalLockedRewardInfo | null> {
+  const walLoop = await getWalLoopLabel(context);
   const { object } = await context.blockchain.suiGrpcClient.core.getObject({
-    objectId: ADMIN.ALPHA_SLUSH_WAL_LOOP_POOL_ID,
+    objectId: walLoop.poolId,
     include: { json: true },
   });
 
@@ -96,7 +112,15 @@ export async function addExternalRewardsWalLockedTxb(
   endTimeMs: number,
   context: StrategyContext,
 ): Promise<void> {
-  // Find AdminCap owned by this wallet
+  const walLoop = await getWalLoopLabel(context);
+  if (!walLoop.versionId) {
+    throw new Error(
+      `${WAL_LOOP_POOL_NAME} label has no version_object_id; cannot build add_external_rewards`,
+    );
+  }
+
+  // Find AdminCap owned by this wallet. The type address is the package version that *defined*
+  // `AdminCap` (slush v1), not the current package — see ADMIN.ALPHA_SLUSH_FIRST_PACKAGE_ID.
   const { objects: ownedCaps } = await context.blockchain.suiGrpcClient.core.listOwnedObjects({
     owner: address,
     type: `${ADMIN.ALPHA_SLUSH_FIRST_PACKAGE_ID}::alphalend_slush_pool::AdminCap`,
@@ -115,12 +139,12 @@ export async function addExternalRewardsWalLockedTxb(
   const rewardCoin = context.blockchain.getCoinObject(tx, WAL_COIN_TYPE, address, amount);
 
   tx.moveCall({
-    target: `${ADMIN.ALPHA_SLUSH_LATEST_PACKAGE_ID}::alphalend_slush_locked_loop_pool::add_external_rewards`,
+    target: `${walLoop.packageId}::alphalend_slush_locked_loop_pool::add_external_rewards`,
     typeArguments: [WAL_COIN_TYPE],
     arguments: [
       tx.object(adminCapId),
-      tx.object(VERSIONS.SLUSH),
-      tx.object(ADMIN.ALPHA_SLUSH_WAL_LOOP_POOL_ID),
+      tx.object(walLoop.versionId),
+      tx.object(walLoop.poolId),
       rewardCoin,
       tx.pure.u64(startTimeMs),
       tx.pure.u64(endTimeMs),

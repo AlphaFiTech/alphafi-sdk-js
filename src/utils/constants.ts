@@ -69,19 +69,26 @@ export const LEGACY_ALPHA_POOL_RECEIPT =
 export const DISTRIBUTOR_OBJECT_ID =
   '0x33f3c288a90c5368ec3b937875cfae94aebae0ee7fb65e97265728eff9e6995b';
 
+/**
+ * Package ids used to *name types* in admin object lookups — not call targets.
+ *
+ * A Sui type tag carries the id of the package version that first defined the struct (its
+ * type-origin entry), and that id never changes on upgrade. So these are upgrade-invariant and
+ * must not be replaced with a pool's current `packageId`, nor derived from a neighbouring
+ * type/event string: one package can hold types defined across many upgrades (the current slush
+ * package `0x8b7c85…` spans six defining ids, e.g. `alphalend_slush_locked_loop_pool` types
+ * originate at `0x3221f3…`/`0xad1991…`). Getting one wrong makes the owned-object query return
+ * nothing, which surfaces as a bogus "no cap found" permissions error.
+ *
+ * Values that *do* move on upgrade/redeploy — call-target package ids, pool ids and shared
+ * `Version` objects — come from the pool registry (`/public/config`) instead.
+ */
 export const ADMIN = {
+  /** Defines `distributor::RebalanceCap` (original alphapool package). */
   ALPHA_FIRST_PACKAGE_ID: '0x9bbd650b8442abb082c20f3bc95a9434a8d47b4bef98b0832dab57c1a8ba7123',
+  /** Defines `alphalend_slush_pool::AdminCap` (slush v1). */
   ALPHA_SLUSH_FIRST_PACKAGE_ID:
     '0x41b1def47b6259cd7306e049d6500eabb1a984e25558b56eefa9b6c000a038c3',
-  // Must track the newest published `alphalend_slush` upgrade: every entry point asserts
-  // `version.assert_current_version()` against the calling package's own CURRENT_VERSION, so an
-  // older package id aborts once the shared Version object (VERSIONS.SLUSH) is bumped past it.
-  // v20 = CURRENT_VERSION 15, matching VERSIONS.SLUSH. Bump this on every slush upgrade.
-  ALPHA_SLUSH_LATEST_PACKAGE_ID:
-    '0x8b7c85f8f15ea5e88bd0d867852996b60c40728ffa7f0851b7cfadede365a409',
-  ALPHA_SLUSH_WAL_LOOP_POOL_ID:
-    '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
-  // ALPHA_SLUSH_VERSION: '0x1140f0b482f22650ab1c51baa9758e4bacba05e5de66dff7ccb1bc60308dbe17',
 };
 
 export const GLOBAL_CONFIGS = {
