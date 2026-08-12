@@ -17,6 +17,8 @@ export type BlockchainOptions = {
   network: Network;
   graphqlUrl?: string;
   grpcUrl?: string;
+  /** Auth token for the gRPC endpoint, sent as `x-token` metadata (e.g. a BlockPI key). */
+  grpcToken?: string;
 };
 
 export class Blockchain {
@@ -44,6 +46,7 @@ export class Blockchain {
         (options.network === 'testnet'
           ? 'https://fullnode.testnet.sui.io'
           : 'https://fullnode.mainnet.sui.io'),
+      ...(options.grpcToken ? { meta: { 'x-token': options.grpcToken } } : {}),
     });
   }
 

@@ -75,6 +75,7 @@ export class AlphaFiSDK {
       config.graphqlUrl,
       config.apiBaseUrl,
       config.grpcUrl,
+      config.grpcToken,
     );
     this.protocol = new Protocol(this.strategyContext);
     this.portfolio = new Portfolio(this.protocol, this.strategyContext);
