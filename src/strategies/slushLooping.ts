@@ -314,11 +314,19 @@ export class SlushLoopingStrategy extends BaseStrategy<
 
     const [suiCoin] = await this.context.getCoinsBySymbols(['SUI']);
 
-    for (const reward of rewards) {
-      if (reward.coinType === suiCoin.coinType) {
-        continue;
-      }
-      alphalendClient.updatePrices(tx, [reward.coinType, suiCoin.coinType]);
+    const rewardsToSwap = rewards.filter((reward) => reward.coinType !== suiCoin.coinType);
+    if (rewardsToSwap.length === 0) {
+      return;
+    }
+
+    // One oracle update for every reward coin, so the PTB carries a single verify + ingest
+    // pair instead of one per reward.
+    await alphalendClient.updatePrices(tx, [
+      ...new Set(rewardsToSwap.map((reward) => reward.coinType)),
+      suiCoin.coinType,
+    ]);
+
+    for (const reward of rewardsToSwap) {
       // reward -> SUI
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::collect_reward_and_swap_bluefin`,

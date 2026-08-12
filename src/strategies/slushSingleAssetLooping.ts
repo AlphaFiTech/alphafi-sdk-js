@@ -478,14 +478,29 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       return;
     }
 
+    // One oracle update covering every coin the swaps below price, so the PTB carries a
+    // single verify + ingest pair instead of one per reward.
+    const priceCoinTypes = new Set<string>();
+    for (const x of rewards) {
+      if (x.coinType == alphaCoin.coinType) {
+        priceCoinTypes.add(alphaCoin.coinType);
+        priceCoinTypes.add(stsuiCoin.coinType);
+        priceCoinTypes.add(suiCoin.coinType);
+      } else if (coinTypes.includes(x.coinType) && x.coinType != this.poolLabel.asset.type) {
+        priceCoinTypes.add(x.coinType);
+        priceCoinTypes.add(suiCoin.coinType);
+      }
+    }
+    if (this.poolLabel.asset.name === 'USDSUI') {
+      priceCoinTypes.add(this.poolLabel.asset.type);
+      priceCoinTypes.add(usdcCoin.coinType);
+      priceCoinTypes.add(suiCoin.coinType);
+    }
+    await alphalendClient.updatePrices(tx, [...priceCoinTypes]);
+
     // Loop through rewards and collect/swap each one
     for (const x of rewards) {
       if (x.coinType == alphaCoin.coinType) {
-        alphalendClient.updatePrices(tx, [
-          alphaCoin.coinType,
-          stsuiCoin.coinType,
-          suiCoin.coinType,
-        ]);
         // ALPHA -> stSUI -> SUI
         tx.moveCall({
           target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin_v2`,
@@ -522,7 +537,6 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
           ],
         });
       } else if (coinTypes.includes(x.coinType) && x.coinType != this.poolLabel.asset.type) {
-        alphalendClient.updatePrices(tx, [x.coinType, suiCoin.coinType]);
         // Other rewards -> SUI
         tx.moveCall({
           target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin_v2`,
@@ -552,11 +566,6 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
     // After collecting all rewards, handle base asset conversion
     // If pool asset is USDSUI, convert SUI -> USDC, then USDC -> USDSUI
     if (this.poolLabel.asset.name === 'USDSUI') {
-      alphalendClient.updatePrices(tx, [
-        this.poolLabel.asset.type,
-        usdcCoin.coinType,
-        suiCoin.coinType,
-      ]);
       // SUI -> USDC
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::collect_reward_and_swap_bluefin_v2`,

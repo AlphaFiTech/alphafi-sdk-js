@@ -277,7 +277,7 @@ export class SlushLendingStrategy extends BaseStrategy<
       'USDC',
     ]);
 
-    alphalendClient.updatePrices(tx, [
+    await alphalendClient.updatePrices(tx, [
       stsuiCoin.coinType,
       suiCoin.coinType,
       deepCoin.coinType,
