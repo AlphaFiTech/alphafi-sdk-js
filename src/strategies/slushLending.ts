@@ -15,7 +15,6 @@ import {
   GLOBAL_CONFIGS,
   IMAGE_URLS,
   SUI_SYSTEM_STATE,
-  VERSIONS,
 } from '../utils/constants.js';
 
 /**
@@ -293,7 +292,7 @@ export class SlushLendingStrategy extends BaseStrategy<
           target: `${this.poolLabel.packageId}::alphalend_slush_pool::collect_reward_and_swap_bluefin_v2`,
           typeArguments: [this.poolLabel.asset.type, reward.coinType, suiCoin.coinType],
           arguments: [
-            tx.object(VERSIONS.SLUSH),
+            tx.object(this.poolLabel.versionId),
             tx.object(this.poolLabel.poolId),
             tx.object(ALPHAFI_ORACLE),
             tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
@@ -321,7 +320,7 @@ export class SlushLendingStrategy extends BaseStrategy<
           target: `${this.poolLabel.packageId}::alphalend_slush_pool::collect_reward_and_swap_bluefin_v2`,
           typeArguments: [this.poolLabel.asset.type, suiCoin.coinType, usdcCoin.coinType],
           arguments: [
-            tx.object(VERSIONS.SLUSH),
+            tx.object(this.poolLabel.versionId),
             tx.object(this.poolLabel.poolId),
             tx.object(ALPHAFI_ORACLE),
             tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
@@ -338,7 +337,7 @@ export class SlushLendingStrategy extends BaseStrategy<
           target: `${this.poolLabel.packageId}::alphalend_slush_pool::collect_reward_and_swap_bluefin_v2`,
           typeArguments: [this.poolLabel.asset.type, this.poolLabel.asset.type, suiCoin.coinType],
           arguments: [
-            tx.object(VERSIONS.SLUSH),
+            tx.object(this.poolLabel.versionId),
             tx.object(this.poolLabel.poolId),
             tx.object(ALPHAFI_ORACLE),
             tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
@@ -380,7 +379,7 @@ export class SlushLendingStrategy extends BaseStrategy<
         target: `${this.poolLabel.packageId}::alphalend_slush_pool::user_deposit`,
         typeArguments: [this.poolLabel.asset.type],
         arguments: [
-          tx.object(VERSIONS.SLUSH),
+          tx.object(this.poolLabel.versionId),
           positionCap,
           tx.object(this.poolLabel.poolId),
           depositCoin,
@@ -395,7 +394,7 @@ export class SlushLendingStrategy extends BaseStrategy<
         target: `${this.poolLabel.packageId}::alphalend_slush_pool::user_deposit`,
         typeArguments: [this.poolLabel.asset.type],
         arguments: [
-          tx.object(VERSIONS.SLUSH),
+          tx.object(this.poolLabel.versionId),
           tx.object(positionCaps[0].id),
           tx.object(this.poolLabel.poolId),
           depositCoin,
@@ -427,7 +426,7 @@ export class SlushLendingStrategy extends BaseStrategy<
       target: `${this.poolLabel.packageId}::alphalend_slush_pool::user_withdraw`,
       typeArguments: [this.poolLabel.asset.type],
       arguments: [
-        tx.object(VERSIONS.SLUSH),
+        tx.object(this.poolLabel.versionId),
         tx.object(positionCaps[0].id),
         tx.object(this.poolLabel.poolId),
         tx.pure.u64(xTokenAmount),
@@ -508,6 +507,7 @@ export interface SlushLendingPoolLabel {
   poolId: string;
   packageId: string;
   packageNumber: number;
+  versionId: string;
   strategyType: 'SlushLending';
   parentProtocol: ProtocolType;
   asset: StringMap;

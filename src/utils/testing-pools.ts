@@ -26,6 +26,9 @@ export const TEST_POOLS: PoolLabel[] = [
   {
     poolId: '0x46688bb99cbca2d99154d287d8660a750bd056d5cbbb332c336f1db93185de83',
     packageId: '0x8d5e0d608b60e3d928f36f4da75d2f50e0ae4446fc70c6346470d0edcb84f005',
+    // Standalone publish (package version 1), so it has its own shared Version object
+    // rather than the mainnet slush one.
+    versionId: '0x06bf136a15ade4884ad79f90dee79245df616886099be938ddc87b29c7f9c4ff',
     strategyType: 'SlushSingleAssetLooping',
     parentProtocol: 'Alphalend',
     asset: {
@@ -43,6 +46,7 @@ export const TEST_POOLS: PoolLabel[] = [
   {
     poolId: '0x0bca47c53d57d203d19611af98a4e723c52cbf1bc58312360bfb5dcba0286de9',
     packageId: '0xcd3c28d6643fa2060d73d6e98bcc8049744b32804b017213a897e9466c5feb4d',
+    versionId: '0x146d1785834528d08a44cac4a59c6a981d43cc13b1d07818e7fa3d29318ca00f',
     strategyType: 'SlushSingleAssetLooping',
     parentProtocol: 'Alphalend',
     asset: {
@@ -60,6 +64,7 @@ export const TEST_POOLS: PoolLabel[] = [
   {
     poolId: '0x0e1399fe66eca3147766bb113ae7b52b31243874c9e4a64a48e6d8cb91aa3c04',
     packageId: '0xcd3c28d6643fa2060d73d6e98bcc8049744b32804b017213a897e9466c5feb4d',
+    versionId: '0x146d1785834528d08a44cac4a59c6a981d43cc13b1d07818e7fa3d29318ca00f',
     strategyType: 'SlushSingleAssetLooping',
     parentProtocol: 'Alphalend',
     asset: {
