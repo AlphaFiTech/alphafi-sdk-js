@@ -46,7 +46,9 @@ export class Blockchain {
         (options.network === 'testnet'
           ? 'https://fullnode.testnet.sui.io'
           : 'https://fullnode.mainnet.sui.io'),
-      ...(options.grpcToken ? { meta: { 'x-token': options.grpcToken } } : {}),
+      // Written as a direct property (not a conditional spread) so the compiler
+      // validates the option name against SuiGrpcClientOptions.
+      meta: options.grpcToken ? { 'x-token': options.grpcToken } : undefined,
     });
   }
 
