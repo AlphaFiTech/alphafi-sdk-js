@@ -53,9 +53,15 @@ export class StrategyContext {
   private slushPositionsCache: Cache<string, Map<string, any[]>>;
   private alphaFiPositionsCache: Cache<string, Map<string, any[]>>;
 
-  constructor(network: Network, graphqlUrl?: string, apiBaseUrl?: string, grpcUrl?: string) {
+  constructor(
+    network: Network,
+    graphqlUrl?: string,
+    apiBaseUrl?: string,
+    grpcUrl?: string,
+    grpcToken?: string,
+  ) {
     this.apiBaseUrl = apiBaseUrl ?? DEFAULT_API_BASE_URL;
-    this.blockchain = new Blockchain({ network, graphqlUrl, grpcUrl });
+    this.blockchain = new Blockchain({ network, graphqlUrl, grpcUrl, grpcToken });
     this.coinInfoProvider = new CoinInfoProvider();
     this.alphalendClient = new AlphalendClient(network, graphqlUrl);
 

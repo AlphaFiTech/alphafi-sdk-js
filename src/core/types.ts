@@ -18,6 +18,8 @@ export interface AlphaFiSDKConfig {
   apiBaseUrl?: string;
   /** Optional Sui gRPC endpoint override for object reads */
   grpcUrl?: string;
+  /** Auth token for the gRPC endpoint, sent as `x-token` metadata (e.g. a BlockPI key). */
+  grpcToken?: string;
 }
 
 /**
