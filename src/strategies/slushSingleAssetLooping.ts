@@ -304,10 +304,13 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       BigInt(options.amount),
     );
 
-    const positionCaps = await this.context.getSlushPositionCaps(options.address);
+    const positionCap = await this.context.getSlushPositionCapForPool(
+      options.address,
+      this.poolLabel.poolId,
+    );
     const target = `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::user_deposit`;
 
-    if (positionCaps.length === 0) {
+    if (!positionCap) {
       const positionCap: TransactionResult = this.createPositionCap(tx);
       tx.moveCall({
         target,
@@ -328,7 +331,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
         typeArguments: [this.poolLabel.asset.type],
         arguments: [
           tx.object(this.poolLabel.versionId),
-          tx.object(positionCaps[0].id),
+          tx.object(positionCap.id),
           tx.object(this.poolLabel.poolId),
           depositCoin,
           tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
@@ -353,7 +356,13 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       xTokenAmount = this.receiptObjects[0].xTokens;
     }
 
-    const positionCaps = await this.context.getSlushPositionCaps(options.address);
+    const positionCap = await this.context.getSlushPositionCapForPool(
+      options.address,
+      this.poolLabel.poolId,
+    );
+    if (!positionCap) {
+      throw new Error('No position cap found for withdraw');
+    }
     const target = `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::user_initiate_withdraw`;
 
     tx.moveCall({
@@ -361,7 +370,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       typeArguments: [this.poolLabel.asset.type],
       arguments: [
         tx.object(this.poolLabel.versionId),
-        tx.object(positionCaps[0].id),
+        tx.object(positionCap.id),
         tx.object(this.poolLabel.poolId),
         tx.pure.u64(xTokenAmount),
         tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
@@ -374,8 +383,11 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
     const alphalendClient = this.context.alphalendClient;
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
     await this.collectAndSwapRewards(tx);
-    const positionCaps = await this.context.getSlushPositionCaps(address);
-    if (positionCaps.length === 0) {
+    const positionCap = await this.context.getSlushPositionCapForPool(
+      address,
+      this.poolLabel.poolId,
+    );
+    if (!positionCap) {
       throw new Error('No position cap found for claim');
     }
 
@@ -385,7 +397,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       typeArguments: [this.poolLabel.asset.type],
       arguments: [
         tx.object(this.poolLabel.versionId),
-        tx.object(positionCaps[0].id),
+        tx.object(positionCap.id),
         tx.object(this.poolLabel.poolId),
         tx.pure.id(withdrawRequestId),
         tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
@@ -399,8 +411,11 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
     const alphalendClient = this.context.alphalendClient;
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
     await this.collectAndSwapRewards(tx);
-    const positionCaps = await this.context.getSlushPositionCaps(address);
-    if (positionCaps.length === 0) {
+    const positionCap = await this.context.getSlushPositionCapForPool(
+      address,
+      this.poolLabel.poolId,
+    );
+    if (!positionCap) {
       throw new Error('No position cap found for cancellation');
     }
 
@@ -410,7 +425,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       typeArguments: [this.poolLabel.asset.type],
       arguments: [
         tx.object(this.poolLabel.versionId),
-        tx.object(positionCaps[0].id),
+        tx.object(positionCap.id),
         tx.object(this.poolLabel.poolId),
         tx.pure.id(withdrawRequestId),
         tx.object(ALPHALEND_LENDING_PROTOCOL_ID),

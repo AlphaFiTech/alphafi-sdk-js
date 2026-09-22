@@ -282,10 +282,14 @@ export class SlushLoopingStrategy extends BaseStrategy<
    * the main package cap type with the other slush strategies.
    */
   private async getPositionCapId(address: string): Promise<string | undefined> {
-    const caps = this.isOldPool
-      ? await this.context.getSlushPositionCaps(address, SLUSH_LOOP_POSITION_CAP_TYPE)
-      : await this.context.getSlushPositionCaps(address);
-    return caps[0]?.id;
+    const cap = this.isOldPool
+      ? await this.context.getSlushPositionCapForPool(
+          address,
+          this.poolLabel.poolId,
+          SLUSH_LOOP_POSITION_CAP_TYPE,
+        )
+      : await this.context.getSlushPositionCapForPool(address, this.poolLabel.poolId);
+    return cap?.id;
   }
 
   /**

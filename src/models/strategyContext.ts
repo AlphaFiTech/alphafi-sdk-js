@@ -18,7 +18,7 @@ import {
   SlushPositionCap,
   TransferRequest,
 } from './types.js';
-import { normalizeStructTag } from '@mysten/sui/utils';
+import { normalizeStructTag, normalizeSuiObjectId } from '@mysten/sui/utils';
 import {
   ALPHAFI_RECEIPT_TYPE,
   ALPHAFI_TRANSFER_REQUEST_KEY_TYPE,
@@ -796,6 +796,30 @@ export class StrategyContext {
   async getSlushPosition(userAddress: string, poolId: string): Promise<any[]> {
     const allPositions = await this.getAllSlushPositions(userAddress);
     return allPositions.get(poolId) || [];
+  }
+
+  /**
+   * Pick the slush position cap to use for a pool. A wallet can hold several caps (e.g. one
+   * transferred in from another wallet), and the contract aborts with ErrPositionNotCreated if
+   * the cap has no position in the pool, so prefer the cap that already holds this pool, then any
+   * cap holding positions, then the first cap.
+   */
+  async getSlushPositionCapForPool(
+    userAddress: string,
+    poolId: string,
+    capType: string = SLUSH_POSITION_CAP_TYPE,
+  ): Promise<SlushPositionCap | undefined> {
+    const caps = await this.getSlushPositionCaps(userAddress, capType);
+    const normalizedPoolId = normalizeSuiObjectId(poolId);
+    return (
+      caps.find((cap) =>
+        Array.from(cap.position_pool_map.values()).some(
+          (id) => normalizeSuiObjectId(id) === normalizedPoolId,
+        ),
+      ) ??
+      caps.find((cap) => cap.position_pool_map.size > 0) ??
+      caps[0]
+    );
   }
 
   /**
