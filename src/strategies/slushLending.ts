@@ -372,7 +372,7 @@ export class SlushLendingStrategy extends BaseStrategy<
 
     await this.collectAndSwapRewards(tx);
 
-    const positionCap = await this.context.getSlushPositionCapForPool(
+    const positionCap = await this.context.getSlushPositionCapForDeposit(
       options.address,
       this.poolLabel.poolId,
     );
@@ -417,26 +417,23 @@ export class SlushLendingStrategy extends BaseStrategy<
     const alphalendClient = this.context.alphalendClient;
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
 
+    // Withdraw from one confirmed position, with that position's own cap and balance.
+    const receipt = this.receiptObjects.reduce((best, r) =>
+      BigInt(r.xTokens) > BigInt(best.xTokens) ? r : best,
+    );
     let xTokenAmount = this.coinAmountToXToken(options.amount);
     if (options.withdrawMax) {
-      xTokenAmount = this.receiptObjects[0].xTokens;
+      xTokenAmount = receipt.xTokens;
     }
 
     await this.collectAndSwapRewards(tx);
 
-    const positionCap = await this.context.getSlushPositionCapForPool(
-      options.address,
-      this.poolLabel.poolId,
-    );
-    if (!positionCap) {
-      throw new Error('No position cap found for withdraw');
-    }
     const [slushCoin] = tx.moveCall({
       target: `${this.poolLabel.packageId}::alphalend_slush_pool::user_withdraw`,
       typeArguments: [this.poolLabel.asset.type],
       arguments: [
         tx.object(this.poolLabel.versionId),
-        tx.object(positionCap.id),
+        tx.object(receipt.positionCapId),
         tx.object(this.poolLabel.poolId),
         tx.pure.u64(xTokenAmount),
         tx.object(ALPHALEND_LENDING_PROTOCOL_ID),

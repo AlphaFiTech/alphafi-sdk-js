@@ -18,7 +18,7 @@ import {
   SlushPositionCap,
   TransferRequest,
 } from './types.js';
-import { normalizeStructTag, normalizeSuiObjectId } from '@mysten/sui/utils';
+import { normalizeStructTag, normalizeSuiAddress, normalizeSuiObjectId } from '@mysten/sui/utils';
 import {
   ALPHAFI_RECEIPT_TYPE,
   ALPHAFI_TRANSFER_REQUEST_KEY_TYPE,
@@ -762,14 +762,19 @@ export class StrategyContext {
         return new Map();
       }
 
-      const positionToPool: Map<string, string> = new Map();
+      // Several caps can list the same position id (a spam cap can copy a real entry), so keep
+      // every listing instead of letting a later cap overwrite the real one.
+      const positionToCaps = new Map<string, { capId: string; poolId: string }[]>();
       for (const cap of caps) {
         for (const [posId, poolId] of cap.position_pool_map.entries()) {
-          positionToPool.set(posId, poolId);
+          const key = normalizeSuiObjectId(posId);
+          const listings = positionToCaps.get(key) ?? [];
+          listings.push({ capId: normalizeSuiObjectId(cap.id), poolId });
+          positionToCaps.set(key, listings);
         }
       }
 
-      const allIds = Array.from(positionToPool.keys());
+      const allIds = Array.from(positionToCaps.keys());
       if (allIds.length === 0) {
         return new Map();
       }
@@ -778,12 +783,21 @@ export class StrategyContext {
 
       const result: Map<string, any[]> = new Map();
       positionMap.forEach((obj, posId) => {
-        const poolId = positionToPool.get(posId);
-        if (!poolId || !obj) return;
-        if (!result.has(poolId)) {
-          result.set(poolId, []);
+        const listings = positionToCaps.get(normalizeSuiObjectId(posId));
+        if (!listings || !obj) return;
+        if (typeof obj.position_cap_id !== 'string' || typeof obj.pool_id !== 'string') return;
+        // A cap's map is writable by whoever held it (`insert` is public), so only keep
+        // positions that point back at a cap and pool that listed them.
+        const capId = normalizeSuiObjectId(obj.position_cap_id);
+        const posPoolId = normalizeSuiObjectId(obj.pool_id);
+        const entry = listings.find(
+          (l) => l.capId === capId && normalizeSuiObjectId(l.poolId) === posPoolId,
+        );
+        if (!entry) return;
+        if (!result.has(entry.poolId)) {
+          result.set(entry.poolId, []);
         }
-        result.get(poolId)!.push(obj);
+        result.get(entry.poolId)!.push(obj);
       });
 
       return result;
@@ -799,27 +813,31 @@ export class StrategyContext {
   }
 
   /**
-   * Pick the slush position cap to use for a pool. A wallet can hold several caps (e.g. one
-   * transferred in from another wallet), and the contract aborts with ErrPositionNotCreated if
-   * the cap has no position in the pool, so prefer the cap that already holds this pool, then any
-   * cap holding positions, then the first cap.
+   * Pick the cap to deposit into. `client_address` is set to `ctx.sender()` by
+   * `create_position_cap` and can't be forged, so the user's own cap wins over
+   * anything transferred in.
    */
-  async getSlushPositionCapForPool(
+  async getSlushPositionCapForDeposit(
     userAddress: string,
     poolId: string,
     capType: string = SLUSH_POSITION_CAP_TYPE,
   ): Promise<SlushPositionCap | undefined> {
     const caps = await this.getSlushPositionCaps(userAddress, capType);
-    const normalizedPoolId = normalizeSuiObjectId(poolId);
-    return (
-      caps.find((cap) =>
-        Array.from(cap.position_pool_map.values()).some(
-          (id) => normalizeSuiObjectId(id) === normalizedPoolId,
-        ),
-      ) ??
-      caps.find((cap) => cap.position_pool_map.size > 0) ??
-      caps[0]
+    if (caps.length <= 1) return caps[0];
+
+    const user = normalizeSuiAddress(userAddress);
+    const own = caps.filter(
+      (cap) => cap.client_address && normalizeSuiAddress(cap.client_address) === user,
     );
+    // Caps holding a position in this pool that the chain confirmed (see getAllSlushPositions).
+    const confirmed = new Set(
+      (await this.getSlushPosition(userAddress, poolId)).map((p) =>
+        normalizeSuiObjectId(p.position_cap_id),
+      ),
+    );
+    const holdsPool = (cap: SlushPositionCap) => confirmed.has(normalizeSuiObjectId(cap.id));
+
+    return own.find(holdsPool) ?? own[0] ?? caps.find(holdsPool) ?? caps[0];
   }
 
   /**

@@ -278,17 +278,17 @@ export class SlushLoopingStrategy extends BaseStrategy<
   }
 
   /**
-   * Resolve this pool's position cap id. The legacy pool has its own cap type; new pools share
-   * the main package cap type with the other slush strategies.
+   * Resolve the position cap id to deposit with. The legacy pool has its own cap type; new pools
+   * share the main package cap type with the other slush strategies.
    */
-  private async getPositionCapId(address: string): Promise<string | undefined> {
+  private async getDepositPositionCapId(address: string): Promise<string | undefined> {
     const cap = this.isOldPool
-      ? await this.context.getSlushPositionCapForPool(
+      ? await this.context.getSlushPositionCapForDeposit(
           address,
           this.poolLabel.poolId,
           SLUSH_LOOP_POSITION_CAP_TYPE,
         )
-      : await this.context.getSlushPositionCapForPool(address, this.poolLabel.poolId);
+      : await this.context.getSlushPositionCapForDeposit(address, this.poolLabel.poolId);
     return cap?.id;
   }
 
@@ -394,7 +394,7 @@ export class SlushLoopingStrategy extends BaseStrategy<
       throw new Error(`Unsupported coin type for SlushLooping deposit: ${effectiveCoinType}`);
     }
 
-    const existingCapId = await this.getPositionCapId(options.address);
+    const existingCapId = await this.getDepositPositionCapId(options.address);
     const target = `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::user_deposit`;
 
     if (!existingCapId) {
@@ -444,22 +444,22 @@ export class SlushLoopingStrategy extends BaseStrategy<
       const rate = new Decimal(await stSuiExchangeRate(getStsuiConf().LST_INFO, false));
       options.amount = new Decimal(options.amount).div(rate).toString();
     }
+    // Withdraw from one confirmed position, with that position's own cap and balance.
+    const receipt = this.receiptObjects.reduce((best, r) =>
+      BigInt(r.xTokens) > BigInt(best.xTokens) ? r : best,
+    );
     let xTokenAmount = this.coinAmountToXToken(options.amount);
     if (options.withdrawMax) {
-      xTokenAmount = this.receiptObjects[0].xTokens;
+      xTokenAmount = receipt.xTokens;
     }
 
     await this.collectAndSwapRewards(tx);
 
-    const capId = await this.getPositionCapId(options.address);
-    if (!capId) {
-      throw new Error('No position cap found for withdraw');
-    }
     const [slushCoin] = tx.moveCall({
       target: `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::user_withdraw`,
       arguments: [
         tx.object(this.poolLabel.versionId),
-        tx.object(capId),
+        tx.object(receipt.positionCapId),
         tx.object(this.poolLabel.poolId),
         tx.pure.u64(xTokenAmount),
         tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
