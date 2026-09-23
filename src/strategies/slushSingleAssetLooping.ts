@@ -8,6 +8,7 @@ import { PoolBalance, PoolData, SingleTvl, UserWithdrawalStatus } from '../model
 import { StrategyContext } from '../models/strategyContext.js';
 import { DepositOptions, WithdrawOptions } from '../core/types.js';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
+import { normalizeSuiObjectId } from '@mysten/sui/utils';
 import {
   ALPHAFI_ORACLE,
   ALPHALEND_LENDING_PROTOCOL_ID,
@@ -15,6 +16,7 @@ import {
   GLOBAL_CONFIGS,
   IMAGE_URLS,
 } from '../utils/constants.js';
+import { planSlushWithdraw, totalSlushXTokens } from '../utils/slushPositions.js';
 
 /**
  * SlushSingleAssetLooping Strategy for leveraged positions with delayed withdrawals
@@ -143,7 +145,8 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       this.context.getCoinPrice(this.poolLabel.asset.type),
       this.context.getCoinDecimals(this.poolLabel.asset.type),
     ]);
-    if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokens === '0') {
+    const totalXTokens = totalSlushXTokens(this.receiptObjects);
+    if (totalXTokens === 0n) {
       const withdrawals = await this.getWithdrawalsStatus();
       return {
         tokenAmount: new Decimal(0),
@@ -152,7 +155,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       };
     }
 
-    const xTokens = new Decimal(this.receiptObjects[0].xTokens);
+    const xTokens = new Decimal(totalXTokens.toString());
     const exchangeRate = this.exchangeRate();
     const tokens = xTokens.mul(exchangeRate).div(new Decimal(10).pow(decimals));
     const withdrawals = await this.getWithdrawalsStatus();
@@ -173,18 +176,22 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
     const decimals = await this.context.getCoinDecimals(this.poolLabel.asset.type);
     const currentTime = Date.now();
 
-    return this.receiptObjects[0].withdrawRequests.map((req) => {
-      const timeOfUnlock = parseInt(req.timeOfUnlock);
-      // Status logic: 1 if current_time < time_of_unlock, otherwise 2 (matches requirements)
-      const status = currentTime < timeOfUnlock ? 1 : 2;
+    // A wallet can hold positions under several caps; claim / cancel resolve the cap per request,
+    // so list the requests from every position.
+    return this.receiptObjects
+      .flatMap((r) => r.withdrawRequests)
+      .map((req) => {
+        const timeOfUnlock = parseInt(req.timeOfUnlock);
+        // Status logic: 1 if current_time < time_of_unlock, otherwise 2 (matches requirements)
+        const status = currentTime < timeOfUnlock ? 1 : 2;
 
-      return {
-        ticketId: req.id,
-        tokenAmount: new Decimal(req.tokenAmount).div(new Decimal(10).pow(decimals)),
-        status,
-        withdrawalEtaTimestamp: timeOfUnlock,
-      };
-    });
+        return {
+          ticketId: req.id,
+          tokenAmount: new Decimal(req.tokenAmount).div(new Decimal(10).pow(decimals)),
+          status,
+          withdrawalEtaTimestamp: timeOfUnlock,
+        };
+      });
   }
 
   /**
@@ -304,10 +311,13 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       BigInt(options.amount),
     );
 
-    const positionCaps = await this.context.getSlushPositionCaps(options.address);
+    const positionCap = await this.context.getSlushPositionCapForDeposit(
+      options.address,
+      this.poolLabel.poolId,
+    );
     const target = `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::user_deposit`;
 
-    if (positionCaps.length === 0) {
+    if (!positionCap) {
       const positionCap: TransactionResult = this.createPositionCap(tx);
       tx.moveCall({
         target,
@@ -328,7 +338,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
         typeArguments: [this.poolLabel.asset.type],
         arguments: [
           tx.object(this.poolLabel.versionId),
-          tx.object(positionCaps[0].id),
+          tx.object(positionCap.id),
           tx.object(this.poolLabel.poolId),
           depositCoin,
           tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
@@ -348,36 +358,53 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
 
     await this.collectAndSwapRewards(tx);
 
-    let xTokenAmount = this.coinAmountToXToken(options.amount);
-    if (options.withdrawMax) {
-      xTokenAmount = this.receiptObjects[0].xTokens;
+    // One leg per confirmed position (largest first), each with that position's own cap.
+    const legs = planSlushWithdraw(
+      this.receiptObjects,
+      options.withdrawMax ? 'max' : this.coinAmountToXToken(options.amount),
+    );
+    if (legs.length === 0) {
+      throw new Error('Nothing to withdraw');
     }
 
-    const positionCaps = await this.context.getSlushPositionCaps(options.address);
     const target = `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::user_initiate_withdraw`;
 
-    tx.moveCall({
-      target,
-      typeArguments: [this.poolLabel.asset.type],
-      arguments: [
-        tx.object(this.poolLabel.versionId),
-        tx.object(positionCaps[0].id),
-        tx.object(this.poolLabel.poolId),
-        tx.pure.u64(xTokenAmount),
-        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-        tx.object(CLOCK_PACKAGE_ID),
-      ],
-    });
+    // Each leg opens its own withdraw request on its position.
+    for (const leg of legs) {
+      tx.moveCall({
+        target,
+        typeArguments: [this.poolLabel.asset.type],
+        arguments: [
+          tx.object(this.poolLabel.versionId),
+          tx.object(leg.positionCapId),
+          tx.object(this.poolLabel.poolId),
+          tx.pure.u64(leg.xTokens),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
+  }
+
+  /** The confirmed position holding a withdraw request; its cap is the one the contract accepts. */
+  private findReceiptForWithdrawRequest(
+    withdrawRequestId: string,
+  ): SlushSingleAssetLoopingReceiptObject {
+    const want = normalizeSuiObjectId(withdrawRequestId);
+    const receipt = this.receiptObjects.find((r) =>
+      r.withdrawRequests.some((w) => normalizeSuiObjectId(w.id) === want),
+    );
+    if (!receipt) {
+      throw new Error(`Withdraw request ${withdrawRequestId} not found in the user's positions`);
+    }
+    return receipt;
   }
 
   async claimWithdraw(tx: Transaction, withdrawRequestId: string, address: string) {
     const alphalendClient = this.context.alphalendClient;
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
     await this.collectAndSwapRewards(tx);
-    const positionCaps = await this.context.getSlushPositionCaps(address);
-    if (positionCaps.length === 0) {
-      throw new Error('No position cap found for claim');
-    }
+    const receipt = this.findReceiptForWithdrawRequest(withdrawRequestId);
 
     const target = `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::user_claim_withdraw`;
     const coin = tx.moveCall({
@@ -385,7 +412,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       typeArguments: [this.poolLabel.asset.type],
       arguments: [
         tx.object(this.poolLabel.versionId),
-        tx.object(positionCaps[0].id),
+        tx.object(receipt.positionCapId),
         tx.object(this.poolLabel.poolId),
         tx.pure.id(withdrawRequestId),
         tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
@@ -395,14 +422,11 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
 
     this.context.blockchain.sendCoinToAddressBalance(tx, this.poolLabel.asset.type, address, coin);
   }
-  async cancelWithdraw(tx: Transaction, withdrawRequestId: string, address: string) {
+  async cancelWithdraw(tx: Transaction, withdrawRequestId: string, _address: string) {
     const alphalendClient = this.context.alphalendClient;
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
     await this.collectAndSwapRewards(tx);
-    const positionCaps = await this.context.getSlushPositionCaps(address);
-    if (positionCaps.length === 0) {
-      throw new Error('No position cap found for cancellation');
-    }
+    const receipt = this.findReceiptForWithdrawRequest(withdrawRequestId);
 
     const target = `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::user_cancel_withdraw`;
     tx.moveCall({
@@ -410,7 +434,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       typeArguments: [this.poolLabel.asset.type],
       arguments: [
         tx.object(this.poolLabel.versionId),
-        tx.object(positionCaps[0].id),
+        tx.object(receipt.positionCapId),
         tx.object(this.poolLabel.poolId),
         tx.pure.id(withdrawRequestId),
         tx.object(ALPHALEND_LENDING_PROTOCOL_ID),

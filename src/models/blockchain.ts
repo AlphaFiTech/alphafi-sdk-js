@@ -248,11 +248,18 @@ export class Blockchain {
     return resMap;
   }
 
-  /** Get receipt objects owned by address for specific type. */
+  /**
+   * Get receipt objects owned by address for specific type. Follows every page: a wallet can be
+   * sent more objects of a type (e.g. spam position caps) than fit in one GraphQL page.
+   */
   async getReceipt(address: string, type: string) {
     const query = graphql(`
-      query getReceipt($address: SuiAddress!, $type: String!) {
-        objects(filter: { owner: $address, type: $type }) {
+      query getReceipt($address: SuiAddress!, $type: String!, $cursor: String) {
+        objects(filter: { owner: $address, type: $type }, after: $cursor) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
           nodes {
             asMoveObject {
               contents {
@@ -264,12 +271,23 @@ export class Blockchain {
       }
     `);
 
-    const result = await this.gqlClient.query({
-      query,
-      variables: { address, type },
-    });
+    const receipts: any[] = [];
+    let cursor: string | null | undefined = null;
+    do {
+      const result: any = await this.gqlClient.query({
+        query,
+        variables: { address, type, cursor },
+      });
+      const conn: any = result.data?.objects;
+      for (const obj of conn?.nodes ?? []) {
+        receipts.push(obj?.asMoveObject?.contents?.json);
+      }
+      if (conn?.pageInfo?.hasNextPage && conn.pageInfo.endCursor) {
+        cursor = conn.pageInfo.endCursor;
+      } else break;
+    } while (true);
 
-    return result.data?.objects?.nodes.map((obj) => obj?.asMoveObject?.contents?.json);
+    return receipts;
   }
 
   /** Get receipt objects for multiple types in batches. */
