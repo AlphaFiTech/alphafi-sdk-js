@@ -270,12 +270,14 @@ export const BLUEFIN_SPOT_PACKAGE_ID =
   '0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c';
 
 /**
- * Cetus CLMM, at the version `alphafi_cetus_sui_pool` links (v14). A PTB can link only one
- * version of a package, so calling the original id here (v1) collides with that pool's own
- * linkage and aborts with InvalidLinkage. Bump both together when the pool moves to v15.
+ * Cetus CLMM, latest published-at (v15). A PTB carries one linkage entry per package, and it
+ * must be at least the version every package in the transaction requires. Zap deposits combine
+ * `alphafi_cetus_sui_pool` (links v14) with the aggregator's Cetus adapter (links v15), so
+ * anything below v15 here aborts with InvalidLinkage on routes that go through Cetus — the
+ * original package id (v1) fails against both. Keep this at the newest published CLMM.
  */
 export const CETUS_CLMM_PACKAGE_ID =
-  '0x25ebb9a7c50eb17b3fa9c5a30fb8b5ad8f97caaf4928943acbcff7153dfee5e3';
+  '0x260693ec785a6e6c9d81d58c7d2ff72f1288ae0fa6a9725abe05a6478b11f084';
 
 export const ALPHAFI_SWAPPER_PACKAGE_ID =
   '0x6bf7fe0f664a5607a2f871ab9ddb824e8a1b22b77b2e60fce382c6cee71c86b9';
