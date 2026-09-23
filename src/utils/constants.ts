@@ -262,7 +262,11 @@ export const NAVI_CONFIG = {
   },
 };
 
-export const BLUEFIN_STRATEGY_PACKAGE_ID =
+/**
+ * The parent DEX packages we read pool state from (`pool::current_tick_index`,
+ * `pool::current_sqrt_price`) — Bluefin Spot and Cetus CLMM themselves, not AlphaFi strategies.
+ */
+export const BLUEFIN_SPOT_PACKAGE_ID =
   '0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c';
 
 /**
@@ -270,13 +274,14 @@ export const BLUEFIN_STRATEGY_PACKAGE_ID =
  * version of a package, so calling the original id here (v1) collides with that pool's own
  * linkage and aborts with InvalidLinkage. Bump both together when the pool moves to v15.
  */
-export const CETUS_STRATEGY_PACKAGE_ID =
+export const CETUS_CLMM_PACKAGE_ID =
   '0x25ebb9a7c50eb17b3fa9c5a30fb8b5ad8f97caaf4928943acbcff7153dfee5e3';
 
 export const ALPHAFI_SWAPPER_PACKAGE_ID =
   '0x6bf7fe0f664a5607a2f871ab9ddb824e8a1b22b77b2e60fce382c6cee71c86b9';
 
-export const Cetus_math_package_id =
+/** Cetus integer-mate (`i32`, `i64`, `full_math_*`) — independent of the CLMM version. */
+export const CETUS_INTEGER_MATE_PACKAGE_ID =
   '0xdfaadf86be9af246900d1e3f3b996cf549e7948e662a9977bdd7646d8fa3a778';
 
 // ============================================================
