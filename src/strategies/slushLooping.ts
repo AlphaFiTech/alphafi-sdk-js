@@ -27,6 +27,7 @@ import {
   STSUI,
   SUI_SYSTEM_STATE,
 } from '../utils/constants.js';
+import { planSlushWithdraw, totalSlushXTokens } from '../utils/slushPositions.js';
 
 // The original stSUI/SUI loop pool deployed on the standalone test package. Pools other than
 // this one run on the main `alphalend_slush` package, whose autocompound collects stSUI rewards
@@ -152,10 +153,11 @@ export class SlushLoopingStrategy extends BaseStrategy<
    * Converts xTokens to underlying tokens via exchange rate
    */
   async getBalance(_userAddress: string): Promise<PoolBalance> {
-    if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokens === '0') {
+    const totalXTokens = totalSlushXTokens(this.receiptObjects);
+    if (totalXTokens === 0n) {
       return { tokenAmount: new Decimal(0), usdValue: new Decimal(0) };
     }
-    const xTokens = new Decimal(this.receiptObjects[0].xTokens);
+    const xTokens = new Decimal(totalXTokens.toString());
     const [price, exchangeRate, decimals] = await Promise.all([
       this.context.getCoinPrice(this.poolLabel.asset.type),
       Promise.resolve(this.exchangeRate()),
@@ -444,30 +446,37 @@ export class SlushLoopingStrategy extends BaseStrategy<
       const rate = new Decimal(await stSuiExchangeRate(getStsuiConf().LST_INFO, false));
       options.amount = new Decimal(options.amount).div(rate).toString();
     }
-    // Withdraw from one confirmed position, with that position's own cap and balance.
-    const receipt = this.receiptObjects.reduce((best, r) =>
-      BigInt(r.xTokens) > BigInt(best.xTokens) ? r : best,
+    // One leg per confirmed position (largest first), each with that position's own cap.
+    const legs = planSlushWithdraw(
+      this.receiptObjects,
+      options.withdrawMax ? 'max' : this.coinAmountToXToken(options.amount),
     );
-    let xTokenAmount = this.coinAmountToXToken(options.amount);
-    if (options.withdrawMax) {
-      xTokenAmount = receipt.xTokens;
+    if (legs.length === 0) {
+      throw new Error('Nothing to withdraw');
     }
 
     await this.collectAndSwapRewards(tx);
 
-    const [slushCoin] = tx.moveCall({
-      target: `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::user_withdraw`,
-      arguments: [
-        tx.object(this.poolLabel.versionId),
-        tx.object(receipt.positionCapId),
-        tx.object(this.poolLabel.poolId),
-        tx.pure.u64(xTokenAmount),
-        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-        tx.object(STSUI.LST_INFO),
-        tx.object(SUI_SYSTEM_STATE),
-        tx.object(CLOCK_PACKAGE_ID),
-      ],
-    });
+    const coins = legs.map(
+      (leg) =>
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphafi_slush_stsui_sui_loop_pool::user_withdraw`,
+          arguments: [
+            tx.object(this.poolLabel.versionId),
+            tx.object(leg.positionCapId),
+            tx.object(this.poolLabel.poolId),
+            tx.pure.u64(leg.xTokens),
+            tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+            tx.object(STSUI.LST_INFO),
+            tx.object(SUI_SYSTEM_STATE),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        })[0],
+    );
+    const [slushCoin, ...rest] = coins;
+    if (rest.length > 0) {
+      tx.mergeCoins(slushCoin, rest);
+    }
 
     // The contract always returns stSUI. Default to the pool's asset type when no coinType is
     // given: SUI -> redeem to SUI; stSUI -> return directly; anything else is unsupported.

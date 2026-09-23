@@ -16,6 +16,7 @@ import {
   GLOBAL_CONFIGS,
   IMAGE_URLS,
 } from '../utils/constants.js';
+import { planSlushWithdraw, totalSlushXTokens } from '../utils/slushPositions.js';
 
 /**
  * SlushSingleAssetLooping Strategy for leveraged positions with delayed withdrawals
@@ -144,7 +145,8 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       this.context.getCoinPrice(this.poolLabel.asset.type),
       this.context.getCoinDecimals(this.poolLabel.asset.type),
     ]);
-    if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokens === '0') {
+    const totalXTokens = totalSlushXTokens(this.receiptObjects);
+    if (totalXTokens === 0n) {
       const withdrawals = await this.getWithdrawalsStatus();
       return {
         tokenAmount: new Decimal(0),
@@ -153,7 +155,7 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
       };
     }
 
-    const xTokens = new Decimal(this.receiptObjects[0].xTokens);
+    const xTokens = new Decimal(totalXTokens.toString());
     const exchangeRate = this.exchangeRate();
     const tokens = xTokens.mul(exchangeRate).div(new Decimal(10).pow(decimals));
     const withdrawals = await this.getWithdrawalsStatus();
@@ -356,29 +358,32 @@ export class SlushSingleAssetLoopingStrategy extends BaseStrategy<
 
     await this.collectAndSwapRewards(tx);
 
-    // Withdraw from one confirmed position, with that position's own cap and balance.
-    const receipt = this.receiptObjects.reduce((best, r) =>
-      BigInt(r.xTokens) > BigInt(best.xTokens) ? r : best,
+    // One leg per confirmed position (largest first), each with that position's own cap.
+    const legs = planSlushWithdraw(
+      this.receiptObjects,
+      options.withdrawMax ? 'max' : this.coinAmountToXToken(options.amount),
     );
-    let xTokenAmount = this.coinAmountToXToken(options.amount);
-    if (options.withdrawMax) {
-      xTokenAmount = receipt.xTokens;
+    if (legs.length === 0) {
+      throw new Error('Nothing to withdraw');
     }
 
     const target = `${this.poolLabel.packageId}::alphalend_slush_locked_loop_pool::user_initiate_withdraw`;
 
-    tx.moveCall({
-      target,
-      typeArguments: [this.poolLabel.asset.type],
-      arguments: [
-        tx.object(this.poolLabel.versionId),
-        tx.object(receipt.positionCapId),
-        tx.object(this.poolLabel.poolId),
-        tx.pure.u64(xTokenAmount),
-        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-        tx.object(CLOCK_PACKAGE_ID),
-      ],
-    });
+    // Each leg opens its own withdraw request on its position.
+    for (const leg of legs) {
+      tx.moveCall({
+        target,
+        typeArguments: [this.poolLabel.asset.type],
+        arguments: [
+          tx.object(this.poolLabel.versionId),
+          tx.object(leg.positionCapId),
+          tx.object(this.poolLabel.poolId),
+          tx.pure.u64(leg.xTokens),
+          tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+    }
   }
 
   /** The confirmed position holding a withdraw request; its cap is the one the contract accepts. */
