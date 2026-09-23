@@ -265,8 +265,13 @@ export const NAVI_CONFIG = {
 export const BLUEFIN_STRATEGY_PACKAGE_ID =
   '0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c';
 
+/**
+ * Cetus CLMM, at the version `alphafi_cetus_sui_pool` links (v14). A PTB can link only one
+ * version of a package, so calling the original id here (v1) collides with that pool's own
+ * linkage and aborts with InvalidLinkage. Bump both together when the pool moves to v15.
+ */
 export const CETUS_STRATEGY_PACKAGE_ID =
-  '0x1eabed72c53feb3805120a081dc15963c204dc8d091542592abaf7a35689b2fb';
+  '0x25ebb9a7c50eb17b3fa9c5a30fb8b5ad8f97caaf4928943acbcff7153dfee5e3';
 
 export const ALPHAFI_SWAPPER_PACKAGE_ID =
   '0x6bf7fe0f664a5607a2f871ab9ddb824e8a1b22b77b2e60fce382c6cee71c86b9';

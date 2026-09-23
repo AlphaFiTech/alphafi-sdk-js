@@ -27,12 +27,15 @@ export class CetusSwap {
     try {
       // const providers = getAllProviders();
 
+      // CETUS_TIDE quotes carry a signature with an expiry, so they go stale between
+      // quoting and the user signing the PTB these routes get built into.
       const providersExcept = getProvidersExcluding([
         'STEAMM_OMM_V2',
         'OBRIC',
         'METASTABLE',
         'HAEDALHMMV2',
         'HAEDALPMM',
+        'CETUS_TIDE',
       ]);
 
       const router = await this.client.findRouters({

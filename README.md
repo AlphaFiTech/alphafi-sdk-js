@@ -21,6 +21,11 @@ LP farming, leveraged yield farming, and more.
 npm install @alphafi/alphafi-sdk
 ```
 
+Requires **`@mysten/sui` `^2.31.2`** as a peer dependency and **Node ≥ 22.14**. The floor is set by
+`@cetusprotocol/aggregator-sdk`, which pins an exact `@mysten/sui`; a second copy in your tree
+breaks `Transaction` identity across the SDK boundary, so keep the resolution single
+(`npm ls @mysten/sui`).
+
 ## v2.0.0 — Mysten Sui v2 / ESM-only (breaking)
 
 - **`@mysten/sui` v2 peer dependency** (`^2.17.0`). Your app must provide it.
