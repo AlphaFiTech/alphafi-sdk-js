@@ -16,6 +16,7 @@ import {
   IMAGE_URLS,
   SUI_SYSTEM_STATE,
 } from '../utils/constants.js';
+import { planSlushWithdraw, totalSlushXTokens } from '../utils/slushPositions.js';
 
 /**
  * SlushLending Strategy for slush lending pools without alpha mining
@@ -135,10 +136,11 @@ export class SlushLendingStrategy extends BaseStrategy<
    * Converts xTokens to underlying tokens via exchange rate
    */
   async getBalance(_userAddress: string): Promise<PoolBalance> {
-    if (this.receiptObjects.length === 0 || this.receiptObjects[0].xTokens === '0') {
+    const totalXTokens = totalSlushXTokens(this.receiptObjects);
+    if (totalXTokens === 0n) {
       return { tokenAmount: new Decimal(0), usdValue: new Decimal(0) };
     }
-    const xTokens = new Decimal(this.receiptObjects[0].xTokens);
+    const xTokens = new Decimal(totalXTokens.toString());
     const [price, exchangeRate, decimals] = await Promise.all([
       this.context.getCoinPrice(this.poolLabel.asset.type),
       Promise.resolve(this.exchangeRate()),
@@ -372,8 +374,11 @@ export class SlushLendingStrategy extends BaseStrategy<
 
     await this.collectAndSwapRewards(tx);
 
-    const positionCaps = await this.context.getSlushPositionCaps(options.address);
-    if (positionCaps.length === 0) {
+    const positionCap = await this.context.getSlushPositionCapForDeposit(
+      options.address,
+      this.poolLabel.poolId,
+    );
+    if (!positionCap) {
       const positionCap: TransactionResult = this.createPositionCap(tx);
       tx.moveCall({
         target: `${this.poolLabel.packageId}::alphalend_slush_pool::user_deposit`,
@@ -395,7 +400,7 @@ export class SlushLendingStrategy extends BaseStrategy<
         typeArguments: [this.poolLabel.asset.type],
         arguments: [
           tx.object(this.poolLabel.versionId),
-          tx.object(positionCaps[0].id),
+          tx.object(positionCap.id),
           tx.object(this.poolLabel.poolId),
           depositCoin,
           tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
@@ -414,27 +419,37 @@ export class SlushLendingStrategy extends BaseStrategy<
     const alphalendClient = this.context.alphalendClient;
     await alphalendClient.updatePrices(tx, [this.poolLabel.asset.type]);
 
-    let xTokenAmount = this.coinAmountToXToken(options.amount);
-    if (options.withdrawMax) {
-      xTokenAmount = this.receiptObjects[0].xTokens;
+    // One leg per confirmed position (largest first), each with that position's own cap.
+    const legs = planSlushWithdraw(
+      this.receiptObjects,
+      options.withdrawMax ? 'max' : this.coinAmountToXToken(options.amount),
+    );
+    if (legs.length === 0) {
+      throw new Error('Nothing to withdraw');
     }
 
     await this.collectAndSwapRewards(tx);
 
-    const positionCaps = await this.context.getSlushPositionCaps(options.address);
-    const [slushCoin] = tx.moveCall({
-      target: `${this.poolLabel.packageId}::alphalend_slush_pool::user_withdraw`,
-      typeArguments: [this.poolLabel.asset.type],
-      arguments: [
-        tx.object(this.poolLabel.versionId),
-        tx.object(positionCaps[0].id),
-        tx.object(this.poolLabel.poolId),
-        tx.pure.u64(xTokenAmount),
-        tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
-        tx.object(SUI_SYSTEM_STATE),
-        tx.object(CLOCK_PACKAGE_ID),
-      ],
-    });
+    const coins = legs.map(
+      (leg) =>
+        tx.moveCall({
+          target: `${this.poolLabel.packageId}::alphalend_slush_pool::user_withdraw`,
+          typeArguments: [this.poolLabel.asset.type],
+          arguments: [
+            tx.object(this.poolLabel.versionId),
+            tx.object(leg.positionCapId),
+            tx.object(this.poolLabel.poolId),
+            tx.pure.u64(leg.xTokens),
+            tx.object(ALPHALEND_LENDING_PROTOCOL_ID),
+            tx.object(SUI_SYSTEM_STATE),
+            tx.object(CLOCK_PACKAGE_ID),
+          ],
+        })[0],
+    );
+    const [slushCoin, ...rest] = coins;
+    if (rest.length > 0) {
+      tx.mergeCoins(slushCoin, rest);
+    }
 
     this.context.blockchain.sendCoinToAddressBalance(
       tx,
