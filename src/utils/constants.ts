@@ -262,16 +262,28 @@ export const NAVI_CONFIG = {
   },
 };
 
-export const BLUEFIN_STRATEGY_PACKAGE_ID =
+/**
+ * The parent DEX packages we read pool state from (`pool::current_tick_index`,
+ * `pool::current_sqrt_price`) — Bluefin Spot and Cetus CLMM themselves, not AlphaFi strategies.
+ */
+export const BLUEFIN_SPOT_PACKAGE_ID =
   '0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c';
 
-export const CETUS_STRATEGY_PACKAGE_ID =
-  '0x1eabed72c53feb3805120a081dc15963c204dc8d091542592abaf7a35689b2fb';
+/**
+ * Cetus CLMM, latest published-at (v15). A PTB carries one linkage entry per package, and it
+ * must be at least the version every package in the transaction requires. Zap deposits combine
+ * `alphafi_cetus_sui_pool` (links v14) with the aggregator's Cetus adapter (links v15), so
+ * anything below v15 here aborts with InvalidLinkage on routes that go through Cetus — the
+ * original package id (v1) fails against both. Keep this at the newest published CLMM.
+ */
+export const CETUS_CLMM_PACKAGE_ID =
+  '0x260693ec785a6e6c9d81d58c7d2ff72f1288ae0fa6a9725abe05a6478b11f084';
 
 export const ALPHAFI_SWAPPER_PACKAGE_ID =
   '0x6bf7fe0f664a5607a2f871ab9ddb824e8a1b22b77b2e60fce382c6cee71c86b9';
 
-export const Cetus_math_package_id =
+/** Cetus integer-mate (`i32`, `i64`, `full_math_*`) — independent of the CLMM version. */
+export const CETUS_INTEGER_MATE_PACKAGE_ID =
   '0xdfaadf86be9af246900d1e3f3b996cf549e7948e662a9977bdd7646d8fa3a778';
 
 // ============================================================

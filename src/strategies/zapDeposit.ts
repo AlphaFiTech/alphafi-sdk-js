@@ -17,9 +17,9 @@ import { LpPoolLabel, LpStrategy } from './lp.js';
 import { CetusSwap } from '../models/swap.js';
 import {
   ALPHAFI_SWAPPER_PACKAGE_ID,
-  BLUEFIN_STRATEGY_PACKAGE_ID,
-  Cetus_math_package_id,
-  CETUS_STRATEGY_PACKAGE_ID,
+  BLUEFIN_SPOT_PACKAGE_ID,
+  CETUS_CLMM_PACKAGE_ID,
+  CETUS_INTEGER_MATE_PACKAGE_ID,
 } from '../utils/constants.js';
 // import { PoolName } from '../core/types.js';
 
@@ -487,12 +487,12 @@ export class ZapDepositStrategy {
     return tx;
   }
 
-  async fetchStrategyPackageId(): Promise<string> {
+  async fetchParentDexPackageId(): Promise<string> {
     const poolLabel = this.getPoolLabel();
     if (poolLabel.parentProtocol === 'Cetus') {
-      return CETUS_STRATEGY_PACKAGE_ID;
+      return CETUS_CLMM_PACKAGE_ID;
     } else if (poolLabel.parentProtocol === 'Bluefin') {
-      return BLUEFIN_STRATEGY_PACKAGE_ID;
+      return BLUEFIN_SPOT_PACKAGE_ID;
     }
     return '';
   }
@@ -503,17 +503,17 @@ export class ZapDepositStrategy {
    */
   async getCurrentTickIndex(tx?: Transaction): Promise<TransactionResult> {
     const txb = tx ? tx : new Transaction();
-    const strategyPackageId = await this.fetchStrategyPackageId();
+    const parentDexPackageId = await this.fetchParentDexPackageId();
     const poolLabel = this.getPoolLabel();
 
     const currentTickIndexI32 = txb.moveCall({
-      target: `${strategyPackageId}::pool::current_tick_index`,
+      target: `${parentDexPackageId}::pool::current_tick_index`,
       typeArguments: [poolLabel.assetA.type, poolLabel.assetB.type],
       arguments: [txb.object(poolLabel.parentPoolId)],
     });
 
     return txb.moveCall({
-      target: `${Cetus_math_package_id}::i32::as_u32`,
+      target: `${CETUS_INTEGER_MATE_PACKAGE_ID}::i32::as_u32`,
       arguments: [currentTickIndexI32],
     });
   }
@@ -523,11 +523,11 @@ export class ZapDepositStrategy {
    * @returns The actual sqrt price value from on-chain
    */
   async getCurrentSqrtPrice(tx: Transaction): Promise<TransactionResult> {
-    const strategyPackageId = await this.fetchStrategyPackageId();
+    const parentDexPackageId = await this.fetchParentDexPackageId();
     const poolLabel = this.getPoolLabel();
 
     return tx.moveCall({
-      target: `${strategyPackageId}::pool::current_sqrt_price`,
+      target: `${parentDexPackageId}::pool::current_sqrt_price`,
       typeArguments: [poolLabel.assetA.type, poolLabel.assetB.type],
       arguments: [tx.object(poolLabel.parentPoolId)],
     });
