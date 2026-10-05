@@ -1529,8 +1529,9 @@ export class LpStrategy extends BaseStrategy<
         ],
       });
     } else {
+      // pool is in emergency; user_emergency_withdraw always exits the full receipt
       tx.moveCall({
-        target: `${this.poolLabel.packageId}::alphafi_cetus_pool::user_withdraw`,
+        target: `${this.poolLabel.packageId}::alphafi_cetus_pool::user_emergency_withdraw`,
         typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type],
         arguments: [
           tx.object(VERSIONS.ALPHA_VERSIONS[1]),
@@ -1540,18 +1541,6 @@ export class LpStrategy extends BaseStrategy<
           tx.object(this.poolLabel.poolId),
           tx.object(DISTRIBUTOR_OBJECT_ID),
           tx.object(this.poolLabel.investorId),
-          tx.pure.u128(xTokensAmount),
-          tx.object(GLOBAL_CONFIGS.CETUS),
-          tx.object(GLOBAL_CONFIGS.CETUS_REWARDER_GLOBAL_VAULT_ID),
-          tx.object(
-            await this.context.getPoolIdBySymbolsAndProtocol(
-              'SUI',
-              this.poolLabel.assetB.name,
-              'cetus',
-            ),
-          ),
-          tx.object(await this.context.getPoolIdBySymbolsAndProtocol('SUI', 'CETUS', 'cetus')),
-          tx.object(this.poolLabel.parentPoolId),
           tx.object(CLOCK_PACKAGE_ID),
         ],
       });
