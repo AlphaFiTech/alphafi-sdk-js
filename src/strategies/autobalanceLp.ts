@@ -627,57 +627,22 @@ export class AutobalanceLpStrategy extends BaseStrategy<
   }
 
   private collectReward(tx: Transaction) {
-    if (this.poolLabel.assetA.name === 'SUI') {
-      for (const reward of this.parentPoolObject.rewardInfos) {
-        const rewardType = '0x' + reward.rewardCoinType;
-        tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_first_pool::collect_reward`,
-          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, rewardType],
-          arguments: [
-            tx.object(VERSIONS.AUTOBALANCE_LP),
-            tx.object(this.poolLabel.poolId),
-            tx.object(this.poolLabel.investorId),
-            tx.object(DISTRIBUTOR_OBJECT_ID),
-            tx.object(GLOBAL_CONFIGS.BLUEFIN),
-            tx.object(this.poolLabel.parentPoolId),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-      }
-    } else if (this.poolLabel.assetB.name === 'SUI') {
-      for (const reward of this.parentPoolObject.rewardInfos) {
-        const rewardType = '0x' + reward.rewardCoinType;
-        tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_second_pool::collect_reward`,
-          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, rewardType],
-          arguments: [
-            tx.object(VERSIONS.AUTOBALANCE_LP),
-            tx.object(this.poolLabel.poolId),
-            tx.object(this.poolLabel.investorId),
-            tx.object(DISTRIBUTOR_OBJECT_ID),
-            tx.object(GLOBAL_CONFIGS.BLUEFIN),
-            tx.object(this.poolLabel.parentPoolId),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-      }
-    } else {
-      for (const reward of this.parentPoolObject.rewardInfos) {
-        const rewardType = '0x' + reward.rewardCoinType;
-        tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::collect_reward`,
-          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, rewardType],
-          arguments: [
-            tx.object(VERSIONS.AUTOBALANCE_LP),
-            tx.object(this.poolLabel.poolId),
-            tx.object(this.poolLabel.investorId),
-            tx.object(DISTRIBUTOR_OBJECT_ID),
-            tx.object(GLOBAL_CONFIGS.BLUEFIN),
-            tx.object(this.poolLabel.parentPoolId),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-      }
+    const moduleName = this.getPoolModule();
+    for (const reward of this.parentPoolObject.rewardInfos) {
+      const rewardType = '0x' + reward.rewardCoinType;
+      tx.moveCall({
+        target: `${this.poolLabel.packageId}::${moduleName}::collect_reward`,
+        typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, rewardType],
+        arguments: [
+          tx.object(VERSIONS.AUTOBALANCE_LP),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
     }
   }
 
@@ -689,76 +654,31 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     rewardsList.push(this.poolLabel.assetA.type);
     rewardsList.push(this.poolLabel.assetB.type);
 
+    const moduleName = this.getPoolModule();
+    const rewardsFn = this.getRewardsFn();
+
     const rewards: TransactionResult[] = [];
-    if (this.poolLabel.assetA.name === 'SUI') {
-      for (const rewardType of [...new Set(rewardsList)]) {
-        const balance = tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_first_pool::get_user_rewards_v4`,
-          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, rewardType],
-          arguments: [
-            tx.object(this.receiptObjects[0].id),
-            tx.object(VERSIONS.AUTOBALANCE_LP),
-            tx.object(this.poolLabel.poolId),
-            tx.object(this.poolLabel.investorId),
-            tx.object(DISTRIBUTOR_OBJECT_ID),
-            tx.object(GLOBAL_CONFIGS.BLUEFIN),
-            tx.object(this.poolLabel.parentPoolId),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-        const coin = tx.moveCall({
-          target: '0x2::coin::from_balance',
-          typeArguments: [rewardType],
-          arguments: [balance!],
-        });
-        rewards.push(coin);
-      }
-    } else if (this.poolLabel.assetB.name === 'SUI') {
-      for (const rewardType of [...new Set(rewardsList)]) {
-        const balance = tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_bluefin_sui_second_pool::get_user_rewards_v3`,
-          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, rewardType],
-          arguments: [
-            tx.object(this.receiptObjects[0].id),
-            tx.object(VERSIONS.AUTOBALANCE_LP),
-            tx.object(this.poolLabel.poolId),
-            tx.object(this.poolLabel.investorId),
-            tx.object(DISTRIBUTOR_OBJECT_ID),
-            tx.object(GLOBAL_CONFIGS.BLUEFIN),
-            tx.object(this.poolLabel.parentPoolId),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-        const coin = tx.moveCall({
-          target: '0x2::coin::from_balance',
-          typeArguments: [rewardType],
-          arguments: [balance!],
-        });
-        rewards.push(coin);
-      }
-    } else {
-      for (const rewardType of [...new Set(rewardsList)]) {
-        const balance = tx.moveCall({
-          target: `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::get_user_rewards_v3`,
-          typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, rewardType],
-          arguments: [
-            tx.object(this.receiptObjects[0].id),
-            tx.object(VERSIONS.AUTOBALANCE_LP),
-            tx.object(this.poolLabel.poolId),
-            tx.object(this.poolLabel.investorId),
-            tx.object(DISTRIBUTOR_OBJECT_ID),
-            tx.object(GLOBAL_CONFIGS.BLUEFIN),
-            tx.object(this.poolLabel.parentPoolId),
-            tx.object(CLOCK_PACKAGE_ID),
-          ],
-        });
-        const coin = tx.moveCall({
-          target: '0x2::coin::from_balance',
-          typeArguments: [rewardType],
-          arguments: [balance!],
-        });
-        rewards.push(coin);
-      }
+    for (const rewardType of [...new Set(rewardsList)]) {
+      const balance = tx.moveCall({
+        target: `${this.poolLabel.packageId}::${moduleName}::${rewardsFn}`,
+        typeArguments: [this.poolLabel.assetA.type, this.poolLabel.assetB.type, rewardType],
+        arguments: [
+          tx.object(this.receiptObjects[0].id),
+          tx.object(VERSIONS.AUTOBALANCE_LP),
+          tx.object(this.poolLabel.poolId),
+          tx.object(this.poolLabel.investorId),
+          tx.object(DISTRIBUTOR_OBJECT_ID),
+          tx.object(GLOBAL_CONFIGS.BLUEFIN),
+          tx.object(this.poolLabel.parentPoolId),
+          tx.object(CLOCK_PACKAGE_ID),
+        ],
+      });
+      const coin = tx.moveCall({
+        target: '0x2::coin::from_balance',
+        typeArguments: [rewardType],
+        arguments: [balance!],
+      });
+      rewards.push(coin);
     }
     return rewards;
   }
@@ -780,6 +700,11 @@ export class AutobalanceLpStrategy extends BaseStrategy<
   /** Get the versioned `update_pool` entry function for this pool variant. */
   private getUpdatePoolFn(): string {
     return this.poolLabel.assetA.name === 'SUI' ? 'update_pool_v4' : 'update_pool_v3';
+  }
+
+  /** Get the versioned `get_user_rewards` entry function for this pool variant. */
+  private getRewardsFn(): string {
+    return this.poolLabel.assetA.name === 'SUI' ? 'get_user_rewards_v4' : 'get_user_rewards_v3';
   }
 }
 
