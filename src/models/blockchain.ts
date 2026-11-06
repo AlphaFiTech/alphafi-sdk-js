@@ -435,4 +435,47 @@ export class Blockchain {
       return null;
     }
   }
+
+  /** Returns every dynamic field under `parentId` as its name and value JSON. */
+  async getDynamicFields(parentId: string): Promise<{ nameJson: unknown; valueJson: unknown }[]> {
+    const query = graphql(`
+      query getDynamicFields($parent: SuiAddress!, $cursor: String) {
+        address(address: $parent) {
+          dynamicFields(after: $cursor) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              name {
+                json
+              }
+              value {
+                ... on MoveValue {
+                  json
+                }
+              }
+            }
+          }
+        }
+      }
+    `);
+
+    const fields: { nameJson: unknown; valueJson: unknown }[] = [];
+    let cursor: string | null | undefined = null;
+    do {
+      const response: any = await this.gqlClient.query({
+        query,
+        variables: { parent: parentId, cursor },
+      });
+      const connection = response.data?.address?.dynamicFields;
+      for (const node of connection?.nodes ?? []) {
+        fields.push({ nameJson: node?.name?.json, valueJson: node?.value?.json });
+      }
+      if (connection?.pageInfo?.hasNextPage && connection.pageInfo.endCursor) {
+        cursor = connection.pageInfo.endCursor;
+      } else break;
+    } while (true);
+    return fields;
+  }
 }

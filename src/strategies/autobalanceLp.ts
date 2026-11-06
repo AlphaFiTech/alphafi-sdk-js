@@ -447,7 +447,10 @@ export class AutobalanceLpStrategy extends BaseStrategy<
           };
         }, `Failed to parse AutobalanceLp receipt object at index ${index}`);
       })
-      .filter((receipt) => receipt.poolId === this.poolLabel.poolId);
+      .filter(
+        (receipt) =>
+          receipt.poolId === this.poolLabel.poolId && new Decimal(receipt.xTokenBalance).gt(1),
+      );
   }
 
   async deposit(tx: Transaction, options: DepositOptions) {
@@ -517,7 +520,13 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     }
 
     if (xTokenAmount === this.receiptObjects[0].xTokenBalance) {
-      this.getUserRewards(tx);
+      if (await this.isRewardReserveShort(options.address)) {
+        // Claiming would abort, and a full exit can't close a receipt with unpaid rewards.
+        xTokenAmount = new Decimal(xTokenAmount).minus(1).toFixed(0);
+        this.collectReward(tx);
+      } else {
+        tx.transferObjects(this.getUserRewards(tx), options.address);
+      }
     } else this.collectReward(tx);
 
     let target = `${this.poolLabel.packageId}::alphafi_bluefin_type_1_pool::user_withdraw_v3`;
@@ -548,6 +557,32 @@ export class AutobalanceLpStrategy extends BaseStrategy<
   }
 
   async pendingRewardAmount(userAddress: string): Promise<UserAutoBalanceRewardAmounts> {
+    const owed = await this.getOwedRewardsRaw(userAddress);
+    const totalPendingRewardAmounts: UserAutoBalanceRewardAmounts = {};
+    for (const [rewardType, amount] of Object.entries(owed)) {
+      const decimals = await this.context.getCoinDecimals(rewardType);
+      totalPendingRewardAmounts[rewardType] = amount.div(Math.pow(10, decimals)).toString();
+    }
+    return totalPendingRewardAmounts;
+  }
+
+  /** True when the pool's rewards bag holds less of some reward type than the user is owed. */
+  private async isRewardReserveShort(userAddress: string): Promise<boolean> {
+    const [owed, fields] = await Promise.all([
+      this.getOwedRewardsRaw(userAddress),
+      this.context.blockchain.getDynamicFields(this.poolObject.rewards.id),
+    ]);
+    const reserves: Record<string, Decimal> = {};
+    for (const { nameJson, valueJson } of fields) {
+      reserves[this.normalizeRewardType(String(nameJson))] = new Decimal(String(valueJson));
+    }
+    return Object.entries(owed).some(([rewardType, amount]) =>
+      amount.floor().gt(reserves[rewardType] ?? 0),
+    );
+  }
+
+  /** Rewards owed to the first receipt per reward type, in raw coin units. */
+  private async getOwedRewardsRaw(userAddress: string): Promise<Record<string, Decimal>> {
     const tx = new Transaction();
     this.collectReward(tx);
 
@@ -582,7 +617,7 @@ export class AutobalanceLpStrategy extends BaseStrategy<
     }
 
     const userXtokenBalance = receipt.xTokenBalance;
-    const totalPendingRewardAmounts: UserAutoBalanceRewardAmounts = {};
+    const owed: Record<string, Decimal> = {};
     const userPendingReward: { [key in string]: string } = {};
     const curAcc: { [key in string]: string } = {};
     const lastAcc: { [key in string]: string } = {};
@@ -611,19 +646,14 @@ export class AutobalanceLpStrategy extends BaseStrategy<
       const pending = new Decimal(
         rewardType in userPendingReward ? userPendingReward[rewardType] : '0',
       );
-      const decimals = await this.context.getCoinDecimals(rewardType);
-
-      const totalPending = cur
+      owed[rewardType] = cur
         .minus(last)
         .mul(userXtokenBalance)
         .div(ACC_REWARD_PER_XTOKEN_PRECISION)
-        .plus(pending)
-        .div(Math.pow(10, decimals))
-        .toString();
-      totalPendingRewardAmounts[rewardType] = totalPending;
+        .plus(pending);
     }
 
-    return totalPendingRewardAmounts;
+    return owed;
   }
 
   private collectReward(tx: Transaction) {
