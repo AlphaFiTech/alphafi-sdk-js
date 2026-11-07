@@ -13,14 +13,14 @@ export default {
       'ts-jest',
       {
         useESM: true,
-        tsconfig: 'tsconfig.esm.json',
+        tsconfig: 'tsconfig.jest.json',
       },
     ],
     [`node_modules/(${ESM_DEPS_TO_TRANSFORM})/.+\\.(js|mjs)$`]: [
       'ts-jest',
       {
         useESM: true,
-        tsconfig: 'tsconfig.esm.json',
+        tsconfig: 'tsconfig.jest.json',
       },
     ],
   },
